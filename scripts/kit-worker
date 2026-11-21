@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# goIsekai2 KIT worker: bounded headless task with codebase-memory + okf MCP.
+# Usage:  ./scripts/kit-worker "<prompt>"                       # new session
+#         ./scripts/kit-worker --continue "<follow-up prompt>"  # resume last
+#         ./scripts/kit-worker --resume                         # pick a session
+# Key:    export OMNIROUTE_API_KEY=sk-...   (or it is read from the local router config)
+# KIT persists tree-based JSONL sessions under ~/.kit/sessions/<cwd>/
+# so a failed lane can be continued instead of restarted from scratch.
+set -euo pipefail
+
+if [ -z "${OMNIROUTE_API_KEY:-}" ]; then
+  OMNIROUTE_API_KEY="$(python3 - <<'PY' 2>/dev/null || true
+import json, os, re
+p = os.path.expanduser("~/.config/opencode/opencode.json")
+raw = open(p).read()
+raw = re.sub(r",(\s*[}\]])", r"\1", raw)  # tolerate trailing commas
+d = json.loads(raw)
+print(d["providers"]["9router"]["settings"]["apiKey"])
+PY
+)"
+fi
+: "${OMNIROUTE_API_KEY:?set OMNIROUTE_API_KEY to the local router key (export OMNIROUTE_API_KEY=sk-...)}"
+
+export KIT_PROVIDER_API_KEY="$OMNIROUTE_API_KEY"
+export KIT_PROVIDER_URL="${KIT_PROVIDER_URL:-http://localhost:20128/v1}"
+export KIT_PROVIDER_WIRE="${KIT_PROVIDER_WIRE:-openai-compat}"
+
+cd "$(dirname "$0")/.."
+exec "${KIT_BIN:-$HOME/.local/bin/kit}" --quiet "$@"

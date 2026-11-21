@@ -63,6 +63,7 @@ make test             # go test ./...
 make validate         # okf validate knowledge --strict --drift
 make search q=plugin  # okf search over the bundle
 go build ./...        # compiler gate
+./scripts/kit-worker "<bounded task>"  # headless KIT worker (free model, .kit.yml MCP); serial, main session verifies
 ```
 
 OpenSpec (planning home = repo root):
