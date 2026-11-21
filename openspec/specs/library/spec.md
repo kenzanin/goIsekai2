@@ -160,7 +160,7 @@ page's existing error line and leave the label consistent with the last known st
 ### Requirement: Search form
 
 The search page SHALL offer only enabled plugins as sources, a query field, an optional genre row
-sourced from the selected plugin's `get_genres`, and a paginated result grid with a total count.
+sourced from the selected plugin's `genres` method, and a paginated result grid with a total count.
 State SHALL live in the URL (`?plugin=`, `?q=`, `?genre=`, `?page=`) so a search is linkable and
 reloadable. A disabled plugin SHALL NOT be selectable; a direct API call to it SHALL return the
 disabled error.

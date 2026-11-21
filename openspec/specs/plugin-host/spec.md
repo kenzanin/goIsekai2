@@ -52,9 +52,9 @@ The manifest SHALL declare `name`, `id` (implied by the folder name when absent)
 
 Every call SHALL send `{"api": <host api>, "method": "<method>", "params": {...}}` and SHALL accept
 only `{"ok": true, "data": ...}` or `{"ok": false, "error": "<message>"}`. The method vocabulary
-SHALL be `search_manga`, `get_manga_detail`, `get_chapter_list`, `get_page_list`, plus optional
-`get_genres`. Calling a method the plugin does not implement SHALL return
-`{"ok": false, "error": "unsupported method"}` without invoking plugin code.
+SHALL be `search`, `detail`, `chapters`, `pages`, plus optional `genres` — the baseline ABI names,
+never renamed. Calling a method the plugin does not implement SHALL return
+`{"ok": false, "error": "unknown method <name>"}` without invoking plugin code.
 
 #### Scenario: Method round-trip
 - **WHEN** the host calls `method: "search"` with valid params

@@ -1,4 +1,6 @@
 ## 2026-11-21
+* **Update**: Linked `decisions/browser-host-transport.md` to `architecture/overview.md` (browser backend and its supervision are part of the plugin layer described in the overview).
+* **Creation**: Documented concept `knowledge/decisions/browser-host-transport.md` (Browser host transport and supervision in Go).
 * **Update**: Linked `architecture/capability-map.md` to `architecture/overview.md` (the capability layer split that mirrors the architecture layers).
 * **Creation**: Documented concept `architecture/capability-map.md` (Capability map: 25 baseline specs collapsed into 11 V2 capabilities with a porting order).
 * **Update**: Linked `decisions/dependency-stack.md` to `decisions/image-pipeline.md` (applies the no-cgo rule to the image pipeline).
