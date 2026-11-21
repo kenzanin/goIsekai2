@@ -1,4 +1,6 @@
 ## 2026-11-21
+* **Update**: Linked `notes/plugin-tools-fs-read.md` to `notes/plugin-tools-surface.md` (fs.Read is one host tool on the ToolSet surface exposed to plugin runtimes.).
+* **Creation**: Documented concept `notes/plugin-tools-fs-read.md` (tools fs: Read() sandboxes plugin file reads inside the plugin dir).
 * **Update**: Linked `notes/plugin-tools-crypto.md` to `notes/plugin-tools-surface.md` (crypto helpers are part of the same host tool surface; storage/http/text/regex/cookies facts hang off it too.).
 * **Creation**: Documented concept `notes/plugin-tools-crypto.md` (tools crypto: lowercase-hex digests; Sign = HMAC-SHA256 alias; vectors openssl-verified).
 * **Update**: Linked `notes/plugin-tools-regex.md` to `notes/plugin-tools-surface.md` (regex helpers extend the plugin host tool surface; same package and gate).
