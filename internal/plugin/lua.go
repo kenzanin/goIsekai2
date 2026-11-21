@@ -6,12 +6,21 @@ import (
 	"fmt"
 
 	lua "github.com/yuin/gopher-lua"
+
+	"goisekai2/internal/plugin/tools"
 )
 
 // LuaRuntime executes a Lua 5.1 plugin with the frozen JSON envelope.
 type LuaRuntime struct {
 	source string
+
+	// Tools, when non-nil, is bound into every call state as host.*.
+	Tools *tools.ToolSet
 }
+
+// SetTools attaches the host tool set exposed to scripts; Call binds it into
+// each fresh state.
+func (r *LuaRuntime) SetTools(ts *tools.ToolSet) { r.Tools = ts }
 
 const unsupportedModule = "unsupported module (Lua 5.1 runtime)"
 
@@ -100,6 +109,8 @@ func NewLuaRuntime(source string) (*LuaRuntime, error) {
 	L := lua.NewState()
 	defer L.Close()
 	configureLua(L)
+	// ponytail: the validation state has no tools, so top-level host calls
+	// fail here; bind via a toolset-carrying constructor when that matters.
 	if err := L.DoString(source); err != nil {
 		return nil, fmt.Errorf("plugin: lua source: %w", err)
 	}
@@ -116,6 +127,9 @@ func (r *LuaRuntime) Call(ctx context.Context, request []byte) ([]byte, error) {
 	defer L.Close()
 	L.SetContext(ctx)
 	configureLua(L)
+	if r.Tools != nil {
+		bindLua(L, r.Tools)
+	}
 	if err := L.DoString(r.source); err != nil {
 		return nil, fmt.Errorf("plugin: lua source: %w", err)
 	}
