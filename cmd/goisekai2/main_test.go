@@ -134,7 +134,7 @@ func TestDumpMatchesGolden(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("dump exit = %d", code)
 	}
-	golden, err := os.ReadFile("../../openspec/changes/add-config/golden.ini")
+	golden, err := os.ReadFile("testdata/default.ini")
 	if err != nil {
 		t.Fatal(err)
 	}
