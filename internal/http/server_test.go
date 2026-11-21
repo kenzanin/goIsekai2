@@ -20,8 +20,9 @@ import (
 
 func testIni(t *testing.T) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "cfg.ini")
-	if err := os.WriteFile(path, []byte("[server]\n; listen port\nport = 8090\n"), 0o600); err != nil {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cfg.ini")
+	if err := os.WriteFile(path, []byte("[paths]\ndata_dir = "+dir+"\nlibrary = "+filepath.Join(dir, "lib.db")+"\n\n[server]\n; listen port\nport = 8090\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return path

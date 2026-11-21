@@ -40,8 +40,9 @@ table that answers "library or hand-written?" without reading five concepts.
 | Browser interaction | Alpine.js + htmx (vendored) | v3.17.5 / v2.0.11 | `decisions/ui-stack` |
 
 Stdlib for everything else: `net/http`, `log/slog`, `encoding/json`, `crypto/*`,
-`database/sql`, `os/exec`, `flag`, `unicode/utf8` (rune-aware text handling: UTF-8 validation, rune counts
-and truncation for titles, slugs and cache names — never byte slicing).
+`database/sql`, `os/exec`, `flag`. `unicode/utf8` is **planned**, not imported yet: when title/slug
+normalization lands it must validate, count and truncate by rune, never by byte. Verify with
+`grep 'utf8\\.' --include='*.go'` before claiming it is in use.
 
 ## Hand-written (deliberate, no library)
 

@@ -153,7 +153,7 @@ func TestDaemonEndToEnd(t *testing.T) {
 
 	dir := t.TempDir()
 	iniPath := filepath.Join(dir, "cfg.ini")
-	if err := os.WriteFile(iniPath, []byte("[server]\n; keep this comment\nport = 8090\n\n[log]\nlevel = info\n"), 0o600); err != nil {
+	if err := os.WriteFile(iniPath, []byte("[paths]\ndata_dir = "+dir+"\nlibrary = "+filepath.Join(dir, "lib.db")+"\n\n[server]\n; keep this comment\nport = 8090\n\n[log]\nlevel = info\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -241,5 +241,17 @@ func TestDaemonEndToEnd(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("daemon did not shut down")
+	}
+}
+
+func TestDumpConfigDoesNotCreateDatabase(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "generated.ini")
+	code, _, stderr := runCLI(t, "--dump-config", out)
+	if code != 0 {
+		t.Fatalf("exit = %d (%s)", code, stderr)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "library.db")); !os.IsNotExist(err) {
+		t.Fatalf("dump created a database: %v", err)
 	}
 }

@@ -10,12 +10,15 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
 	"goisekai2/internal/config"
 	"goisekai2/internal/events"
 	httpserver "goisekai2/internal/http"
+	"goisekai2/internal/store"
 )
 
 func main() {
@@ -93,6 +96,22 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return nil
 	})
 	config.ApplySnapshot(snap)
+
+	dataDir := snap.String("paths.data_dir")
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+		fmt.Fprintf(stderr, "goisekai2: data dir: %v\n", err)
+		return 1
+	}
+	dbPath := snap.String("paths.library")
+	if !filepath.IsAbs(dbPath) && !strings.ContainsRune(dbPath, os.PathSeparator) {
+		dbPath = filepath.Join(dataDir, dbPath)
+	}
+	st, err := store.Open(dbPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "goisekai2: store: %v\n", err)
+		return 1
+	}
+	defer st.Close()
 
 	bus := events.New()
 	defer bus.Close()
