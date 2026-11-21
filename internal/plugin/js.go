@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"modernc.org/quickjs"
+
+	"goisekai2/internal/plugin/tools"
 )
 
 // JSRuntime executes plugin scripts on an embedded QuickJS VM. A script sees
@@ -15,7 +17,14 @@ import (
 // script's handle function.
 type JSRuntime struct {
 	source string
+
+	// Tools, when non-nil, is bound into every call VM as host.*.
+	Tools *tools.ToolSet
 }
+
+// SetTools attaches the host tool set exposed to scripts; Call binds it into
+// each fresh VM.
+func (r *JSRuntime) SetTools(ts *tools.ToolSet) { r.Tools = ts }
 
 // NewJSRuntime returns a runtime for source, rejecting scripts that do not
 // compile.
@@ -49,6 +58,12 @@ func (r *JSRuntime) Call(ctx context.Context, request []byte) ([]byte, error) {
 		timeout = time.Until(deadline)
 	}
 	vm.SetEvalTimeout(timeout)
+
+	if r.Tools != nil {
+		if err := bindJS(vm, r.Tools); err != nil {
+			return nil, fmt.Errorf("plugin: js: %w", err)
+		}
+	}
 
 	if _, err := vm.Eval(r.source, 0); err != nil {
 		return nil, fmt.Errorf("plugin: js source: %w", err)

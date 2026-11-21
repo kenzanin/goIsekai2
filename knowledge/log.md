@@ -1,4 +1,8 @@
 ## 2026-11-21
+* **Update**: Linked `notes/js-host-bindings.md` to `notes/go-filename-goos-suffix-trap.md` (The binding file lives as bindings_quickjs.go because the brief's bindings_js.go hit the GOOS suffix rule.).
+* **Update**: Linked `notes/js-host-bindings.md` to `notes/plugin-tools-surface.md` (JS host surface mirrors the Lua host surface over the same frozen tool set.).
+* **Creation**: Documented concept `notes/js-host-bindings.md` (JS runtime host bindings: envelope via __host_call, throwing typed wrappers, bound only with Tools).
+* **Creation**: Documented concept `notes/go-filename-goos-suffix-trap.md` (Go filename suffix trap: *_js.go is an implicit GOOS=js constraint).
 * **Update**: Linked `notes/lua-host-bindings.md` to `notes/plugin-tools-surface.md` (host.* wrappers delegate to the same ToolSet storage/log/clock surface; absent-key behaviour matches its gorm not-found fact.).
 * **Creation**: Documented concept `notes/lua-host-bindings.md` (Lua runtime host bindings: host.call envelope + typed wrappers, bound per Call state).
 * **Update**: Linked `notes/plugin-tools-fs-read.md` to `notes/plugin-tools-surface.md` (fs.Read is one host tool on the ToolSet surface exposed to plugin runtimes.).
