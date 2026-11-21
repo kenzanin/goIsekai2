@@ -1,4 +1,6 @@
 ## 2026-11-21
+* **Update**: Linked `architecture/capability-map.md` to `architecture/overview.md` (the capability layer split that mirrors the architecture layers).
+* **Creation**: Documented concept `architecture/capability-map.md` (Capability map: 25 baseline specs collapsed into 11 V2 capabilities with a porting order).
 * **Update**: Linked `decisions/dependency-stack.md` to `decisions/image-pipeline.md` (applies the no-cgo rule to the image pipeline).
 * **Update**: Linked `architecture/cache-layout.md` to `decisions/image-pipeline.md` (implements the transcode step with cgo-free codecs).
 * **Update**: Linked `architecture/data-flows.md` to `architecture/cache-layout.md` (the image-serve flow resolves against this tree).
