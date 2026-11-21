@@ -1,4 +1,6 @@
 ## 2026-11-21
+* **Update**: Linked `notes/plugin-envelope-v1.md` to `architecture/overview.md` (Implements the frozen plugin ABI baseline recorded in the architecture overview (envelope contract, method vocabulary).).
+* **Creation**: Documented concept `notes/plugin-envelope-v1.md` (Plugin host contract v1 implemented and gated in internal/plugin).
 * **Update**: Linked `notes/tmp-probe-go-test.md` to `notes/tmp-probe-go-build.md` (Same scratch package: the build probe proved compilation, this test probe proves the test gate too.).
 * **Creation**: Documented concept `notes/tmp-probe-go-test.md` (tmp probe test green: go test ./tmp -count=1 exit 0, TestOK passes against OK() sentinel).
 * **Update**: Linked `notes/tmp-probe-go-build.md` to `notes/tmp-dummy-probe.md` (Sibling scratch verification in tmp/: this probe extends the fixture chain with a compilable Go package sentinel.).

@@ -13,3 +13,4 @@
 * [tmp/a.txt fixture: exact ALPHA payload, no newline; wc -c exits 0](tmp-a-txt-fixture.md) - tmp/a.txt holds the exact 5-byte payload ALPHA (no trailing newline) and wc -c on it exits 0.
 * [tmp/probe.go builds: package tmp with OK() sentinel, go build ./tmp exit 0](tmp-probe-go-build.md) - tmp/probe.go (package tmp, func OK() string) compiles: go build ./tmp exits 0.
 * [tmp probe test green: go test ./tmp -count=1 exit 0, TestOK passes against OK() sentinel](tmp-probe-go-test.md) - go test ./tmp -count=1 exits 0: TestOK asserts OK()=="OK" and the existing sentinel passes.
+* [Plugin host contract v1 implemented and gated in internal/plugin](plugin-envelope-v1.md) - The plugin envelope ABI (HostAPI=1, five-method allowlist, Runtime.Call) exists at internal/plugin with green CGO-free test, vet and godoc gates as of 2026-11-22.
