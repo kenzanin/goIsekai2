@@ -1,4 +1,6 @@
 ## 2026-11-21
+* **Update**: Linked `notes/fts5-purego-probe.md` to `decisions/store-access.md` (proves the chosen pure-Go GORM stack supports the FTS5 feature the baseline relies on).
+* **Creation**: Documented concept `notes/fts5-purego-probe.md` (FTS5 works on the pure-Go GORM stack, but V2 specs omit it).
 * **Update**: Updated concept `conventions/sql-boundary.md`.
 * **Update**: Updated concept `decisions/store-access.md`.
 * **Update**: Linked `conventions/sql-boundary.md` to `architecture/stack.md` (the review page points at the gate that keeps store SQL in one place).
