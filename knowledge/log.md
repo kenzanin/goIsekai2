@@ -1,4 +1,5 @@
 ## 2026-11-21
+* **Creation**: Documented concept `conventions/language.md` (English for all artifacts, Indonesian only in chat).
 * **Update**: Updated concept `references/kit-worker.md`.
 * **Update**: Linked `conventions/godoc.md` to `architecture/overview.md` (applies to every Go package described by the layer map).
 * **Creation**: Documented concept `conventions/godoc.md` (Godoc comment rule for all Go source).

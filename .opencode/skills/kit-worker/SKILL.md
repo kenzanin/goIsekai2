@@ -44,6 +44,13 @@ under `~/.kit/sessions/<cwd>/`, so a lane that ran out of steps is continued, no
 **Dispatch serially.** One worker at a time — the user requires serial fixer delegation. Never run two
 `kit-worker` invocations whose file scopes could overlap.
 
+## Language
+
+Every artifact this project produces is **English**: source, comments, godoc, test names, docs, specs,
+knowledge, commit messages, worker briefs and worker reports. Indonesian is allowed only in chat replies
+to the user. Upstream values kept verbatim (status vocabulary, scraped titles, quoted third-party error
+strings) are data, never translated. Full rule: `knowledge/conventions/language.md`.
+
 ## MCP tools (from `.kit.yml`)
 
 - `codebase-memory-mcp` — `search_graph`, `trace_path`, `get_code_snippet`, `check_index_coverage`,

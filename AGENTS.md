@@ -5,7 +5,7 @@
 ## 0. Project & Domain Codex (Software Engineering)
 
 - TONE: style == direct_concise, zero_pleasantries
-- LANGUAGE: committed files => en_US; user_chat => Indonesian (casual)
+- LANGUAGE: every artifact (code, comments, tests, docs, specs, knowledge, commit messages, worker briefs and reports) => en_US; chat with the user => Indonesian/English, casual.
 - FORMAT: diagrams => ASSERT(syntax == mermaid, ELSE=STOP("All diagrams MUST use Mermaid syntax; ASCII/text art prohibited."))
 - GOAL: maintain(high_factual_integrity, domain_conventions)
 - REFERENCE: cppIsekai is the behavioral baseline; deviations must be recorded as a decision concept, never silent.
@@ -122,5 +122,8 @@ code lands. Planned packages under `internal/`:
   error plus a counter (never a panic), and every model change updates the graph golden test.
 - KIT lanes run in their own herdr tab: always `./scripts/kit-worker ...` (it creates the tab, waits for the
   exit sentinel, prints the tail); never call `kit` directly. Full rule: `.opencode/skills/kit-worker/SKILL.md`.
+- Language rule: all produced work is English -- source, comments, tests, docs, specs, knowledge,
+  commit messages, worker briefs and worker reports. Only chat replies to the user may be Indonesian.
+  Full rule: `knowledge/conventions/language.md`.
 - Commit subjects: short, lowercase imperative (`store: add migration runner`).
 - Branch per change named after the change id; merge to `main` with `--no-ff`.
