@@ -21,6 +21,18 @@ stored format. A read matches by key without extension, so any stored format ser
 
 ## Requirements
 
+### Requirement: v3 layout from day one, no legacy upgrade path
+
+The host SHALL write the layout above directly on a fresh data directory. There is no legacy
+`<plugin>/ch.../p...` tree and no id-keyed cache directory to migrate, so no cutover, namespace
+rename or one-time purge step exists. This is a deliberate divergence from the baseline
+`cache-layout` spec, whose upgrade-only requirements (first-run purge, namespace cutover, no
+migration of id-keyed directories) have nothing to act on in a greenfield store.
+
+#### Scenario: First image on an empty data dir
+- **WHEN** the first page image of a chapter is cached on a data directory with no `img/` tree
+- **THEN** its path is `img/<plugin>/manga/<slug>/ch<n>-<id8>/pNNN.<ext>` and no migration or purge runs
+
 ### Requirement: Shared LRU pool
 
 Image bodies and API payloads SHALL live in one shared pool under `data/cache/` capped by

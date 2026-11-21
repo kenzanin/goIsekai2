@@ -4,8 +4,9 @@
 
 Defines the host configuration surface: the required `--config` boot argument, one typed
 registry that is the only source of truth for defaults and help text, the precedence
-default < ini < `GOISEKAI_*` env < explicit flag, a dump generated from the registry, and
-a comment-preserving save endpoint. Config is an immutable snapshot swapped on reload; no
+default < ini < `GOISEKAI_*` env < explicit flag, a dump generated from the registry, a
+comment-preserving save endpoint, the `GET /config` projection and the `/settings` page that
+edits through it. Config is an immutable snapshot swapped on reload; no
 component reads the environment or the file directly after boot.
 
 ## Requirements
@@ -110,6 +111,65 @@ to take effect.
 #### Scenario: Restart-only knob
 - **WHEN** `server.port` is saved
 - **THEN** the response says a restart is required, the value is persisted, and the running listener is unchanged
+
+### Requirement: Read projection endpoint
+
+`GET /config` SHALL return a JSON projection of the registry: one entry per knob carrying
+`section`, `key`, `fullKey`, `doc`, `type`, `flag`, `env`, `default`, `value` and `source`, where
+`value` is the resolved value and `source` is the winning layer (`default` | `ini` | `env` | `flag`).
+It SHALL re-resolve from the file on every request, never mutate the ini, and never return 500 for a
+malformed value: a knob whose ini text cannot be parsed is reported with the registry default,
+`source: default` and `invalid: true`. (Divergence from boot, which is strict by design: boot refuses
+to start on a bad value, the projection tolerates it so the settings page can repair it.)
+
+#### Scenario: Projection reflects the on-disk ini
+- **WHEN** the ini is edited on disk and `GET /config` is called
+- **THEN** the returned `value` reflects the new file contents without a daemon restart
+
+#### Scenario: Malformed value is reported, not fatal
+- **WHEN** a numeric knob holds an unparseable ini value
+- **THEN** `GET /config` returns 200, that knob carries the registry default with `invalid: true`, and every other knob keeps its resolved value
+
+#### Scenario: Projection does not write
+- **WHEN** `GET /config` is called repeatedly
+- **THEN** the ini file's bytes and mtime are unchanged
+
+### Requirement: Settings page projects the registry
+
+`GET /settings` SHALL render one row per registry knob (`section.key`) grouped by section, showing its
+doc text, resolved value and winning layer. Rows won by `env` or `flag` SHALL render read-only with a hint
+naming the source (`GOISEKAI_*` / `--flag`) instead of offering an edit that would not apply; rows won by
+`ini` or `default` SHALL be editable and submit through the existing `POST /config` merge-save.
+
+#### Scenario: Every knob appears exactly once
+- **WHEN** the user opens `/settings`
+- **THEN** every registry knob (`server.port`, `server.proxy`, `plugin.*`, `cache.*`, `paths.*`, `log.level`) appears once, grouped by section, with doc text and current value
+
+#### Scenario: Env-owned knob is read-only
+- **WHEN** a knob is supplied through its `GOISEKAI_*` variable or an explicit flag
+- **THEN** its row is read-only and names the winning source
+
+#### Scenario: Save round-trip
+- **WHEN** the user edits an ini-backed knob and submits
+- **THEN** `POST /config` reports the write, the page re-reads `GET /config`, and the row shows the post-save value
+
+### Requirement: Restart hints and navigation entry
+
+Rows whose effect requires a restart SHALL carry a restart badge, and knobs declared live-applicable
+(`log.level`, `cache.cache_max_mb`, fetch timeout, proxy, `plugin.fetch_profile`) SHALL not. The top
+navigation SHALL include `Settings` linking to `/settings`, marked active on that page.
+
+#### Scenario: Restart-only row
+- **WHEN** the user edits `server.port`
+- **THEN** the save succeeds and the row shows the restart badge until the daemon reboots
+
+#### Scenario: Live row has no badge
+- **WHEN** the user edits `plugin.fetch_profile`
+- **THEN** the running host applies it without a restart and the row shows no badge
+
+#### Scenario: Nav entry
+- **WHEN** any page renders the top bar
+- **THEN** a `Settings` link is present and marked active on `/settings`
 
 ### Requirement: Secret handling
 

@@ -45,6 +45,16 @@ after the commit.
 - **WHEN** the user clicks "In library" on a saved entry
 - **THEN** the row is deleted, the response reports `saved: false`, and the button reads "Add to library"
 
+### Requirement: The upsert never stores a placeholder name
+
+`POST /api/library` SHALL skip writing `name` when the submitted value is empty or equal to the
+slug, and SHALL NOT overwrite a non-empty stored name with such a value, so a re-add while the
+plugin is unreachable cannot degrade a good title into a slug.
+
+#### Scenario: Plugin unreachable on re-add
+- **WHEN** a saved manga without stored detail is re-added while its plugin is unreachable and the page submits the slug as the name
+- **THEN** the stored name is left as-is and only cover and stats are refreshed
+
 ### Requirement: Listing payload
 
 `GET /api/library` SHALL return every saved entry ordered by `added_at` descending with `name`,
