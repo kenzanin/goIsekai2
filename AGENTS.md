@@ -121,6 +121,6 @@ code lands. Planned packages under `internal/`:
 - FSM rules: only the owning actor fires triggers, callbacks enqueue only, illegal trigger is a typed
   error plus a counter (never a panic), and every model change updates the graph golden test.
 - KIT lanes run in their own herdr tab: always `./scripts/kit-worker ...` (it creates the tab, waits for the
-  exit sentinel, prints the tail) — never call `kit` directly. Full rule: `.opencode/skills/kit-worker/SKILL.md`.
+  exit sentinel, prints the tail); never call `kit` directly. Full rule: `.opencode/skills/kit-worker/SKILL.md`.
 - Commit subjects: short, lowercase imperative (`store: add migration runner`).
 - Branch per change named after the change id; merge to `main` with `--no-ff`.
