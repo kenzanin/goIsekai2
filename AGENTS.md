@@ -89,6 +89,9 @@ code lands. Planned packages under `internal/`:
 - `cache/` -- disk LRU + per-plugin tree (`<plugin>/covers/`, `<plugin>/<slug>/ch.../p...`)
 - `http/` -- daemon routes, SSR templates, image cache route, config save
 - `reader/` -- window math, read-ahead prefetch, position state
+- `events/` -- typed facade over `gookit/event`; ONE actor goroutine owns the manager; domain facts
+  published after commit only. See `knowledge/architecture/event-driven-core.md`.
+- `stream/` -- bounded drop-oldest fan-out for SSE (log, progress, grid refresh)
 - `cmd/goisekai2/` -- entry point
 
 ## Conventions
@@ -101,5 +104,7 @@ code lands. Planned packages under `internal/`:
   cppIsekai semantics exactly; any intended divergence needs a decision concept
   plus an OpenSpec MODIFIED delta.
 - Committed artifacts (docs, knowledge, openspec, reports) are English only.
+- Bus rules: event names are constants in `internal/events`, payloads are typed structs, no goroutine
+  touches `*event.Manager` except the actor, the async API is banned, and commands are never events.
 - Commit subjects: short, lowercase imperative (`store: add migration runner`).
 - Branch per change named after the change id; merge to `main` with `--no-ff`.
