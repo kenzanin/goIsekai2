@@ -1,4 +1,10 @@
 ## 2026-11-21
+* **Update**: Linked `architecture/concurrency-ownership.md` to `architecture/event-driven-core.md` (the bus actor is one of the single owners in this model).
+* **Update**: Linked `architecture/overview.md` to `architecture/state-machines.md` (plugin and job lifecycles live in the domain service layer).
+* **Update**: Linked `architecture/overview.md` to `architecture/event-driven-core.md` (transport and services publish domain facts through the bus).
+* **Update**: Linked `architecture/overview.md` to `architecture/concurrency-ownership.md` (layer boundaries are enforced by the single-owner concurrency model).
+* **Creation**: Documented concept `architecture/concurrency-ownership.md` (Concurrency and ownership: one owner per mutable resource, bounded everything).
+* **Creation**: Documented concept `architecture/overview.md` (Architecture overview: layers, import rules and frozen external contracts).
 * **Update**: Linked `architecture/event-driven-core.md` to `architecture/state-machines.md` (domain events originate from persisted FSM transitions).
 * **Update**: Linked `architecture/state-machines.md` to `decisions/state-machine-engine.md` (implements the engine choice and wrapper rules).
 * **Update**: Linked `architecture/state-machines.md` to `architecture/event-driven-core.md` (plugin and job transitions are the source of domain events; persist-then-publish ordering).
