@@ -15,6 +15,12 @@ const ConfigChanged = "config.changed"
 // PluginLifecycle is the topic name for plugin lifecycle changes.
 const PluginLifecycle = "plugin.lifecycle"
 
+// LibrarySaved is the topic name for library save events.
+const LibrarySaved = "library.saved"
+
+// LibraryRemoved is the topic name for library removal events.
+const LibraryRemoved = "library.removed"
+
 // ConfigChangedPayload holds the payload for ConfigChanged events.
 type ConfigChangedPayload struct {
 	Key        string
@@ -28,6 +34,12 @@ type PluginLifecyclePayload struct {
 	PluginID string
 	State    string
 	Error    string
+}
+
+// LibraryPayload identifies one saved manga affected by a library mutation.
+type LibraryPayload struct {
+	Plugin string
+	Slug   string
 }
 
 type reqType int
