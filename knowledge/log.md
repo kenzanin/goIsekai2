@@ -1,4 +1,6 @@
 ## 2026-11-21
+* **Update**: Linked `conventions/godoc.md` to `architecture/overview.md` (applies to every Go package described by the layer map).
+* **Creation**: Documented concept `conventions/godoc.md` (Godoc comment rule for all Go source).
 * **Update**: Linked `references/kit-worker.md` to `process/porting-order.md` (worker lanes accelerate the capability implementation sequence).
 * **Creation**: Documented concept `references/kit-worker.md` (KIT headless worker harness (.kit.yml + scripts/kit-worker + kit-worker skill)).
 * **Update**: Linked `process/porting-order.md` to `architecture/overview.md` (orders the implementation of the layers described here).

@@ -104,6 +104,9 @@ code lands. Planned packages under `internal/`:
 
 - Go, stdlib-first. No new dependency without a recorded decision naming the
   alternative considered; prefer reusing what V1 already proved.
+- Godoc rule: every package has a package comment and every exported symbol a name-first doc comment
+  describing behavior (not implementation). No banner comments, no signature restatement.
+  Full rule: `knowledge/conventions/godoc.md`.
 - `go vet ./...` + `gofmt` clean; tests next to the package (`*_test.go`), one
   runnable check per non-trivial unit. No test framework beyond stdlib `testing`.
 - Plugin ABI, cache layout, config knobs and status vocabularies must match
