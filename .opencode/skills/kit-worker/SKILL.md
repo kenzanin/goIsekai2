@@ -104,10 +104,18 @@ claim, not evidence — amend the same session with `--continue` instead of spaw
 
 - Headless KIT executes tools with no approval prompt and no OS sandbox; a vague brief can write the
   wrong file. Keep jobs to one file or one shape fix.
-- The `openai/free` router model (GLM-4.7) is decent at tool discipline but wanders on multi-step
-  ambiguity, and sometimes ends a response with nothing at all. That shows up as a lane with no
-  `__KIT_EXIT=` sentinel: read the tab, then `--continue` with a shorter, more imperative brief
-  ("write these 5 files now, then run these gates") instead of re-reading context.
+- `openai/free` is a **combo alias**, not a single model: each request is routed to a different
+  upstream (observed: `msi/GLM-5.3-Flash-EXL3`, then `gemini-3.5-flash-lite`). Some upstreams inside
+  the combo answer with an empty body, and KIT then reports `input=0 output=0`, exits 0 and writes no
+  files. That is the cause of "lane exited 0 with zero files", not a context limit: the alias has a
+  500k context and the failing briefs were ~1k tokens. `scripts/kit-worker` therefore retries an empty
+  answer on the pinned fallback model (`KIT_FALLBACK_MODEL`, default `openai/gemini-3.5-flash-lite`).
+- Do not route lanes to `oc/*-free` models: through the router they answer `FreeUsageLimitError`
+  (free models only work inside OpenCode itself), and `oc/muse-spark-1.3-contributor-free` answers
+  `Model is unavailable`. Direct `adv/*-free` ids return 401/503 through the router as well. The
+  working pinned choice is `openai/gemini-3.5-flash-lite`.
+- Even on a good model the brief stays small: `--bare --no-skills --no-agents --no-extensions` keeps
+  the AGENTS.md and skill catalog out of the system prompt, so the lane only pays for the brief.
 - No UI/visual verification through KIT; the main session verifies rendering.
 - KIT session history is local JSONL — durable knowledge belongs in OKF + OpenSpec + Magic Context,
   not in a worker's transcript.

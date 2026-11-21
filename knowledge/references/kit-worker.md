@@ -13,7 +13,7 @@ Ported from cppIsekai. Four pieces, all in this repo:
 
 | File | Role |
 |---|---|
-| `.kit.yml` | worker config: `model: openai/free`, MCP servers `codebase-memory-mcp` and `okf` (`okf mcp ./knowledge`) |
+| `.kit.yml` | worker config: `model: openai/free`, MCP server `okf` (`okf mcp ./knowledge`) |
 | `scripts/kit-worker` | wrapper: creates a **herdr tab per lane**, runs KIT inside it, waits for the `__KIT_EXIT=` sentinel, prints the tail |
 | `.opencode/skills/kit-worker/SKILL.md` | the delegation contract the worker itself follows |
 | this concept | project-side record for review and for the next session |
@@ -33,11 +33,29 @@ Ported from cppIsekai. Four pieces, all in this repo:
   respawn a fresh session for the same lane.
 - Close the tab after review: `herdr tab close <tab>`.
 
-## Context ceiling (measured 2026-11-21)
+## Why a lane comes back empty (measured 2026-11-21)
 
-The free router model ends a lane **silently** — exit 0, no answer, no error — once the conversation
-passes roughly 8k tokens. A lane brief that told the worker to read `tasks.md` + `design.md` +
-`spec.md` accumulated 34,795 chars (~8.7k tokens) of tool output and died on the next request.
+`openai/free` is a **combo alias**: every request is routed to a different upstream. Two consecutive
+curl calls to `http://localhost:20128/v1/chat/completions` with `model: free` were served by
+`msi/GLM-5.3-Flash-EXL3` and then `gemini-3.5-flash-lite`. Some upstreams inside the combo return an
+empty body, and KIT reports `input=0 output=0`, exits 0 and writes nothing. That is the real cause of
+the "lane exited 0 with zero files" failure; the alias carries a 500k context, and the failing briefs
+were about 1k tokens.
+
+Model facts gathered from the router:
+
+| Model id | Result |
+|---|---|
+| `free` (combo) | works, but randomly lands on an upstream that answers nothing |
+| `openai/gemini-3.5-flash-lite` | pinned, wrote `registry.go` and passed the gate in 17s |
+| `oc/*-free` | `FreeUsageLimitError` (free models only work inside OpenCode) |
+| `oc/muse-spark-1.3-contributor-free` | `Model is unavailable` |
+| `adv/cmd/minimax/*-free`, `adv/command-code/*-free` | 401/503 through the router |
+
+Handling: `scripts/kit-worker` runs the combo first and, on an empty answer, retries the same brief on
+`KIT_FALLBACK_MODEL` (default `openai/gemini-3.5-flash-lite`). Set `KIT_MODEL` to pin a model from the
+start. Lanes run with `--bare --no-skills --no-agents --no-extensions`, so AGENTS.md and the skill
+catalog are not injected; the brief carries every rule the lane needs.
 
 Rules that follow:
 
@@ -46,6 +64,7 @@ Rules that follow:
 - At most one small file read per lane (~4k chars). Several small lanes beat one big lane.
 - Split by file/shape, not by feature: "write registry.go + its test, run build" is a lane;
   "implement the config capability" is not.
+- An empty answer is a retry signal, never a "context ceiling": shrink nothing, just re-dispatch.
 
 ## Guardrails for every brief
 
@@ -62,9 +81,7 @@ Rules that follow:
 ## Known limits
 
 - goIsekai2 is not indexed in codebase-memory, so graph queries return nothing — the worker must read
-  source and say so.
-- `openai/free` (GLM-4.7 via 9router) wanders on vague multi-step prompts and sometimes returns an empty
-  completion near its context limit.
+  source and say so. `codebase-memory-mcp` was dropped from `.kit.yml` for that reason.
 - No UI/visual verification through KIT; no approval prompts (headless, non-interactive).
 
 ## Verified

@@ -8,7 +8,8 @@
 # Key:    OMNIROUTE_API_KEY, or the 9router key from ~/.config/opencode/opencode.json.
 # Escape: KIT_ALLOW_HEADLESS=1 runs KIT in this terminal when herdr is unavailable.
 #
-# Environment: KIT_BIN, KIT_PROVIDER_URL, KIT_WAIT_MS (lane timeout, default 30 min).
+# Environment: KIT_BIN, KIT_PROVIDER_URL, KIT_MODEL (default openai/free), KIT_FALLBACK_MODEL
+# (default openai/gemini-3.5-flash-lite), KIT_MAX_STEPS, KIT_WAIT_MS (lane timeout, default 30 min).
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -28,17 +29,34 @@ PY
 }
 
 run_kit() {
-  local key prompt="" args=()
+  local key prompt="" args=() out rc fallback
   key="$(resolve_key)"
   [ -n "$key" ] || { echo "kit-worker: set OMNIROUTE_API_KEY to the local router key" >&2; exit 78; }
   if [ -n "${KIT_PROMPT_FILE:-}" ]; then prompt="$(cat "$KIT_PROMPT_FILE")"; fi
   [ -n "${KIT_MODE:-}" ] && args+=("$KIT_MODE")
   [ -n "${KIT_JSON:-}" ] && args+=(--json)
-  export KIT_PROVIDER_API_KEY="$key"
-  export KIT_PROVIDER_URL="${KIT_PROVIDER_URL:-http://localhost:20128/v1}"
-  export KIT_PROVIDER_WIRE="${KIT_PROVIDER_WIRE:-openai-compat}"
+  fallback="${KIT_FALLBACK_MODEL:-openai/gemini-3.5-flash-lite}"
   cd "$REPO"
-  "$KIT_BIN" --quiet "${args[@]+"${args[@]}"}" "$prompt"
+  # Lean profile: no AGENTS.md/skills/agent catalogs in the system prompt; the brief carries every
+  # rule the lane needs. `openai/free` is a combo that routes each request to a random upstream, and
+  # some of those upstreams answer with nothing, so an empty answer is retried on a pinned model.
+  lane() {
+    "$KIT_BIN" --quiet --bare --no-skills --no-agents --no-extensions --no-daemon \
+      --model "$1" --max-steps "${KIT_MAX_STEPS:-30}" \
+      --provider-url "${KIT_PROVIDER_URL:-http://localhost:20128/v1}" \
+      --provider-wire "${KIT_PROVIDER_WIRE:-openai-compat}" \
+      --provider-api-key "$key" \
+      "${args[@]+"${args[@]}"}" "$prompt"
+  }
+  rc=0
+  out="$(lane "${KIT_MODEL:-openai/free}" 2>&1)" || rc=$?
+  if [ -z "$(printf '%s' "$out" | tr -d '[:space:]')" ] && [ "$rc" -eq 0 ] && [ "${KIT_MODEL:-openai/free}" != "$fallback" ]; then
+    echo "kit-worker: ${KIT_MODEL:-openai/free} answered nothing; retrying on $fallback" >&2
+    rc=0
+    out="$(lane "$fallback" 2>&1)" || rc=$?
+  fi
+  printf '%s\n' "$out"
+  return "$rc"
 }
 
 # Inner mode: herdr already put us in the lane's tab.
