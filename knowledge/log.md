@@ -1,4 +1,7 @@
 ## 2026-11-21
+* **Update**: Linked `architecture/event-driven-core.md` to `decisions/dependency-stack.md` (fixes the event bus implementation behind the actor wrapper).
+* **Update**: Linked `architecture/overview.md` to `decisions/dependency-stack.md` (names the concrete pure-Go libraries behind each stack slot).
+* **Creation**: Documented concept `decisions/dependency-stack.md` (Dependency stack: pure Go only (modernc sqlite, tls-client, gopher-lua, goja, wazero)).
 * **Update**: Linked `architecture/concurrency-ownership.md` to `architecture/event-driven-core.md` (the bus actor is one of the single owners in this model).
 * **Update**: Linked `architecture/overview.md` to `architecture/state-machines.md` (plugin and job lifecycles live in the domain service layer).
 * **Update**: Linked `architecture/overview.md` to `architecture/event-driven-core.md` (transport and services publish domain facts through the bus).

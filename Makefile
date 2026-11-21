@@ -1,6 +1,8 @@
 OKF_BIN ?= $(shell command -v okf 2>/dev/null || echo okf)
 BUNDLE  := knowledge
 
+export CGO_ENABLED := 0
+
 .PHONY: all build test validate search fmt help
 
 all: validate test

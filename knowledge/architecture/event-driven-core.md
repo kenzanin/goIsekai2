@@ -3,7 +3,7 @@ type: architecture
 title: "Event-driven core: domain events on gookit/event, stream plane separate"
 description: "Two-plane event architecture: gookit/event managed by a single actor goroutine for domain facts after commit, plus a separate bounded drop-oldest stream hub for SSE; typed facade, event catalog, concurrency contract and gookit internals to defend against."
 tags: [architecture, events, gookit, concurrency, sse, store, plugins]
-generated: { by: agent/cli, at: "2026-11-21T12:00:52Z" }
+generated: { by: agent/cli, at: "2026-11-21T12:11:37Z" }
 status: draft
 ---
 
@@ -160,3 +160,4 @@ If after the first three capability changes the priority/wildcard/`Once`/`Abort`
 # Related Concepts
 - Related to [Adopt gookit/event behind a single-actor bus; separate stream plane](../decisions/event-dispatch.md)
 - [State machines: plugin and job lifecycle on qmuntal/stateless; cache entry and daemon deliberately not](state-machines.md): domain events originate from persisted FSM transitions
+- [Dependency stack: pure Go only (modernc sqlite, tls-client, gopher-lua, goja, wazero)](../decisions/dependency-stack.md): fixes the event bus implementation behind the actor wrapper

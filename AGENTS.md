@@ -107,6 +107,9 @@ code lands. Planned packages under `internal/`:
   cppIsekai semantics exactly; any intended divergence needs a decision concept
   plus an OpenSpec MODIFIED delta.
 - Committed artifacts (docs, knowledge, openspec, reports) are English only.
+- No cgo, ever: `CGO_ENABLED=0 go build ./...` is the gate. A dependency needing a C toolchain is
+  rejected; the stack is modernc.org/sqlite, bogdanfinn/tls-client, gopher-lua, goja, wazero
+  (see `knowledge/decisions/dependency-stack.md`).
 - Bus rules: event names are constants in `internal/events`, payloads are typed structs, no goroutine
   touches `*event.Manager` except the actor, the async API is banned, and commands are never events.
 - FSM rules: only the owning actor fires triggers, callbacks enqueue only, illegal trigger is a typed

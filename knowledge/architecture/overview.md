@@ -3,7 +3,7 @@ type: architecture
 title: "Architecture overview: layers, import rules and frozen external contracts"
 description: "goIsekai2 shape as one local daemon: layer map and import matrix, model as the only shared package, store as the only SQL speaker, request paths for chapters and images, frozen baselines (routes, plugin ABI, status vocabulary, cache tree, config precedence), data directory and the open stack decisions."
 tags: [architecture, layers, dependencies, http, plugins, sqlite, stack]
-generated: { by: agent/cli, at: "2026-11-21T12:03:28Z" }
+generated: { by: agent/cli, at: "2026-11-21T12:11:37Z" }
 status: draft
 ---
 
@@ -126,15 +126,28 @@ data/
 | HTTP | `net/http` + `html/template` + htmx fragments | decided (stdlib-first convention) |
 | Events | `gookit/event` behind one actor | decided (`decisions/event-dispatch`) |
 | FSM | `qmuntal/stateless` behind typed wrappers | decided (`decisions/state-machine-engine`) |
-| Real-time logs/progress | SSE hub (`internal/stream`) | decided in principle; baseline uses WS `/ws/log` -- see divergence note |
-| SQLite driver | pending: `modernc.org/sqlite` (pure Go) vs `mattn/go-sqlite3` (cgo) | open |
-| HTTP client | pending: `bogdanfinn/tls-client` (curl-impersonate equivalent) vs stdlib | open |
-| Lua runtime | pending: `gopher-lua` vs embedding LuaJIT | open |
-| JS runtime | pending: `goja` | open |
-| WASM runtime | pending: `wazero` | open |
+| SQLite driver | `modernc.org/sqlite` v1.62.0 (pure Go, BSD-3) | decided |
+| HTTP client | `bogdanfinn/tls-client` v1.18.1 (pure Go via utls, BSD-3) | decided |
+| Lua runtime | `github.com/yuin/gopher-lua` v1.1.2 (pure Go, Lua 5.1) | decided |
+| JS runtime | `github.com/dop251/goja` (pure Go; V1 already ran its JS plugins on goja) | decided |
+| WASM runtime | `github.com/tetratelabs/wazero` v1.12.0 (pure Go, Apache-2.0) | decided |
+| Real-time | SSE hub (`internal/stream`) | open: baseline uses WS `/ws/log` |
 
-Open items are gated on a decision concept before the first import of the dependency; the gate is a
-benchmark or a compatibility probe, not preference.
+Hard constraint: **no cgo anywhere**. The build gate is `CGO_ENABLED=0 go build ./...`, so any dependency
+that needs a C toolchain is rejected outright -- that excludes `mattn/go-sqlite3`, `buke/quickjs-go` (cgo,
+45 vendored C files, self-declared not production ready) and `wasm3` (C). Rationale and the QuickJS-on-WASI
+escape hatch are in `decisions/dependency-stack`.
+
+Remaining compatibility gates (not blockers, but they decide behaviour):
+
+1. **gopher-lua is Lua 5.1, not LuaJIT.** The baseline embeds LuaJIT; 5.1 semantics match, LuaJIT extras (`ffi`,
+   `bit`) do not. Any plugin needing them is a runtime bug we must surface explicitly.
+2. **goja handles ES2020 syntax, but not promise settling.** Verified by execution, not by docs:
+   `?.`, `??`, `BigInt`, spread, template literals and classes all pass; `Promise` exists, but microtasks are
+   not pumped, so `async`/`await` leaves values `pending`. That is an ABI limit, not an engine limit: the
+   plugin contract is synchronous `call(method, json) -> json`, so async plugins cannot return a value under
+   any runtime, QuickJS included. Accepting them later means adding a job pump to the host. If real QuickJS
+   semantics are ever required, the cgo-free route is quickjs-ng compiled to a WASI reactor on wazero.
 
 ## Known divergences to record
 
@@ -149,3 +162,4 @@ benchmark or a compatibility probe, not preference.
 - [Concurrency and ownership: one owner per mutable resource, bounded everything](concurrency-ownership.md): layer boundaries are enforced by the single-owner concurrency model
 - [Event-driven core: domain events on gookit/event, stream plane separate](event-driven-core.md): transport and services publish domain facts through the bus
 - [State machines: plugin and job lifecycle on qmuntal/stateless; cache entry and daemon deliberately not](state-machines.md): plugin and job lifecycles live in the domain service layer
+- [Dependency stack: pure Go only (modernc sqlite, tls-client, gopher-lua, goja, wazero)](../decisions/dependency-stack.md): names the concrete pure-Go libraries behind each stack slot
