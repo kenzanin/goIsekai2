@@ -74,6 +74,8 @@ and truncation for titles, slugs and cache names — never byte slicing).
    `CGO_ENABLED=0`, so the goja plan and the WASI build step are both dropped.
 3. **Realtime transport.** `coder/websocket` over `internal/stream`, WS `GET /ws/log` parity, not SSE
    (`decisions/http-framework`).
+4. **Pool policy.** No generic worker pool: GORM's `SetMaxOpenConns(1)` replaces `db_pool(1)`;
+   plugin/fetch calls use semaphores; only scheduler jobs get bounded runners (`decisions/concurrency-pool-policy`).
 
 ## Rule
 

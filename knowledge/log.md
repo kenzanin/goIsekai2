@@ -1,4 +1,8 @@
 ## 2026-11-21
+* **Update**: Linked `decisions/concurrency-pool-policy.md` to `decisions/state-machine-engine.md` (plugin runtime slots map to Enabled/Idle/Busy states, not to generic workers).
+* **Update**: Linked `decisions/concurrency-pool-policy.md` to `decisions/store-access.md` (GORM's connection pool replaces the baseline db_pool; no work pool is added).
+* **Update**: Linked `decisions/concurrency-pool-policy.md` to `architecture/concurrency-ownership.md` (locks the pool policy already implied by the ownership and backpressure tables).
+* **Creation**: Documented concept `decisions/concurrency-pool-policy.md` (No generic worker pool: job runners plus semaphores).
 * **Update**: Linked `notes/fts5-purego-probe.md` to `decisions/store-access.md` (proves FTS5 and BM25 work on the chosen pure-Go GORM stack).
 * **Update**: Updated concept `notes/fts5-purego-probe.md`.
 * **Update**: Linked `notes/fts5-purego-probe.md` to `decisions/store-access.md` (proves the chosen pure-Go GORM stack supports the FTS5 feature the baseline relies on).
