@@ -1,4 +1,8 @@
 ## 2026-11-21
+* **Update**: Linked `notes/jev-systemone-kit.md` to `references/kit-worker.md` (records the opt-in jev MCP tool added to the KIT worker harness).
+* **Creation**: Documented concept `notes/jev-systemone-kit.md` (systemone/jev is a KIT MCP tool, not a KIT model).
+* **Update**: Linked `notes/probe-2026-11-21.md` to `process/porting-order.md` (Probe snapshot verifying the tree is green at the current porting stage).
+* **Creation**: Documented concept `notes/probe-2026-11-21.md` (Probe 2026-11-21: tree builds and tests green).
 * **Update**: Linked `notes/fts5-purego-probe.md` to `architecture/concurrency-ownership.md` (FTS5 adds no worker-pool requirement; the policy is recorded separately).
 * **Update**: Linked `decisions/concurrency-pool-policy.md` to `decisions/state-machine-engine.md` (plugin runtime slots map to Enabled/Idle/Busy states, not to generic workers).
 * **Update**: Linked `decisions/concurrency-pool-policy.md` to `decisions/store-access.md` (GORM's connection pool replaces the baseline db_pool; no work pool is added).

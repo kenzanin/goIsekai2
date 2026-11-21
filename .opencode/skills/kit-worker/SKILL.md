@@ -124,3 +124,24 @@ claim, not evidence — amend the same session with `--continue` instead of spaw
 - No UI/visual verification through KIT; the main session verifies rendering.
 - KIT session history is local JSONL — durable knowledge belongs in OKF + OpenSpec + Magic Context,
   not in a worker's transcript.
+
+## Optional jev / systemone tool (opt-in)
+
+`KIT_JEV=1 ./scripts/kit-worker "..."` adds the local jev MCP server with
+`--mcp "jev=<node> ~/.config/opencode/vendor/jev-mcp/dist/index.js"`, exporting
+`JEV_API_KEY` from the wrapper's resolved router key (never committed), plus
+`JEV_BASE_URL`, `JEV_MODEL=oc/jev-1.13-free` and `JEV_TIMEOUT_MS`. The lane brief
+gains one line with the tool's real schema:
+`{texts: string[], instructions: string, options?: {label: description}}`.
+Default lanes do not pay for those tool schemas.
+
+Verified: a KIT lane called `jev.classify` through this MCP server and received
+`{"model":"oc/jev-1.13-free","results":[{"index":0,"choice":"yes",...}]}`
+with a `0.91` confidence. A wrong first call using the raw `/v1/systemone`
+schema (`state`/`questions`) failed input validation; the tool schema above is
+the one that works.
+
+systemone is **not** a drop-in KIT model: `--provider-wire` accepts only
+`openai`, `openai-compat`, `anthropic` and `google`, and a chat-completions
+request with `oc/jev-1.13-free` returns `400 ModelProtocolUnsupported`. Use it
+as a tool for classification/decision calls, not as the lane's reasoning model.

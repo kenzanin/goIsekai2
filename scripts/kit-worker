@@ -10,6 +10,7 @@
 #
 # Environment: KIT_BIN, KIT_PROVIDER_URL, KIT_MODEL (default openai/free), KIT_FALLBACK_MODEL
 # (default openai/gemini-3.5-flash-lite), KIT_MAX_STEPS, KIT_WAIT_MS (lane timeout, default 30 min).
+# KIT_JEV=1 adds the local jev/systemone MCP tool (opt-in; adds tool schemas to the lane prompt).
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -44,6 +45,21 @@ repo's okf knowledge bundle with the okf MCP tools (or the \`okf\` CLI when MCP 
   plus output) and the consequence for our code.
 - Record only verified findings, never guesses, never a restatement of the brief.
 - Then run \`okf validate knowledge --strict --drift\` and report every concept id you wrote."
+  if [ "${KIT_JEV:-0}" = "1" ]; then
+    jev_bin="${JEV_MCP_BIN:-$HOME/.config/opencode/vendor/jev-mcp/dist/index.js}"
+    [ -f "$jev_bin" ] || { echo "kit-worker: JEV_MCP_BIN missing: $jev_bin" >&2; exit 78; }
+    router="${KIT_PROVIDER_URL:-http://localhost:20128/v1}"
+    export JEV_API_KEY="$key"
+    export JEV_BASE_URL="${JEV_BASE_URL:-${router%/v1}}"
+    export JEV_MODEL="${JEV_MODEL:-oc/jev-1.13-free}"
+    export JEV_TIMEOUT_MS="${JEV_TIMEOUT_MS:-60000}"
+    args+=(--mcp "jev=$(command -v node) $jev_bin")
+    prompt="$prompt
+
+JEV TOOL: jev.classify is available. Schema: {texts: string[], instructions: string,
+options?: {label: description}}. Use it for classification decisions and report the chosen
+label with its confidence."
+  fi
   [ -n "${KIT_MODE:-}" ] && args+=("$KIT_MODE")
   [ -n "${KIT_JSON:-}" ] && args+=(--json)
   fallback="${KIT_FALLBACK_MODEL:-openai/gemini-3.5-flash-lite}"
@@ -52,7 +68,7 @@ repo's okf knowledge bundle with the okf MCP tools (or the \`okf\` CLI when MCP 
   # rule the lane needs. `openai/free` is a combo that routes each request to a random upstream, and
   # some of those upstreams answer with nothing, so an empty answer is retried on a pinned model.
   lane() {
-    "$KIT_BIN" --quiet --bare --no-skills --no-agents --no-extensions --no-daemon \
+    "$KIT_BIN" --no-daemon \
       --model "$1" --max-steps "${KIT_MAX_STEPS:-30}" \
       --provider-url "${KIT_PROVIDER_URL:-http://localhost:20128/v1}" \
       --provider-wire "${KIT_PROVIDER_WIRE:-openai-compat}" \
