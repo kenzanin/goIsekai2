@@ -77,7 +77,7 @@
 
 - [x] 10.1 Boot the daemon against a temp data dir and ini, then verify `GET /settings`, `GET /config`, a `POST /config` round trip and the file's comment preservation in one scripted `httptest`/process test
 - [x] 10.2 Verify `CGO_ENABLED=0 go build ./...`, `go vet ./...`, `gofmt -l .` (empty) and `go test ./...` all pass, and that `--dump-config` output equals the golden ini
-- [ ] 10.3 Update `knowledge/architecture/stack.md` with the two new dependencies' actual versions and add a one-line note in `knowledge/process/porting-order.md` moving `config` to `archived` only after archive
+- [x] 10.3 Update `knowledge/architecture/stack.md` with the two new dependencies' actual versions and add a one-line note in `knowledge/process/porting-order.md` moving `config` to `archived` only after archive
 
 ## Workflow follow-up
 

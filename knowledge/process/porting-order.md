@@ -15,8 +15,8 @@ A change is archived before the next one starts.
 
 | # | capability | change id | depends on | state |
 |---|---|---|---|---|
-| 1 | config | `add-config` | — | active |
-| 2 | store | `add-store` | config | pending |
+| 1 | config | `add-config` | — | archived |
+| 2 | store | `add-store` | config | active |
 | 3 | plugin-host | `add-plugin-host` | store | pending |
 | 4 | host-tools | `add-host-tools` | plugin-host | pending |
 | 5 | library | `add-library` | host-tools, store | pending |
