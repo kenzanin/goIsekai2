@@ -48,9 +48,11 @@ rejected by user), client-side routing (out of scope).
 
 ### D4 — Generated assets are part of the diff
 
-`*_templ.go`, compiled CSS and vendored JS are committed. `make generate` is idempotent;
-`make lint` includes a check that regeneration produces no diff. This is what makes "fresh clone
-serves the UI" testable rather than aspirational.
+`*_templ.go`, compiled CSS and vendored JS are committed. `make generate` is explicit and
+idempotent; `make build` reads the committed assets so a fresh clone builds with plain
+`CGO_ENABLED=0 go build ./...` and no Tailwind/templ CLI. `make lint` includes a freshness check that
+fails when regeneration would change committed assets. This makes "fresh clone serves the UI"
+testable rather than aspirational.
 
 Alternative: generate only in CI (fails a local `go build` on a clean checkout).
 
@@ -58,8 +60,9 @@ Alternative: generate only in CI (fails a local `go build` on a clean checkout).
 
 - [templ codegen adds a build step] → `make generate` is wired into `make build` and guarded by a
   freshness check; generated files are committed.
-- [Tailwind standalone binary must be available] → pin the CLI version in the Makefile and fall
-  back to `npx @tailwindcss/cli@4.3.5` when the binary is absent; output is committed either way.
+- [Tailwind standalone binary must be available] → `make generate` prefers the standalone CLI and
+  falls back to `npx --yes --package @tailwindcss/cli@4.3.5 tailwindcss`; the compiled CSS is
+  committed, so `make build` never needs either.
 - [Alpine and htmx overlap] → strict split: Alpine never issues save requests, htmx never holds
   form state.
 - [Markup change breaks a consumer] → JSON routes and payloads are unchanged; httptest asserts the

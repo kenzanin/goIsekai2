@@ -5,11 +5,12 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
-	"html/template"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -17,10 +18,13 @@ import (
 
 	"goisekai2/internal/config"
 	"goisekai2/internal/events"
+	"goisekai2/internal/http/components"
 )
 
-//go:embed templates/*.html
-var templateFiles embed.FS
+//go:embed assets/*
+var assetFiles embed.FS
+
+var assetRoot, _ = fs.Sub(assetFiles, "assets")
 
 // Page is one implemented page; routing and navigation share this list.
 type Page struct {
@@ -34,7 +38,6 @@ var pages = []Page{{Path: "/settings", Title: "Settings"}}
 type Server struct {
 	reg        *config.Registry
 	iniPath    string
-	templates  *template.Template
 	httpServer *http.Server
 	bus        *events.Bus
 	generation atomic.Uint64
@@ -43,12 +46,10 @@ type Server struct {
 // New builds a server for reg and the ini file at iniPath. A nil bus disables
 // domain-event publishing (used by tests that only exercise rendering).
 func New(reg *config.Registry, iniPath string, bus *events.Bus) *Server {
-	t := template.Must(template.ParseFS(templateFiles, "templates/*.html"))
 	s := &Server{
-		reg:       reg,
-		iniPath:   iniPath,
-		templates: t,
-		bus:       bus,
+		reg:     reg,
+		iniPath: iniPath,
+		bus:     bus,
 	}
 	s.httpServer = &http.Server{
 		Handler:           s.Handler(),
@@ -66,13 +67,11 @@ func (s *Server) Pages() []Page {
 func (s *Server) Handler() http.Handler {
 	r := chi.NewRouter()
 	for _, p := range pages {
-		page := p
-		r.Get(page.Path, func(w http.ResponseWriter, r *http.Request) {
-			s.renderSettings(w, page)
-		})
+		r.Get(p.Path, s.renderSettings)
 	}
 	r.Get("/config", s.getConfig)
 	r.Post("/config", s.postConfig)
+	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.FS(assetRoot))))
 	return r
 }
 
@@ -86,43 +85,19 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
 }
 
-type row struct {
-	FullKey  string
-	Key      string
-	Doc      string
-	Value    string
-	Source   string
-	Hint     string
-	Disabled bool
-	Restart  bool
-	Invalid  bool
-}
-
-type group struct {
-	Section string
-	Rows    []row
-}
-
-type pageData struct {
-	Active Page
-	Pages  []Page
-	Groups []group
-	Error  string
-}
-
-func (s *Server) renderSettings(w http.ResponseWriter, active Page) {
+func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request) {
 	projections, err := config.Project(s.reg, s.iniPath)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	bySection := make(map[string][]row)
+	bySection := make(map[string][]components.Row)
 	var sections []string
 	for _, p := range projections {
 		if _, seen := bySection[p.Section]; !seen {
 			sections = append(sections, p.Section)
 		}
-		r := row{
+		r := components.Row{
 			FullKey:  p.FullKey,
 			Key:      p.Key,
 			Doc:      p.Doc,
@@ -138,13 +113,17 @@ func (s *Server) renderSettings(w http.ResponseWriter, active Page) {
 		bySection[p.Section] = append(bySection[p.Section], r)
 	}
 	sort.Strings(sections)
-	groups := make([]group, 0, len(sections))
+	groups := make([]components.Group, 0, len(sections))
 	for _, name := range sections {
-		groups = append(groups, group{Section: name, Rows: bySection[name]})
+		groups = append(groups, components.Group{Section: name, Rows: bySection[name]})
 	}
-	data := pageData{Active: active, Pages: s.Pages(), Groups: groups}
+	pages := make([]components.Page, 0, len(pages))
+	for _, p := range s.Pages() {
+		pages = append(pages, components.Page{Path: p.Path, Title: p.Title})
+	}
+	active := components.Page{Path: "/settings", Title: "Settings"}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates.ExecuteTemplate(w, "base", data); err != nil {
+	if err := components.Settings(active, pages, groups).Render(r.Context(), w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -159,15 +138,39 @@ func (s *Server) getConfig(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) postConfig(w http.ResponseWriter, r *http.Request) {
-	var values map[string]string
-	if err := json.NewDecoder(r.Body).Decode(&values); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+	htmx := r.Header.Get("HX-Request") == "true"
+	respond := func(status int, ok bool, written int, errMsg string) {
+		if htmx {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusOK)
+			_ = components.StatusFragment(ok, written, errMsg).Render(r.Context(), w)
+			return
+		}
+		if ok {
+			writeJSON(w, status, map[string]any{"ok": true, "written": written})
+			return
+		}
+		writeJSON(w, status, map[string]any{"ok": false, "error": errMsg})
+	}
+
+	values := make(map[string]string)
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
+		if err := r.ParseForm(); err != nil {
+			respond(http.StatusBadRequest, false, 0, err.Error())
+			return
+		}
+		for key := range r.PostForm {
+			values[key] = r.PostForm.Get(key)
+		}
+	} else if err := json.NewDecoder(r.Body).Decode(&values); err != nil {
+		respond(http.StatusBadRequest, false, 0, err.Error())
 		return
 	}
+
 	old, _ := config.Project(s.reg, s.iniPath)
 	written, err := config.MergeSave(s.reg, s.iniPath, values)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+		respond(http.StatusBadRequest, false, 0, err.Error())
 		return
 	}
 
@@ -192,19 +195,12 @@ func (s *Server) postConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	ini, err := config.LoadIni(s.iniPath)
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "written": written, "error": err.Error()})
-		return
+	if ini, err := config.LoadIni(s.iniPath); err == nil {
+		if snap, err := config.Resolve(s.reg, ini, os.Getenv, nil); err == nil {
+			config.ApplySnapshot(snap)
+		}
 	}
-	snap, err := config.Resolve(s.reg, ini, os.Getenv, nil)
-	restart := []string{}
-	if err == nil {
-		restart = config.ApplySnapshot(snap)
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"ok": true, "written": written, "restartRequired": restart,
-	})
+	respond(http.StatusOK, true, written, "")
 }
 
 // writeJSON emits a JSON response with the given status code.
