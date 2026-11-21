@@ -1,0 +1,28 @@
+schema: spec-driven
+
+# Project context -- only constraints an agent cannot infer from the code.
+context: |
+  goIsekai2 is a greenfield Go rewrite of the Isekai manga viewer (local-first library,
+  plugin-per-site scrapers, disk cache, reader UI, tray daemon).
+  Behavioral baseline: ~/tmp/cpp/cppIsekai (C++23, finished feature set). Its
+  openspec/specs/* and knowledge/ bundle are the porting source of truth; divergences
+  need an explicit decision record plus a MODIFIED delta, never a silent drift.
+  Read-only corpus: ~/tmp/goIsekai (V1 Go generation: ~40 Lua + ~40 JS plugins,
+  wasm/native/yaegi experiments, real HAR captures under tmp/).
+  Write all artifacts in English. Capabilities mirror cppIsekai's layer split.
+
+rules:
+  proposal:
+    - State what is out of scope, not only what ships.
+  design:
+    - Name decisions D1..Dn and record the cppIsekai baseline each one ports from.
+  tasks:
+    - Break tasks into chunks small enough to verify individually.
+
+operations:
+  apply:
+    guidance:
+      - Keep test summaries concise and cite the reproducibility command.
+  archive:
+    guidance:
+      - Summarize the archive outcome before finishing.
