@@ -46,16 +46,19 @@ Model facts gathered from the router:
 
 | Model id | Result |
 |---|---|
+| `custom/adv/msi/GLM-5.3-Flash-EXL3` | documented `custom/` wire; curl + KIT answer `KIT_OK` |
+| `custom/agnes/agnes-3.0-flash` | fallback; curl + KIT answer `KIT_OK` |
+| `custom/agnes/agnes-2.5-flash` | curl + KIT answer `KIT_OK` |
 | `free` (combo) | works, but randomly lands on an upstream that answers nothing |
-| `openai/gemini-3.5-flash-lite` | pinned, wrote `registry.go` and passed the gate in 17s |
 | `oc/*-free` | `FreeUsageLimitError` (free models only work inside OpenCode) |
 | `oc/muse-spark-1.3-contributor-free` | `Model is unavailable` |
-| `adv/cmd/minimax/*-free`, `adv/command-code/*-free` | 401/503 through the router |
 
-Handling: `scripts/kit-worker` runs the combo first and, on an empty answer, retries the same brief on
-`KIT_FALLBACK_MODEL` (default `openai/gemini-3.5-flash-lite`). Set `KIT_MODEL` to pin a model from the
-start. Lanes run with `--bare --no-skills --no-agents --no-extensions`, so AGENTS.md and the skill
-catalog are not injected; the brief carries every rule the lane needs.
+Handling: per https://go-kit.dev/providers, `--provider-url` plus an explicit model routes through the
+`custom/` OpenAI-compatible wire and strips the prefix from the model id. `scripts/kit-worker` now
+defaults to `custom/adv/msi/GLM-5.3-Flash-EXL3`, retries an empty answer on
+`KIT_FALLBACK_MODEL` (default `custom/agnes/agnes-3.0-flash`), and only passes `--provider-wire`
+when explicitly requested. The launcher no longer hides output with `--bare`/`--no-skills`;
+lane activity is visible in the herdr tab.
 
 Rules that follow:
 

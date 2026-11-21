@@ -9,8 +9,8 @@
 # Key:    OMNIROUTE_API_KEY, or the 9router key from ~/.config/opencode/opencode.json.
 # Escape: KIT_ALLOW_HEADLESS=1 runs KIT in this terminal when herdr is unavailable.
 #
-# Environment: KIT_BIN, KIT_PROVIDER_URL, KIT_MODEL (default openai/adv/msi/GLM-5.3-Flash-EXL3), KIT_FALLBACK_MODEL
-# (default openai/gemini-3.5-flash-lite), KIT_MAX_STEPS, KIT_WAIT_MS (lane timeout, default 30 min).
+# Environment: KIT_BIN, KIT_PROVIDER_URL, KIT_MODEL (default custom/adv/msi/GLM-5.3-Flash-EXL3), KIT_FALLBACK_MODEL
+# (default custom/agnes/agnes-3.0-flash), KIT_MAX_STEPS, KIT_WAIT_MS (lane timeout, default 30 min).
 # KIT_JEV=1 adds the local jev/systemone MCP tool (opt-in; adds tool schemas to the lane prompt).
 set -euo pipefail
 
@@ -64,7 +64,9 @@ label with its confidence."
   [ -n "${KIT_MODE:-}" ] && args+=("$KIT_MODE")
   if [ -n "${KIT_SESSION:-}" ]; then args+=(--session "$KIT_SESSION"); fi
   [ -n "${KIT_JSON:-}" ] && args+=(--json)
-  fallback="${KIT_FALLBACK_MODEL:-openai/gemini-3.5-flash-lite}"
+  fallback="${KIT_FALLBACK_MODEL:-custom/agnes/agnes-3.0-flash}"
+  wire_flags=()
+  if [ -n "${KIT_PROVIDER_WIRE:-}" ]; then wire_flags+=(--provider-wire "$KIT_PROVIDER_WIRE"); fi
   cd "$REPO"
   # Lean profile was removed by the user so lane output is visible. The decision model is
   # resolved by KIT itself: `typesafe/oc/jev-1.13-free` uses its native systemone wire against
@@ -73,14 +75,14 @@ label with its confidence."
     "$KIT_BIN" --no-daemon --codemode=false \
       --model "$1" --max-steps "${KIT_MAX_STEPS:-30}" \
       --provider-url "${KIT_PROVIDER_URL:-http://localhost:20128/v1}" \
-      --provider-wire "${KIT_PROVIDER_WIRE:-openai-compat}" \
       --provider-api-key "$key" \
+      "${wire_flags[@]+"${wire_flags[@]}"}" \
       --decision-model "${KIT_DECISION_MODEL:-typesafe/oc/jev-1.13-free}" \
       "${args[@]+"${args[@]}"}" "$prompt"
   }
   rc=0
-  out="$(lane "${KIT_MODEL:-openai/adv/msi/GLM-5.3-Flash-EXL3}" 2>&1)" || rc=$?
-  if [ -z "$(printf '%s' "$out" | tr -d '[:space:]')" ] && [ "$rc" -eq 0 ] && [ "${KIT_MODEL:-openai/adv/msi/GLM-5.3-Flash-EXL3}" != "$fallback" ]; then
+  out="$(lane "${KIT_MODEL:-custom/adv/msi/GLM-5.3-Flash-EXL3}" 2>&1)" || rc=$?
+  if [ -z "$(printf '%s' "$out" | tr -d '[:space:]')" ] && [ "$rc" -eq 0 ] && [ "${KIT_MODEL:-custom/adv/msi/GLM-5.3-Flash-EXL3}" != "$fallback" ]; then
     echo "kit-worker: ${KIT_MODEL:-adv/msi/GLM-5.3-Flash-EXL3} answered nothing; retrying on $fallback" >&2
     rc=0
     out="$(lane "$fallback" 2>&1)" || rc=$?

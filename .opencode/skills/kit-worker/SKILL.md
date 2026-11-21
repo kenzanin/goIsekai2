@@ -123,20 +123,23 @@ claim, not evidence — amend the same session with `--continue` instead of spaw
 
 - Headless KIT executes tools with no approval prompt and no OS sandbox; a vague brief can write the
   wrong file. Keep jobs to one file or one shape fix.
-- Default chat model is `openai/adv/msi/GLM-5.3-Flash-EXL3` (user-directed; the `openai/` prefix is
-required so KIT forwards the full router model id instead of stripping `adv/` and failing with
-`No active credentials for provider: msi`). `KIT_MODEL` overrides it. `openai/free` is a **combo alias**, not a single model: each request is routed to a different
-  upstream (observed: `msi/GLM-5.3-Flash-EXL3`, then `gemini-3.5-flash-lite`). Some upstreams inside
-  the combo answer with an empty body, and KIT then reports `input=0 output=0`, exits 0 and writes no
-  files. That is the cause of "lane exited 0 with zero files", not a context limit: the alias has a
-  500k context and the failing briefs were ~1k tokens. `scripts/kit-worker` therefore retries an empty
-  answer on the pinned fallback model (`KIT_FALLBACK_MODEL`, default `openai/gemini-3.5-flash-lite`).
+- Default chat model is `custom/adv/msi/GLM-5.3-Flash-EXL3`, with fallback `custom/agnes/agnes-3.0-flash`.
+  This follows the documented KIT rule for `--provider-url`: with an explicit model KIT routes through
+  the `custom/` OpenAI-compatible wire and strips the prefix from the model id. The earlier
+  `openai/` prefix happened to work only because it was stripped too; `adv/msi/...` without a prefix
+  failed with `No active credentials for provider: msi`. `KIT_MODEL` overrides the default.
+  Curl against `/v1/chat/completions` answered `KIT_OK` (HTTP 200) for the full `adv/msi/...` id and
+  for both `agnes/agnes-3.0-flash` and `agnes/agnes-2.5-flash`; KIT with `custom/` answered `KIT_OK`
+  for all three. `openai/free` is a **combo alias**, not a single model: each request is routed to a
+  different upstream, some of which answer with an empty body — KIT then exits 0 with no files.
+  `scripts/kit-worker` retries an empty answer on the pinned fallback model.
 - Do not route lanes to `oc/*-free` models: through the router they answer `FreeUsageLimitError`
   (free models only work inside OpenCode itself), and `oc/muse-spark-1.3-contributor-free` answers
   `Model is unavailable`. Direct `adv/*-free` ids return 401/503 through the router as well. The
-  working pinned choice is `openai/gemini-3.5-flash-lite`.
-- Even on a good model the brief stays small: `--bare --no-skills --no-agents --no-extensions` keeps
-  the AGENTS.md and skill catalog out of the system prompt, so the lane only pays for the brief.
+  Working pinned choices are `custom/adv/msi/GLM-5.3-Flash-EXL3` and
+  `custom/agnes/agnes-{3.0,2.5}-flash`.
+- The launcher deliberately passes no `--bare`/`--no-skills`/`--no-agents` flags (user direction):
+  lane activity stays visible in the herdr tab, at the cost of a larger system prompt.
 - No UI/visual verification through KIT; the main session verifies rendering.
 - KIT session history is local JSONL — durable knowledge belongs in OKF + OpenSpec + Magic Context,
   not in a worker's transcript.
