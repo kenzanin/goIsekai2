@@ -197,3 +197,50 @@ func TestPostConfigPublishesAfterWriteAndAppliesLive(t *testing.T) {
 		t.Fatalf("rejected save published %d events, want 0 more", n-1)
 	}
 }
+
+func TestAssetsAreServedLocally(t *testing.T) {
+	s := New(config.Knobs(), testIni(t), nil)
+
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/settings", nil))
+	for _, attr := range []string{`src="http`, `href="http`, `src="//`, `href="//`} {
+		if strings.Contains(rec.Body.String(), attr) {
+			t.Fatalf("page references an external asset (%s): %s", attr, rec.Body.String())
+		}
+	}
+	for _, path := range []string{"/assets/vendor/htmx.min.js", "/assets/vendor/alpine.min.js"} {
+		assetRec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(assetRec, httptest.NewRequest(http.MethodGet, path, nil))
+		if assetRec.Code != http.StatusOK || assetRec.Body.Len() == 0 {
+			t.Fatalf("asset %s = %d (%d bytes)", path, assetRec.Code, assetRec.Body.Len())
+		}
+	}
+}
+
+func TestPostConfigHTMXFragment(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cfg.ini")
+	if err := os.WriteFile(path, []byte("[log]\nlevel = info\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := New(config.Knobs(), path, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/config", strings.NewReader("log.level=debug"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("HX-Request", "true")
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "Saved 1 change") {
+		t.Fatalf("status fragment missing: %s", rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), `"written"`) {
+		t.Fatalf("htmx response should be HTML, got JSON: %s", rec.Body.String())
+	}
+	onDisk, _ := os.ReadFile(path)
+	if !strings.Contains(string(onDisk), "level = debug") {
+		t.Fatalf("form values not saved: %q", onDisk)
+	}
+}
