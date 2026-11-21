@@ -28,25 +28,25 @@ const (
 
 // SavedManga is the host's persisted view of one source title.
 type SavedManga struct {
-	Plugin          string `gorm:"primaryKey"`
-	Slug            string `gorm:"primaryKey"`
-	Name            string
-	Cover           string
-	AddedAt         int64
-	Status          string
-	TotalCh         int
-	ReadCh          int
-	LastReadAt      int64
-	UpdatedAt       int64
-	Synopsis        string
-	AltTitles       string
-	DupGroup        int
-	StatusFlags     int
-	Authors         string
-	Artists         string
-	Tags            string
-	SynopsisDisplay string
-	Pinned          int
+	Plugin          string `json:"plugin" gorm:"primaryKey"`
+	Slug            string `json:"slug" gorm:"primaryKey"`
+	Name            string `json:"name"`
+	Cover           string `json:"cover"`
+	AddedAt         int64  `json:"added_at"`
+	Status          string `json:"status"`
+	TotalCh         int    `json:"total_ch"`
+	ReadCh          int    `json:"read_ch"`
+	LastReadAt      int64  `json:"last_read_at"`
+	UpdatedAt       int64  `json:"updated_at"`
+	Synopsis        string `json:"-"`
+	AltTitles       string `json:"-"`
+	DupGroup        int    `json:"dup_group"`
+	StatusFlags     int    `json:"status_flags"`
+	Authors         string `json:"authors"`
+	Artists         string `json:"artists"`
+	Tags            string `json:"tags"`
+	SynopsisDisplay string `json:"-"`
+	Pinned          int    `json:"pinned"`
 }
 
 // TableName pins the frozen table name.

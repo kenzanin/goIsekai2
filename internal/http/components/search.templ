@@ -1,0 +1,85 @@
+package components
+
+import "strconv"
+
+// SearchPlugin is one enabled plugin offered in the search scope dropdown.
+type SearchPlugin struct {
+	ID   string
+	Name string
+}
+
+// SearchHit is one ranked search result linking to its manga page.
+type SearchHit struct {
+	Plugin string
+	Slug   string
+	Name   string
+}
+
+// Search renders the cross-plugin search page: a GET form with the query
+// input and an enabled-plugin scope dropdown, the ranked hits as a compact
+// list linking to /view/manga/<plugin>/<slug>, and distinct empty states for
+// a blank query versus a query with no hits.
+templ Search(active Page, pages []Page, plugins []SearchPlugin, hits []SearchHit, query string) {
+	@Base(active, pages) {
+		<div class="space-y-6">
+			<div class="flex flex-wrap items-end justify-between gap-4">
+				<div>
+					<h1 class="font-mono text-2xl font-semibold tracking-tight text-zinc-50">Search</h1>
+					<p class="mt-1 text-sm text-zinc-400">Find manga across every enabled plugin.</p>
+				</div>
+				if len(hits) > 0 {
+					<p class="font-mono text-xs uppercase tracking-widest text-zinc-500">{ strconv.Itoa(len(hits)) } hits</p>
+				}
+			</div>
+			<div x-data="{ q: '' }">
+				<form action="/search" method="get" role="search" class="flex flex-wrap items-center gap-3">
+					<input
+						type="search"
+						name="q"
+						value={ query }
+						x-model="q"
+						placeholder="Title, author, tag…"
+						aria-label="Search query"
+						autofocus
+						class="min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-400 focus:outline-none"
+					/>
+					<select name="plugin" aria-label="Search scope" class="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none">
+						<option value="">All enabled</option>
+						for _, p := range plugins {
+							<option value={ p.ID }>{ p.Name }</option>
+						}
+					</select>
+					<button
+						type="submit"
+						x-bind:disabled="q.trim() === ''"
+						class="rounded-md bg-amber-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-amber-300 disabled:opacity-40"
+					>
+						Search
+					</button>
+				</form>
+			</div>
+			if query == "" {
+				<div class="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 px-6 py-12 text-center">
+					<h2 class="font-mono text-sm font-semibold text-zinc-100">Start typing a title</h2>
+					<p class="mt-2 text-sm text-zinc-400">Results from every enabled plugin will show up here.</p>
+				</div>
+			} else if len(hits) == 0 {
+				<div class="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 px-6 py-12 text-center">
+					<h2 class="font-mono text-sm font-semibold text-zinc-100">No hits</h2>
+					<p class="mt-2 text-sm text-zinc-400">Nothing matched <span class="font-mono text-amber-300">{ query }</span>. Try another title or widen the plugin scope.</p>
+				</div>
+			} else {
+				<ul role="list" class="divide-y divide-zinc-800 rounded-xl border border-zinc-800 bg-zinc-900/40">
+					for _, h := range hits {
+						<li>
+							<a href={ templ.SafeURL("/view/manga/" + h.Plugin + "/" + h.Slug) } class="group flex items-center gap-3 px-4 py-3 transition hover:bg-zinc-800/60">
+								<span class="shrink-0 rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] leading-4 uppercase tracking-wider text-zinc-400">{ h.Plugin }</span>
+								<span class="truncate text-sm font-medium text-zinc-100 group-hover:text-amber-300">{ h.Name }</span>
+							</a>
+						</li>
+					}
+				</ul>
+			}
+		</div>
+	}
+}

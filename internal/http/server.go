@@ -20,7 +20,9 @@ import (
 	"goisekai2/internal/config"
 	"goisekai2/internal/events"
 	"goisekai2/internal/http/components"
+	"goisekai2/internal/library"
 	"goisekai2/internal/plugin"
+	"goisekai2/internal/store"
 )
 
 //go:embed assets/*
@@ -43,17 +45,21 @@ type Server struct {
 	httpServer *http.Server
 	bus        *events.Bus
 	host       *plugin.Host
+	lib        *library.Service
+	store      *store.Store
 	generation atomic.Uint64
 }
 
 // New builds a server for reg and the ini file at iniPath. A nil bus disables
 // domain-event publishing (used by tests that only exercise rendering).
-func New(reg *config.Registry, iniPath string, bus *events.Bus, host *plugin.Host) *Server {
+func New(reg *config.Registry, iniPath string, bus *events.Bus, host *plugin.Host, lib *library.Service, st *store.Store) *Server {
 	s := &Server{
 		reg:     reg,
 		iniPath: iniPath,
 		bus:     bus,
 		host:    host,
+		lib:     lib,
+		store:   st,
 	}
 	s.httpServer = &http.Server{
 		Handler:           s.Handler(),
@@ -65,6 +71,8 @@ func New(reg *config.Registry, iniPath string, bus *events.Bus, host *plugin.Hos
 // Pages returns the implemented pages in navigation order.
 func (s *Server) Pages() []Page {
 	out := append([]Page(nil), pages...)
+	out = append(out, Page{Path: "/library", Title: "Library"})
+	out = append(out, Page{Path: "/search", Title: "Search"})
 	if s.host != nil {
 		out = append(out, Page{Path: "/plugins", Title: "Plugins"})
 	}
@@ -79,6 +87,12 @@ func (s *Server) Handler() http.Handler {
 	}
 	r.Get("/config", s.getConfig)
 	r.Post("/config", s.postConfig)
+	r.Get("/", s.renderLibrary)
+	r.Get("/library", s.renderLibrary)
+	r.Get("/search", s.renderSearch)
+	r.Get("/api/library", s.listLibrary)
+	r.Post("/api/library", s.saveLibrary)
+	r.Post("/api/library/remove", s.removeLibrary)
 	if s.host != nil {
 		r.Get("/plugins", s.renderPlugins)
 		r.Post("/plugins/{id}/toggle", s.togglePlugin)
@@ -97,6 +111,158 @@ func (s *Server) Serve(l net.Listener) error {
 // Shutdown stops accepting new requests and waits for in-flight handlers.
 func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
+}
+
+func parseStringList(raw string) []string {
+	var out []string
+	if err := json.Unmarshal([]byte(raw), &out); err == nil {
+		return out
+	}
+	return strings.Fields(raw)
+}
+
+func (s *Server) libraryRows(ctx context.Context) []components.LibraryRow {
+	if s.lib == nil {
+		return nil
+	}
+	rows, err := s.lib.List(ctx)
+	if err != nil {
+		return nil
+	}
+	out := make([]components.LibraryRow, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, components.LibraryRow{
+			Plugin: row.Plugin, Slug: row.Slug, Name: row.Name, Cover: row.Cover,
+			Status: row.Status, StatusFlags: row.StatusFlags, DupGroup: row.DupGroup,
+			Authors: parseStringList(row.Authors), Artists: parseStringList(row.Artists),
+			Tags: parseStringList(row.Tags),
+		})
+	}
+	return out
+}
+
+func (s *Server) renderLibrary(w http.ResponseWriter, r *http.Request) {
+	active := components.Page{Path: r.URL.Path, Title: "Library"}
+	if active.Path != "/library" {
+		active.Path = "/"
+	}
+	pages := make([]components.Page, 0, len(s.Pages()))
+	for _, p := range s.Pages() {
+		pages = append(pages, components.Page{Path: p.Path, Title: p.Title})
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := components.Library(active, pages, s.libraryRows(r.Context())).Render(r.Context(), w); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (s *Server) renderSearch(w http.ResponseWriter, r *http.Request) {
+	query := r.FormValue("q")
+	onlyPlugin := r.FormValue("plugin")
+	plugins := make([]components.SearchPlugin, 0)
+	if s.host != nil {
+		for _, row := range s.host.Rows(r.Context()) {
+			if row.Enabled {
+				plugins = append(plugins, components.SearchPlugin{ID: row.ID, Name: row.Name})
+			}
+		}
+	}
+	hits := make([]components.SearchHit, 0)
+	if query != "" && s.store != nil {
+		found, err := s.store.SearchTitles(r.Context(), query)
+		if err == nil {
+			for _, hit := range found {
+				if onlyPlugin == "" || hit.Plugin == onlyPlugin {
+					hits = append(hits, components.SearchHit{Plugin: hit.Plugin, Slug: hit.Slug, Name: hit.Name})
+				}
+			}
+		}
+	}
+	active := components.Page{Path: "/search", Title: "Search"}
+	pages := make([]components.Page, 0, len(s.Pages()))
+	for _, p := range s.Pages() {
+		pages = append(pages, components.Page{Path: p.Path, Title: p.Title})
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := components.Search(active, pages, plugins, hits, query).Render(r.Context(), w); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (s *Server) listLibrary(w http.ResponseWriter, r *http.Request) {
+	if s.lib == nil {
+		writeJSON(w, http.StatusOK, []any{})
+		return
+	}
+	rows, err := s.lib.List(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	category := r.FormValue("category")
+	dup := r.FormValue("dup")
+	plugin := r.FormValue("plugin")
+	filtered := make([]store.SavedManga, 0, len(rows))
+	bit := map[string]int{
+		"ongoing": store.StatusOngoing, "hiatus": store.StatusHiatus,
+		"canceled": store.StatusCanceled, "completed": store.StatusCompleted,
+		"new": store.StatusNew, "done": store.StatusDone,
+	}[category]
+	for _, row := range rows {
+		if bit != 0 && row.StatusFlags&bit == 0 {
+			continue
+		}
+		if dup == "1" && row.DupGroup == 0 {
+			continue
+		}
+		if plugin != "" && row.Plugin != plugin {
+			continue
+		}
+		filtered = append(filtered, row)
+	}
+	writeJSON(w, http.StatusOK, filtered)
+}
+
+func (s *Server) saveLibrary(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Plugin string `json:"plugin"`
+		Slug   string `json:"slug"`
+		Name   string `json:"name"`
+		Cover  string `json:"cover"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if s.lib == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "error": "library unavailable"})
+		return
+	}
+	if err := s.lib.Save(r.Context(), body.Plugin, body.Slug, body.Name, body.Cover); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"saved": true})
+}
+
+func (s *Server) removeLibrary(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Plugin string `json:"plugin"`
+		Slug   string `json:"slug"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if s.lib == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "error": "library unavailable"})
+		return
+	}
+	if err := s.lib.Remove(r.Context(), body.Plugin, body.Slug); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"saved": false})
 }
 
 func (s *Server) renderPlugins(w http.ResponseWriter, r *http.Request) {
