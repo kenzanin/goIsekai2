@@ -1,4 +1,11 @@
 ## 2026-11-21
+* **Update**: Updated concept `conventions/sql-boundary.md`.
+* **Update**: Updated concept `decisions/store-access.md`.
+* **Update**: Linked `conventions/sql-boundary.md` to `architecture/stack.md` (the review page points at the gate that keeps store SQL in one place).
+* **Update**: Linked `decisions/store-access.md` to `conventions/sql-boundary.md` (the decision's enforcement mechanism is the raw-SQL boundary rule).
+* **Update**: Linked `decisions/store-access.md` to `decisions/dependency-stack.md` (extends the dependency stack with GORM on the pure-Go SQLite driver).
+* **Creation**: Documented concept `conventions/sql-boundary.md` (Raw SQL boundary).
+* **Creation**: Documented concept `decisions/store-access.md` (Store access: GORM with one raw-SQL boundary).
 * **Update**: Linked `notes/config-resolution-gotchas.md` to `notes/go-ini-v2-behaviour.md` (both record verified behaviour of the config layer built for add-config).
 * **Update**: Linked `notes/config-resolution-gotchas.md` to `decisions/config-file-format.md` (records implementation traps found while applying the config-file-format decision).
 * **Update**: Linked `notes/go-ini-v2-behaviour.md` to `decisions/config-file-format.md` (records the library behaviour the config-file-format decision depends on).

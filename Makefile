@@ -18,13 +18,17 @@ test:
 	go test ./...
 
 ## lint: gofmt the tree and enforce the godoc rule
-lint: godoc
+lint: godoc sql-boundary
 	@out="$$($(GOFMT) -l .)"; \
 	if [ -n "$$out" ]; then echo "not gofmt-clean:"; echo "$$out"; exit 1; fi
 
 ## godoc: package comments and name-first doc comments on exported symbols
 godoc:
 	@go run scripts/godoc-check.go
+
+## sql-boundary: raw SQL may live only in internal/store/sql/queries.go
+sql-boundary:
+	@go run scripts/sql-boundary-check.go
 
 ## validate: strict OKF v0.2 validation on the knowledge/ bundle
 validate:

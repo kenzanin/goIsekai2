@@ -120,6 +120,8 @@ code lands. Planned packages under `internal/`:
   touches `*event.Manager` except the actor, the async API is banned, and commands are never events.
 - FSM rules: only the owning actor fires triggers, callbacks enqueue only, illegal trigger is a typed
   error plus a counter (never a panic), and every model change updates the graph golden test.
+- SQL rule: raw SQL lives only in the `internal/store/sql` module (one package, many files allowed);
+  `make lint` runs `scripts/sql-boundary-check`. See `conventions/sql-boundary`.
 - KIT lanes run in their own herdr tab: always `./scripts/kit-worker ...` (it creates the tab, waits for the
   exit sentinel, prints the tail); never call `kit` directly. Every lane also carries the OKF duty: the
   wrapper appends an instruction to record verified findings as okf concepts, so a lane leaves evidence

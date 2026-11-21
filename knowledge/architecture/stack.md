@@ -17,6 +17,8 @@ table that answers "library or hand-written?" without reading five concepts.
 | Area | Library | Version | Decision |
 |---|---|---|---|
 | SQLite | `modernc.org/sqlite` | v1.62.0 | `decisions/dependency-stack` |
+| ORM | `gorm.io/gorm` | v1.31.2 | `decisions/store-access` |
+| SQLite GORM driver | `github.com/glebarez/sqlite` | v1.11.0 (pure Go) | `decisions/store-access` |
 | HTTP client (scraping) | `bogdanfinn/tls-client` | v1.18.1 | `decisions/dependency-stack` |
 | Lua | `yuin/gopher-lua` | v1.1.2 | `decisions/dependency-stack` |
 | JS | `modernc.org/quickjs` | v0.27.0 | `decisions/dependency-stack` |
@@ -46,7 +48,7 @@ and truncation for titles, slugs and cache names — never byte slicing).
 | Stream hub (bounded, drop-oldest) | nobody ships drop-oldest fan-out that never blocks the publisher |
 | FSM layer: typed enums + `fire()` wrappers + SQLite external state | compile-time safety the engine cannot give (`State = any`) |
 | Update scheduler, candidate selection, backoff, pacing, backup tick | product rules from `specs/updates`; the SQL window query is written by hand |
-| Store: SQL, migrations, `schema_version`, anti-nested-Tx helper | no ORM by rule; V1 used `go-jet`, so this row is open for review (see below) |
+| Store: typed repository methods over GORM; SQL statements, migrations, `schema_version`, anti-nested-Tx helper | the frozen SQL lives only in the `internal/store/sql` module, gated by `make lint`; `decisions/store-access` |
 | Plugin loader + 3-runtime bridge + host tools | ABI is frozen by the baseline (`specs/host-tools`, `specs/plugin-host`) |
 | Image cache tree, slug, `cache_ns`, disk LRU, sidecar, GC | baseline cache layout is a frozen contract (`specs/image-cache`) |
 | Daemon routes, SSR handlers, `/cache/img`, config save | thin layer over chi + `html/template` |
