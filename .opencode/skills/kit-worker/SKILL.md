@@ -41,11 +41,10 @@ The wrapper resolves the key from `OMNIROUTE_API_KEY`, else the 9router entry in
 under `~/.kit/sessions/<cwd>/`, so a lane that ran out of steps is continued, not restarted. Override
 `KIT_PROVIDER_URL` / `KIT_BIN` / `KIT_WAIT_MS` if needed.
 
-**Dispatch at most two lanes in parallel.** The user allows a maximum of two active KIT lanes;
-never run a third, and never let two lanes write overlapping files. For a failed lane, continue the
-same session with `--continue` instead of respawning a fresh one. Never run two `--continue` lanes
-at once: both pick the most recent session for the cwd and fight over the JSONL file. For parallel
-follow-ups use fresh sessions or `--session=<jsonl-path>`.
+**Dispatch one lane at a time.** The user reverted to serial-only worker dispatch: never run two
+`kit-worker` invocations concurrently. For a failed lane, continue the same session with `--continue`
+or `--session=<jsonl>` instead of respawning a fresh one. Never run two `--continue` lanes at once:
+both pick the most recent session for the cwd and fight over the JSONL file.
 
 ## Language
 
