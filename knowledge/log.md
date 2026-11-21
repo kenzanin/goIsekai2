@@ -1,4 +1,6 @@
 ## 2026-11-21
+* **Update**: Linked `notes/plugin-tools-cookies.md` to `notes/plugin-tools-surface.md` (Cookie persistence is the third leg of the same ToolSet host surface, beside storage and HTTP fetch.).
+* **Creation**: Documented concept `notes/plugin-tools-cookies.md` (tools cookies: per-plugin TSV jar; SaveJar needs a LoadJar jar (stdlib jar has no enumeration)).
 * **Update**: Linked `notes/tls-client-v1-api-shape.md` to `decisions/dependency-stack.md` (Pinpoints the exact NewHttpClient/option/fhttp call shape of the tls-client version recorded in the dependency decision.).
 * **Update**: Linked `notes/plugin-tools-http.md` to `notes/plugin-tools-surface.md` (HTTP tools extend the same ToolSet surface as storage/log; same package, same gates.).
 * **Creation**: Documented concept `notes/tls-client-v1-api-shape.md` (tls-client v1.18.1 API: functional options + fhttp types, DefaultClientProfile=Chrome_150).

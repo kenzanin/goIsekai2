@@ -18,6 +18,7 @@ type ToolSet struct {
 	Store    *store.Store
 	Snapshot *config.Snapshot
 	Dir      string
+	DataDir  string
 	PluginID string
 	Log      *slog.Logger
 }
