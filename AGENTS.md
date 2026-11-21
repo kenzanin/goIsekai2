@@ -92,6 +92,9 @@ code lands. Planned packages under `internal/`:
 - `events/` -- typed facade over `gookit/event`; ONE actor goroutine owns the manager; domain facts
   published after commit only. See `knowledge/architecture/event-driven-core.md`.
 - `stream/` -- bounded drop-oldest fan-out for SSE (log, progress, grid refresh)
+- `fsm/` -- per-entity lifecycle machines on `qmuntal/stateless` (plugin, job) with typed enums and
+  SQLite external state; persist before publish. See `knowledge/architecture/state-machines.md`.
+  Cache entries and daemon boot are deliberately not machines.
 - `cmd/goisekai2/` -- entry point
 
 ## Conventions
@@ -106,5 +109,7 @@ code lands. Planned packages under `internal/`:
 - Committed artifacts (docs, knowledge, openspec, reports) are English only.
 - Bus rules: event names are constants in `internal/events`, payloads are typed structs, no goroutine
   touches `*event.Manager` except the actor, the async API is banned, and commands are never events.
+- FSM rules: only the owning actor fires triggers, callbacks enqueue only, illegal trigger is a typed
+  error plus a counter (never a panic), and every model change updates the graph golden test.
 - Commit subjects: short, lowercase imperative (`store: add migration runner`).
 - Branch per change named after the change id; merge to `main` with `--no-ff`.
