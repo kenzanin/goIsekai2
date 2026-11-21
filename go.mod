@@ -1,5 +1,5 @@
 module goisekai2
 
-go 1.25
+go 1.26
 
-require gopkg.in/ini.v1 v1.68.0 // indirect
+require unknwon.dev/ini/v2 v2.0.0-beta.7

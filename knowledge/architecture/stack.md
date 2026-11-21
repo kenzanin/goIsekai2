@@ -30,17 +30,18 @@ table that answers "library or hand-written?" without reading five concepts.
 | JPEG XL encode | `gen2brain/jpegxl` | unpinned | `decisions/image-pipeline` |
 | Decode / resize | `golang.org/x/image` | v0.48.0 | `decisions/image-pipeline` |
 | Tray | `fyne.io/systray` | v1.11.0 | `decisions/tray` |
-| INI config file | `gopkg.in/ini.v1` (repo `github.com/go-ini/ini`) | v1.68.0 | `decisions/config-file-format` |
+| INI config file | `unknwon.dev/ini/v2` | v2.0.0-beta.7 | `decisions/config-file-format` |
 | Native `.so` loading | `ebitengine/purego` | only if native plugins are adopted | `decisions/tray` |
 
 Stdlib for everything else: `net/http`, `html/template`, `log/slog`, `encoding/json`, `crypto/*`,
-`database/sql`, `os/exec`, `flag`.
+`database/sql`, `os/exec`, `flag`, `unicode/utf8` (rune-aware text handling: UTF-8 validation, rune counts
+and truncation for titles, slugs and cache names — never byte slicing).
 
 ## Hand-written (deliberate, no library)
 
 | Piece | Why not a library |
 |---|---|
-| Config registry: flag + env + default + provenance + strict/lenient resolution | the baseline precedence rules are ours; the ini format is handled by `gopkg.in/ini.v1` (`decisions/config-file-format`) |
+| Config registry: flag + env + default + provenance + strict/lenient resolution | the baseline precedence rules are ours; the ini format is handled by `unknwon.dev/ini/v2` (`decisions/config-file-format`) |
 | Events facade + single actor over `gookit/event` | typed payloads are the point; the library is untyped `map[string]any` |
 | Stream hub (bounded, drop-oldest) | nobody ships drop-oldest fan-out that never blocks the publisher |
 | FSM layer: typed enums + `fire()` wrappers + SQLite external state | compile-time safety the engine cannot give (`State = any`) |
