@@ -6,3 +6,5 @@
 * [systemone/jev is a KIT MCP tool, not a KIT model](jev-systemone-kit.md) - KIT has a native systemone decision wire: --decision-model typesafe/oc/jev-1.13-free targets /v1/systemone and returns probabilities; the MCP tool route is also available.
 * [Events bus implementation verified with FIFO, panic recovery, and recorder](events-bus-implementation.md) - Refined internal/events Bus using non-closing reqChan with doneCh signaling and done synchronization on Subscribe/Publish.
 * [Projection and MergeSave verified for internal/config](config-projection-and-mergesave.md) - Verified Projection and MergeSave implementation and behavior for internal/config.
+* [Store DB: pure-Go gorm + glebarez/sqlite verified under CGO_ENABLED=0](sqlite-pure-go-stack.md) - gorm v1.31.2 + glebarez/sqlite v1.11.0 (modernc engine) passes the store tests under CGO_ENABLED=0 with single-connection pool and WAL/busy_timeout/foreign_keys pragmas applied in Open.
+* [SQLite pragma readback forms: lowercase wal, numeric foreign_keys](sqlite-pragma-return-values.md) - SQLite PRAGMA results come back lowercase ("wal") and numeric ("1"), so equality checks against "WAL"/"ON" fail.

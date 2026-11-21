@@ -1,4 +1,7 @@
 ## 2026-11-21
+* **Update**: Linked `notes/sqlite-pure-go-stack.md` to `notes/sqlite-pragma-return-values.md` (The pragma return-value gotcha was observed in the same Open verification that proved the pure-Go stack.).
+* **Creation**: Documented concept `notes/sqlite-pragma-return-values.md` (SQLite pragma readback forms: lowercase wal, numeric foreign_keys).
+* **Creation**: Documented concept `notes/sqlite-pure-go-stack.md` (Store DB: pure-Go gorm + glebarez/sqlite verified under CGO_ENABLED=0).
 * **Update**: Updated concept `process/porting-order.md`.
 * **Update**: Linked `decisions/ui-stack.md` to `architecture/stack.md` (UI stack rows belong in the consolidated dependency review).
 * **Update**: Linked `decisions/ui-stack.md` to `decisions/http-framework.md` (replaces the html/template + htmx fragment note with the full four-piece UI stack).
