@@ -48,13 +48,36 @@ pure Go, ships both a compiler (amd64/arm64) and an interpreter, supports WASI p
 runtime that satisfies the constraint. Startup cost is acceptable because plugin calls are long-lived
 instances, not per-request processes.
 
-## QuickJS escape hatch (not adopted)
+## QuickJS paths (none adopted)
 
-`buke/quickjs-go` is rejected: it imports C, vendors 45 C/H files, and its own README says it is "not ready
-for production use". If real QuickJS semantics are ever required, the cgo-free route is compiling
-quickjs-ng to a WASI reactor and running it under wazero: quickjs-ng ships `qjs-wasi-reactor.c` but does not
-wire it into its Makefile, so we would own a `wasi-sdk`-pinned build step plus a checked-in `.wasm`
-artifact. Revisit only when a plugin actually needs it.
+Three ways to get QuickJS semantics without cgo. Ranked by what they cost to own:
+
+| Path | Binary cgo-free | Extra runtime artifacts | Binding work | Verdict |
+|---|---|---|---|---|
+| quickjs-ng -> WASI reactor -> wazero | yes | one `.wasm` per build, all platforms | JSON-in/JSON-out host calls | **preferred if parity is ever needed** |
+| `purego` + `libquickjs.so` | yes | native lib **per GOOS/GOARCH** (linux/macOS/windows, amd64+arm64) | ~1k LOC unsafe ABI, manual `JS_DupValue`/`JS_FreeValue` | viable, worst to operate |
+| `buke/quickjs-go` (cgo) | no | linked in | already written | rejected by the no-cgo rule |
+
+### purego assessment (asked explicitly)
+
+It genuinely works: `ebitengine/purego` v0.11.3 (Apache-2.0, active) can `dlopen` a shared library and call
+C from a `CGO_ENABLED=0` binary, and Linux amd64/arm64 are Tier 1 with struct-by-value arguments **and
+returns** supported -- which matters because QuickJS returns `JSValue` (16 bytes) by value. It is still
+beta software.
+
+What it costs us: the Go binary stays cgo-free, but the *product* stops being pure Go. We would ship
+`libquickjs.so` / `.dylib` / `.dll` for every target, which reintroduces per-OS release artifacts, dynamic
+loader paths and a C toolchain in the release pipeline -- exactly the deployment class the no-cgo rule
+exists to avoid. On top of that we would hand-maintain ~1k LOC of `unsafe` binding with manual refcounting,
+where a single missed `JS_FreeValue` is a leak and a double free is corruption, plus callback pinning for the
+interrupt handler. The WASI route reaches the same semantics with one portable artifact and no native
+loader, so purego is not the shortcut it looks like.
+
+### WASI route detail
+
+quickjs-ng ships `qjs-wasi-reactor.c` but does not wire it into its Makefile, so we would own a
+`wasi-sdk`-pinned build step plus a checked-in `.wasm` artifact. Revisit only when a plugin actually needs
+ES2020 semantics beyond goja.
 
 ## Consequences
 
