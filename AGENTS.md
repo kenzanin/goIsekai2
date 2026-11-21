@@ -12,11 +12,11 @@
 
 <!-- BEGIN OKF AGENT MEMORY -->
 ## 1. Behavioral Invariants & Constraints (RFC 2119)
-- MUST execute `okf_search(query=keywords, limit=3)` before proposing architecture, new dependencies, or substantial changes.
+- MUST run `okf_search(query=keywords, limit=3)` before architecture, dependency, or substantial-change proposals.
 - NEVER scan `knowledge/` via `list_dir`, `grep_search`, `find`, or raw file readers.
 - NEVER forge human verification (`verified:` is human-only; declare `generated: { by: "<actor>", at: "<iso-time>" }`).
 - PREFER native `okf_*` MCP tools OVER CLI fallback commands.
-- OKF PERSISTENCE: MUST persist durable decisions/facts via `okf_create`/`okf_update` in the same session they are made -- session-only knowledge is lost knowledge.
+- MUST persist durable decisions/facts via `okf_create`/`okf_update` in the session they are made (session-only knowledge is lost).
 
 ## 2. Guard Clauses & Scope Governance
 - ON edit(@path/):
