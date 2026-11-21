@@ -3,7 +3,7 @@ type: architecture
 title: "State machines: plugin and job lifecycle on qmuntal/stateless; cache entry and daemon deliberately not"
 description: "Four entity lifecycles with explicit ownership: plugin and job use qmuntal/stateless with typed enums and external SQLite state, image cache entries use a typed enum plus singleflight, daemon uses an ordered slice; persist-before-publish, boot reconciliation, graph golden tests and cppIsekai divergences."
 tags: [architecture, fsm, stateless, lifecycle, plugins, jobs, cache, persistence]
-generated: { by: agent/cli, at: "2026-11-21T12:00:52Z" }
+generated: { by: agent/cli, at: "2026-11-21T12:17:44Z" }
 status: draft
 ---
 
@@ -172,3 +172,4 @@ Status vocabulary from sites (`Ongoing|Completed|Hiatus|Dropped|Upcoming`, plus 
 # Related Concepts
 - [Event-driven core: domain events on gookit/event, stream plane separate](event-driven-core.md): plugin and job transitions are the source of domain events; persist-then-publish ordering
 - [Use qmuntal/stateless as the FSM engine behind typed domain wrappers](../decisions/state-machine-engine.md): implements the engine choice and wrapper rules
+- [Data flows: five ordered sequences and the invariants that keep them reproducible](data-flows.md): the plugin toggle flow is the FSM transition path

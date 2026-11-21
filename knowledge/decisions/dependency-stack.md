@@ -3,7 +3,7 @@ type: decision
 title: "Dependency stack: pure Go only (modernc sqlite, tls-client, gopher-lua, goja, wazero)"
 description: "No-cgo constraint with CGO_ENABLED=0 as build gate; chosen modernc.org/sqlite v1.62.0, bogdanfinn/tls-client v1.18.1, yuin/gopher-lua v1.1.2, dop251/goja and tetratelabs/wazero v1.12.0; measured goja ES2020 probe results, rejection of buke/quickjs-go and wasm3, QuickJS-on-WASI escape hatch."
 tags: [decision, dependencies, no-cgo, sqlite, tls, lua, js, wasm]
-generated: { by: agent/mcp, at: "2026-11-21T12:11:06Z" }
+generated: { by: agent/cli, at: "2026-11-21T12:19:11Z" }
 status: stable
 ---
 
@@ -86,3 +86,6 @@ ES2020 semantics beyond goja.
    clear error, not silently misbehave.
 3. The wasm runtime is the same engine that would host the QuickJS escape hatch, so the investment is shared.
 4. Any new dependency must prove `CGO_ENABLED=0` compatibility before its first import.
+
+# Related Concepts
+- [Image transcode without libvips: gen2brain WASM-transpiled webp/avif/jxl, pure-Go resize](image-pipeline.md): applies the no-cgo rule to the image pipeline

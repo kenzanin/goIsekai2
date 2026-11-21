@@ -1,4 +1,16 @@
 ## 2026-11-21
+* **Update**: Linked `decisions/dependency-stack.md` to `decisions/image-pipeline.md` (applies the no-cgo rule to the image pipeline).
+* **Update**: Linked `architecture/cache-layout.md` to `decisions/image-pipeline.md` (implements the transcode step with cgo-free codecs).
+* **Update**: Linked `architecture/data-flows.md` to `architecture/cache-layout.md` (the image-serve flow resolves against this tree).
+* **Update**: Linked `architecture/overview.md` to `architecture/cache-layout.md` (expands the cache tree entry of the frozen contracts).
+* **Creation**: Documented concept `decisions/image-pipeline.md` (Image transcode without libvips: gen2brain WASM-transpiled webp/avif/jxl, pure-Go resize).
+* **Creation**: Documented concept `architecture/cache-layout.md` (Image cache: v3 layout, namespace by display name, slug rules, LRU and pure-Go transcode).
+* **Update**: Linked `architecture/state-machines.md` to `architecture/data-flows.md` (the plugin toggle flow is the FSM transition path).
+* **Update**: Linked `architecture/event-driven-core.md` to `architecture/data-flows.md` (defines where each flow publishes and why nothing publishes inside a transaction).
+* **Update**: Linked `architecture/overview.md` to `architecture/boot-shutdown.md` (startup and teardown order for the layer map).
+* **Update**: Linked `architecture/overview.md` to `architecture/data-flows.md` (each request path in the overview is expanded here into a full ordered sequence).
+* **Creation**: Documented concept `architecture/boot-shutdown.md` (Boot and shutdown: ordered startup, dependency-ordered teardown, and the test that proves both).
+* **Creation**: Documented concept `architecture/data-flows.md` (Data flows: five ordered sequences and the invariants that keep them reproducible).
 * **Update**: Linked `architecture/event-driven-core.md` to `decisions/dependency-stack.md` (fixes the event bus implementation behind the actor wrapper).
 * **Update**: Linked `architecture/overview.md` to `decisions/dependency-stack.md` (names the concrete pure-Go libraries behind each stack slot).
 * **Creation**: Documented concept `decisions/dependency-stack.md` (Dependency stack: pure Go only (modernc sqlite, tls-client, gopher-lua, goja, wazero)).

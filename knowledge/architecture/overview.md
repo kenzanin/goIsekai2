@@ -3,7 +3,7 @@ type: architecture
 title: "Architecture overview: layers, import rules and frozen external contracts"
 description: "goIsekai2 shape as one local daemon: layer map and import matrix, model as the only shared package, store as the only SQL speaker, request paths for chapters and images, frozen baselines (routes, plugin ABI, status vocabulary, cache tree, config precedence), data directory and the open stack decisions."
 tags: [architecture, layers, dependencies, http, plugins, sqlite, stack]
-generated: { by: agent/cli, at: "2026-11-21T12:11:37Z" }
+generated: { by: agent/cli, at: "2026-11-21T12:19:11Z" }
 status: draft
 ---
 
@@ -101,7 +101,7 @@ write is committed before any event is published.
 | Routes and payload shapes | `src/http/*`, `openspec/specs/*` in cppIsekai |
 | Plugin ABI, host tools, method vocabulary | `src/plugin/*`, `knowledge/architecture/plugin-system.md` |
 | Status vocabulary | `Ongoing|Completed|Hiatus|Dropped|Upcoming`, tolerate upstream `Ongoin` |
-| Cache tree | `img/<plugin-ns>/cover/<sha1-16>.<ext>`, `img/<plugin-ns>/manga/<slug>/ch<n>-<id8>/pNNN.<ext>` |
+| Cache tree | `img/<plugin-ns>/cover/<sha1-16>.<ext>`, `img/<plugin-ns>/manga/<slug-dir>/ch<n>-<id8>/pNNN.<ext>` (see `architecture/cache-layout`) |
 | Config knobs and precedence | `src/config/registry.hpp`: default < ini < env < flag, `--dump-config` |
 | Reader window | limit 10, strictly-after position, per-chapter slices |
 
@@ -163,3 +163,6 @@ Remaining compatibility gates (not blockers, but they decide behaviour):
 - [Event-driven core: domain events on gookit/event, stream plane separate](event-driven-core.md): transport and services publish domain facts through the bus
 - [State machines: plugin and job lifecycle on qmuntal/stateless; cache entry and daemon deliberately not](state-machines.md): plugin and job lifecycles live in the domain service layer
 - [Dependency stack: pure Go only (modernc sqlite, tls-client, gopher-lua, goja, wazero)](../decisions/dependency-stack.md): names the concrete pure-Go libraries behind each stack slot
+- [Data flows: five ordered sequences and the invariants that keep them reproducible](data-flows.md): each request path in the overview is expanded here into a full ordered sequence
+- [Boot and shutdown: ordered startup, dependency-ordered teardown, and the test that proves both](boot-shutdown.md): startup and teardown order for the layer map
+- [Image cache: v3 layout, namespace by display name, slug rules, LRU and pure-Go transcode](cache-layout.md): expands the cache tree entry of the frozen contracts
