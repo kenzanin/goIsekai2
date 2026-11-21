@@ -12,12 +12,22 @@ import (
 // ConfigChanged is the topic name for configuration change events.
 const ConfigChanged = "config.changed"
 
+// PluginLifecycle is the topic name for plugin lifecycle changes.
+const PluginLifecycle = "plugin.lifecycle"
+
 // ConfigChangedPayload holds the payload for ConfigChanged events.
 type ConfigChangedPayload struct {
 	Key        string
 	Old        string
 	New        string
 	Generation uint64
+}
+
+// PluginLifecyclePayload reports one plugin's persisted lifecycle state.
+type PluginLifecyclePayload struct {
+	PluginID string
+	State    string
+	Error    string
 }
 
 type reqType int

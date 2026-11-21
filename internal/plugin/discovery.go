@@ -22,17 +22,29 @@ func Discover(dir string) ([]Entry, error) {
 		return nil, err
 	}
 	var found []Entry
+	seen := make(map[string]bool)
+	seenPaths := make(map[string]string)
 	for _, d := range dirEntries {
 		if !d.IsDir() {
 			continue
 		}
-		id := d.Name()
-		m, err := LoadManifest(filepath.Join(dir, id, "main.json"))
+		folder := d.Name()
+		m, err := LoadManifest(filepath.Join(dir, folder, "main.json"))
 		if err != nil {
-			slog.Warn("plugin: skipping broken manifest", "id", id, "err", err)
+			slog.Warn("plugin: skipping broken manifest", "id", folder, "err", err)
 			continue
 		}
-		found = append(found, Entry{ID: id, Manifest: m})
+		id := folder
+		if m.ID != "" {
+			id = m.ID
+		}
+		if seen[id] {
+			slog.Warn("plugin: duplicate id skipped", "id", id, "first", seenPaths[id], "second", filepath.Join(dir, folder))
+			continue
+		}
+		seen[id] = true
+		seenPaths[id] = filepath.Join(dir, folder)
+		found = append(found, Entry{ID: folder, Manifest: m})
 	}
 	return found, nil
 }

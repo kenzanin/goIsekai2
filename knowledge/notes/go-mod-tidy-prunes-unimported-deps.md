@@ -3,7 +3,7 @@ type: Fact
 title: go mod tidy prunes not-yet-imported deps; hand-edit for single promotions
 description: "go mod tidy prunes declared-but-unimported stack pins (stateless, wazero, gopher-lua); promote a single dependency by hand-editing go.mod instead."
 tags: [go.mod, dependencies, tooling]
-generated: { by: agent/mcp, at: "2026-11-21T17:45:08Z" }
+generated: { by: agent/mcp, at: "2026-11-21T18:09:27Z" }
 status: stable
 ---
 
@@ -16,3 +16,6 @@ Evidence:
 - Hand edit instead: moved the single `modernc.org/quickjs v0.27.0` line from the indirect block into the direct `require` block; final diff is exactly `+ modernc.org/quickjs v0.27.0` / `- modernc.org/quickjs v0.27.0 // indirect`, gates stay green.
 
 Consequence: on this repo run `go mod tidy` only when the whole tree's imports are final; to promote one dependency for a single package, hand-edit `go.mod` or the still-unimported stack pins (stateless, wazero, gopher-lua — recorded in decisions/dependency-stack) get pruned and must be re-added later.
+
+# Related Concepts
+- [Dependency stack: pure Go only (modernc sqlite, tls-client, gopher-lua, quickjs, wazero)](../decisions/dependency-stack.md): dependency pin maintenance finding from the plugin runtime lanes

@@ -18,6 +18,7 @@ import (
 	"goisekai2/internal/config"
 	"goisekai2/internal/events"
 	httpserver "goisekai2/internal/http"
+	"goisekai2/internal/plugin"
 	"goisekai2/internal/store"
 )
 
@@ -115,7 +116,17 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 
 	bus := events.New()
 	defer bus.Close()
-	srv := httpserver.New(reg, cli.ConfigPath, bus)
+
+	pluginDir := snap.String("plugin.plugins")
+	if !filepath.IsAbs(pluginDir) && !strings.ContainsRune(pluginDir, os.PathSeparator) {
+		pluginDir = filepath.Join(dataDir, pluginDir)
+	}
+	host := plugin.NewHost(st, bus, pluginDir, nil)
+	if err := host.Boot(ctx); err != nil {
+		fmt.Fprintf(stderr, "goisekai2: plugin host: %v\n", err)
+		return 1
+	}
+	srv := httpserver.New(reg, cli.ConfigPath, bus, host)
 
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", snap.Int(config.KnobServerPort)))
 	if err != nil {

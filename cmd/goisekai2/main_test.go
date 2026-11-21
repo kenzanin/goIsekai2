@@ -153,7 +153,7 @@ func TestDaemonEndToEnd(t *testing.T) {
 
 	dir := t.TempDir()
 	iniPath := filepath.Join(dir, "cfg.ini")
-	if err := os.WriteFile(iniPath, []byte("[paths]\ndata_dir = "+dir+"\nlibrary = "+filepath.Join(dir, "lib.db")+"\n\n[server]\n; keep this comment\nport = 8090\n\n[log]\nlevel = info\n"), 0o600); err != nil {
+	if err := os.WriteFile(iniPath, []byte("[paths]\ndata_dir = "+dir+"\nlibrary = "+filepath.Join(dir, "lib.db")+"\n\n[plugin]\nplugins = "+filepath.Join(dir, "plugins")+"\n\n[server]\n; keep this comment\nport = 8090\n\n[log]\nlevel = info\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
