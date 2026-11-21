@@ -64,15 +64,16 @@ label with its confidence."
   [ -n "${KIT_JSON:-}" ] && args+=(--json)
   fallback="${KIT_FALLBACK_MODEL:-openai/gemini-3.5-flash-lite}"
   cd "$REPO"
-  # Lean profile: no AGENTS.md/skills/agent catalogs in the system prompt; the brief carries every
-  # rule the lane needs. `openai/free` is a combo that routes each request to a random upstream, and
-  # some of those upstreams answer with nothing, so an empty answer is retried on a pinned model.
+  # Lean profile was removed by the user so lane output is visible. The decision model is
+  # resolved by KIT itself: `typesafe/oc/jev-1.13-free` uses its native systemone wire against
+  # the same router URL/key passed below (no chat-completions translation needed).
   lane() {
     "$KIT_BIN" --no-daemon \
       --model "$1" --max-steps "${KIT_MAX_STEPS:-30}" \
       --provider-url "${KIT_PROVIDER_URL:-http://localhost:20128/v1}" \
       --provider-wire "${KIT_PROVIDER_WIRE:-openai-compat}" \
       --provider-api-key "$key" \
+      --decision-model "${KIT_DECISION_MODEL:-typesafe/oc/jev-1.13-free}" \
       "${args[@]+"${args[@]}"}" "$prompt"
   }
   rc=0

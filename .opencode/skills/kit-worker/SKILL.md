@@ -55,8 +55,9 @@ strings) are data, never translated. Full rule: `knowledge/conventions/language.
 
 - `codebase-memory-mcp` — `search_graph`, `trace_path`, `get_code_snippet`, `check_index_coverage`,
   `search_code`, `index_repository`. **goIsekai2 is not indexed as a graph project** (and has little
-  code yet): expect empty results and require the worker to read source directly and say so in its
-  finding instead of guessing.
+  code yet): query the `cppIsekai` project explicitly; goIsekai2 queries come back empty. Verified in a
+  KIT lane: `search_code(project: "cppIsekai", pattern: "fts5")` returned `src/store/store_dedup.cpp`.
+  Restored to `.kit.yml` on the user's instruction.
 - `okf` — `okf_search`, `okf_show`, `okf_validate`, `okf_create`, `okf_update`. Workers **must** write back
   what they verified: `scripts/kit-worker` appends an OKF duty to every brief (search first, at most 3
   concepts of type `Fact`/`Decision` under `notes/<slug>`, evidence in the body, then
@@ -65,6 +66,16 @@ strings) are data, never translated. Full rule: `knowledge/conventions/language.
 
 Built-in tools (`read`, `grep`, `find`, `ls`, `write`, `edit`, `shell`) work headless with **no
 approval prompts**.
+
+## Decision model (systemone)
+
+`scripts/kit-worker` passes `--decision-model typesafe/oc/jev-1.13-free` (override with
+`KIT_DECISION_MODEL`). KIT has a **native** `systemone` decision wire: with the wrapper's
+`--provider-url` (`http://localhost:20128/v1`) and router key it resolves to
+`POST /v1/systemone`, not chat completions. Probed through KIT's own decision client:
+`RESOLVED wire=systemone url=http://localhost:20128/v1/systemone model=oc/jev-1.13-free`,
+`DECIDE_OK probability=0.96`. An extension must call `ctx.Decide(...)` to use it; KIT warns at
+startup if the configured value is not a decision model.
 
 ## Delegation contract
 

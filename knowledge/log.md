@@ -1,4 +1,6 @@
 ## 2026-11-21
+* **Update**: Linked `notes/jev-systemone-kit.md` to `references/kit-worker.md` (records both the native decision wire and the opt-in MCP route in the KIT launcher).
+* **Update**: Updated concept `notes/jev-systemone-kit.md`.
 * **Update**: Linked `notes/jev-systemone-kit.md` to `references/kit-worker.md` (records the opt-in jev MCP tool added to the KIT worker harness).
 * **Creation**: Documented concept `notes/jev-systemone-kit.md` (systemone/jev is a KIT MCP tool, not a KIT model).
 * **Update**: Linked `notes/probe-2026-11-21.md` to `process/porting-order.md` (Probe snapshot verifying the tree is green at the current porting stage).

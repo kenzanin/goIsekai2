@@ -6,3 +6,6 @@ mcpServers:
   okf:
     type: local
     command: ["okf", "mcp", "./knowledge"]
+  codebase-memory-mcp:
+    type: local
+    command: ["codebase-memory-mcp"]
