@@ -41,8 +41,11 @@ The wrapper resolves the key from `OMNIROUTE_API_KEY`, else the 9router entry in
 under `~/.kit/sessions/<cwd>/`, so a lane that ran out of steps is continued, not restarted. Override
 `KIT_PROVIDER_URL` / `KIT_BIN` / `KIT_WAIT_MS` if needed.
 
-**Dispatch serially.** One worker at a time — the user requires serial fixer delegation. Never run two
-`kit-worker` invocations whose file scopes could overlap.
+**Dispatch at most two lanes in parallel.** The user allows a maximum of two active KIT lanes;
+never run a third, and never let two lanes write overlapping files. For a failed lane, continue the
+same session with `--continue` instead of respawning a fresh one. Never run two `--continue` lanes
+at once: both pick the most recent session for the cwd and fight over the JSONL file. For parallel
+follow-ups use fresh sessions or `--session=<jsonl-path>`.
 
 ## Language
 
@@ -120,7 +123,9 @@ claim, not evidence — amend the same session with `--continue` instead of spaw
 
 - Headless KIT executes tools with no approval prompt and no OS sandbox; a vague brief can write the
   wrong file. Keep jobs to one file or one shape fix.
-- `openai/free` is a **combo alias**, not a single model: each request is routed to a different
+- Default chat model is `openai/adv/msi/GLM-5.3-Flash-EXL3` (user-directed; the `openai/` prefix is
+required so KIT forwards the full router model id instead of stripping `adv/` and failing with
+`No active credentials for provider: msi`). `KIT_MODEL` overrides it. `openai/free` is a **combo alias**, not a single model: each request is routed to a different
   upstream (observed: `msi/GLM-5.3-Flash-EXL3`, then `gemini-3.5-flash-lite`). Some upstreams inside
   the combo answer with an empty body, and KIT then reports `input=0 output=0`, exits 0 and writes no
   files. That is the cause of "lane exited 0 with zero files", not a context limit: the alias has a

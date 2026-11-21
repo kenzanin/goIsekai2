@@ -2,20 +2,31 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"log/slog"
+	"net"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"goisekai2/internal/config"
+	"goisekai2/internal/events"
+	httpserver "goisekai2/internal/http"
 )
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	os.Exit(run(ctx, os.Args[1:], os.Stdout, os.Stderr))
 }
 
 // run executes one daemon start attempt and returns the process exit code: 0 on
 // success, 2 on a usage error, 1 on any configuration or I/O failure.
-func run(args []string, stdout, stderr io.Writer) int {
+func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	reg := config.Knobs()
 	cli := config.NewCLI(reg)
 
@@ -71,11 +82,41 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	// ponytail: no server yet in this change; print the resolved listen address
-	// and exit. Swap for the HTTP shell when internal/http lands.
-	fmt.Fprintf(stdout, "goisekai2: config %s ok, would listen on :%d\n",
-		cli.ConfigPath, snap.Int(config.KnobServerPort))
-	if snap.Int(config.KnobServerPort) <= 0 {
+	levelVar := new(slog.LevelVar)
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: levelVar})))
+	config.RegisterLiveApplier("log.level", func(v string) error {
+		var level slog.Level
+		if err := level.UnmarshalText([]byte(v)); err != nil {
+			return err
+		}
+		levelVar.Set(level)
+		return nil
+	})
+	config.ApplySnapshot(snap)
+
+	bus := events.New()
+	defer bus.Close()
+	srv := httpserver.New(reg, cli.ConfigPath, bus)
+
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", snap.Int(config.KnobServerPort)))
+	if err != nil {
+		fmt.Fprintf(stderr, "goisekai2: %v\n", err)
+		return 1
+	}
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- srv.Serve(ln) }()
+	fmt.Fprintf(stdout, "goisekai2: listening on %s\n", ln.Addr())
+
+	<-ctx.Done()
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		fmt.Fprintf(stderr, "goisekai2: shutdown: %v\n", err)
+		return 1
+	}
+	if err := <-serveErr; err != nil && err != http.ErrServerClosed {
+		fmt.Fprintf(stderr, "goisekai2: serve: %v\n", err)
 		return 1
 	}
 	return 0

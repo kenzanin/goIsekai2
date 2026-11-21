@@ -1,4 +1,10 @@
 ## 2026-11-21
+* **Update**: Linked `notes/config-projection-and-mergesave.md` to `notes/config-resolution-gotchas.md` (Projection and MergeSave build upon configuration resolution rules.).
+* **Creation**: Documented concept `notes/config-projection-and-mergesave.md` (Projection and MergeSave verified for internal/config).
+* **Update**: Linked `notes/events-bus-implementation.md` to `architecture/event-driven-core.md` (Refined implementation of the event bus conforms to the event-driven core architecture.).
+* **Update**: Updated concept `notes/events-bus-implementation.md`.
+* **Update**: Linked `notes/events-bus-implementation.md` to `architecture/event-driven-core.md` (Implementation of the event bus conforms to the event-driven core architecture.).
+* **Creation**: Documented concept `notes/events-bus-implementation.md` (Events bus implementation verified with FIFO, panic recovery, and recorder).
 * **Update**: Linked `notes/jev-systemone-kit.md` to `references/kit-worker.md` (records both the native decision wire and the opt-in MCP route in the KIT launcher).
 * **Update**: Updated concept `notes/jev-systemone-kit.md`.
 * **Update**: Linked `notes/jev-systemone-kit.md` to `references/kit-worker.md` (records the opt-in jev MCP tool added to the KIT worker harness).

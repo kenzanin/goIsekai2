@@ -4,3 +4,5 @@
 * [FTS5 works on the pure-Go GORM stack, but V2 specs omit it](fts5-purego-probe.md) - modernc.org/sqlite v1.62.0 exposes SQLite 3.54.1 with FTS5 and bm25(); MATCH and ranking work under CGO_ENABLED=0, and the store/library specs now require FTS5 title search and BM25-ranked dedup.
 * [Probe 2026-11-21: tree builds and tests green](probe-2026-11-21.md) - As of 2026-11-21 the goisekai2 tree (cmd/goisekai2, internal/config, internal/store/sql) passes CGO_ENABLED=0 build, go vet and go test with zero failures.
 * [systemone/jev is a KIT MCP tool, not a KIT model](jev-systemone-kit.md) - KIT has a native systemone decision wire: --decision-model typesafe/oc/jev-1.13-free targets /v1/systemone and returns probabilities; the MCP tool route is also available.
+* [Events bus implementation verified with FIFO, panic recovery, and recorder](events-bus-implementation.md) - Refined internal/events Bus using non-closing reqChan with doneCh signaling and done synchronization on Subscribe/Publish.
+* [Projection and MergeSave verified for internal/config](config-projection-and-mergesave.md) - Verified Projection and MergeSave implementation and behavior for internal/config.

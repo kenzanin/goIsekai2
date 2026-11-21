@@ -1,0 +1,44 @@
+{{define "content"}}
+<h1>Settings</h1>
+{{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+<form id="settings-form">
+  {{range .Groups}}
+  <fieldset>
+    <legend>{{.Section}}</legend>
+    {{range .Rows}}
+    <div class="row">
+      <label for="{{.FullKey}}">{{.Key}} — {{.Doc}}</label>
+      <input id="{{.FullKey}}" data-key="{{.FullKey}}" data-original="{{.Value}}" value="{{.Value}}" {{if .Disabled}}disabled{{end}}>
+      <span class="source">{{.Source}}{{if .Hint}}: {{.Hint}}{{end}}</span>
+      {{if .Restart}}<span class="badge">restart required</span>{{end}}
+      {{if .Invalid}}<span class="error">invalid value</span>{{end}}
+    </div>
+    {{end}}
+  </fieldset>
+  {{end}}
+  <button type="submit">Save changes</button>
+</form>
+<p id="settings-status" class="source" role="status"></p>
+<script>
+  document.getElementById("settings-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const dirty = {};
+    document.querySelectorAll("input[data-key]:not([disabled])").forEach((input) => {
+      if (input.value !== input.dataset.original) dirty[input.dataset.key] = input.value;
+    });
+    const status = document.getElementById("settings-status");
+    if (Object.keys(dirty).length === 0) { status.textContent = "No changes."; return; }
+    const response = await fetch("/config", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(dirty),
+    });
+    const result = await response.json();
+    if (result.ok) {
+      status.textContent = "Saved " + result.written + " setting(s). Reload to confirm.";
+    } else {
+      status.textContent = result.error || "Save failed.";
+    }
+  });
+</script>
+{{end}}
