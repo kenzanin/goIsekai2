@@ -4,12 +4,14 @@
 #
 # Usage:  ./scripts/kit-worker "<prompt>"
 #         ./scripts/kit-worker --continue "<follow-up>"   # resume the last session
+#         ./scripts/kit-worker --session=<jsonl-path> "<follow-up>"  # explicit session (parallel-safe)
 #         ./scripts/kit-worker --json "<prompt>" | jq .
 # Key:    OMNIROUTE_API_KEY, or the 9router key from ~/.config/opencode/opencode.json.
 # Escape: KIT_ALLOW_HEADLESS=1 runs KIT in this terminal when herdr is unavailable.
 #
-# Environment: KIT_BIN, KIT_PROVIDER_URL, KIT_MODEL (default openai/free), KIT_FALLBACK_MODEL
+# Environment: KIT_BIN, KIT_PROVIDER_URL, KIT_MODEL (default openai/adv/msi/GLM-5.3-Flash-EXL3), KIT_FALLBACK_MODEL
 # (default openai/gemini-3.5-flash-lite), KIT_MAX_STEPS, KIT_WAIT_MS (lane timeout, default 30 min).
+# KIT_JEV=1 adds the local jev/systemone MCP tool (opt-in; adds tool schemas to the lane prompt).
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -33,25 +35,53 @@ run_kit() {
   key="$(resolve_key)"
   [ -n "$key" ] || { echo "kit-worker: set OMNIROUTE_API_KEY to the local router key" >&2; exit 78; }
   if [ -n "${KIT_PROMPT_FILE:-}" ]; then prompt="$(cat "$KIT_PROMPT_FILE")"; fi
+  prompt="$prompt
+
+OKF DUTY (mandatory, after the code work, before you finish): persist what you verified to this
+repo's okf knowledge bundle with the okf MCP tools (or the \`okf\` CLI when MCP is unavailable).
+- okf_search first to avoid duplicates; okf_update over okf_create when a concept already covers it.
+- At most 3 concepts, one fact or decision each. type: \"Fact\" for behaviour you proved by running
+  something, \"Decision\" only when you actually chose between alternatives. concept_id: notes/<slug>.
+  tags: the package or file it belongs to. description: one sentence. body: the evidence (command
+  plus output) and the consequence for our code.
+- Record only verified findings, never guesses, never a restatement of the brief.
+- Then run \`okf validate knowledge --strict --drift\` and report every concept id you wrote."
+  if [ "${KIT_JEV:-0}" = "1" ]; then
+    jev_bin="${JEV_MCP_BIN:-$HOME/.config/opencode/vendor/jev-mcp/dist/index.js}"
+    [ -f "$jev_bin" ] || { echo "kit-worker: JEV_MCP_BIN missing: $jev_bin" >&2; exit 78; }
+    router="${KIT_PROVIDER_URL:-http://localhost:20128/v1}"
+    export JEV_API_KEY="$key"
+    export JEV_BASE_URL="${JEV_BASE_URL:-${router%/v1}}"
+    export JEV_MODEL="${JEV_MODEL:-oc/jev-1.13-free}"
+    export JEV_TIMEOUT_MS="${JEV_TIMEOUT_MS:-60000}"
+    args+=(--mcp "jev=$(command -v node) $jev_bin")
+    prompt="$prompt
+
+JEV TOOL: jev.classify is available. Schema: {texts: string[], instructions: string,
+options?: {label: description}}. Use it for classification decisions and report the chosen
+label with its confidence."
+  fi
   [ -n "${KIT_MODE:-}" ] && args+=("$KIT_MODE")
+  if [ -n "${KIT_SESSION:-}" ]; then args+=(--session "$KIT_SESSION"); fi
   [ -n "${KIT_JSON:-}" ] && args+=(--json)
   fallback="${KIT_FALLBACK_MODEL:-openai/gemini-3.5-flash-lite}"
   cd "$REPO"
-  # Lean profile: no AGENTS.md/skills/agent catalogs in the system prompt; the brief carries every
-  # rule the lane needs. `openai/free` is a combo that routes each request to a random upstream, and
-  # some of those upstreams answer with nothing, so an empty answer is retried on a pinned model.
+  # Lean profile was removed by the user so lane output is visible. The decision model is
+  # resolved by KIT itself: `typesafe/oc/jev-1.13-free` uses its native systemone wire against
+  # the same router URL/key passed below (no chat-completions translation needed).
   lane() {
-    "$KIT_BIN" --quiet --bare --no-skills --no-agents --no-extensions --no-daemon \
+    "$KIT_BIN" --no-daemon --codemode=false \
       --model "$1" --max-steps "${KIT_MAX_STEPS:-30}" \
       --provider-url "${KIT_PROVIDER_URL:-http://localhost:20128/v1}" \
       --provider-wire "${KIT_PROVIDER_WIRE:-openai-compat}" \
       --provider-api-key "$key" \
+      --decision-model "${KIT_DECISION_MODEL:-typesafe/oc/jev-1.13-free}" \
       "${args[@]+"${args[@]}"}" "$prompt"
   }
   rc=0
-  out="$(lane "${KIT_MODEL:-openai/free}" 2>&1)" || rc=$?
-  if [ -z "$(printf '%s' "$out" | tr -d '[:space:]')" ] && [ "$rc" -eq 0 ] && [ "${KIT_MODEL:-openai/free}" != "$fallback" ]; then
-    echo "kit-worker: ${KIT_MODEL:-openai/free} answered nothing; retrying on $fallback" >&2
+  out="$(lane "${KIT_MODEL:-openai/adv/msi/GLM-5.3-Flash-EXL3}" 2>&1)" || rc=$?
+  if [ -z "$(printf '%s' "$out" | tr -d '[:space:]')" ] && [ "$rc" -eq 0 ] && [ "${KIT_MODEL:-openai/adv/msi/GLM-5.3-Flash-EXL3}" != "$fallback" ]; then
+    echo "kit-worker: ${KIT_MODEL:-adv/msi/GLM-5.3-Flash-EXL3} answered nothing; retrying on $fallback" >&2
     rc=0
     out="$(lane "$fallback" 2>&1)" || rc=$?
   fi
@@ -67,18 +97,20 @@ if [ "${KIT_LANE:-}" = "1" ]; then
   exit "$rc"
 fi
 
-prompt="" mode="" json=""
+prompt="" mode="" json="" session=""
 for arg in "$@"; do
   case "$arg" in
     --continue|--resume) mode="$arg" ;;
     --json) json="1" ;;
+    --session=*) session="${arg#--session=}" ;;
+    --sid=*) session="${arg#--sid=}" ;;
     *) prompt="$arg" ;;
   esac
 done
 
 if [ "${HERDR_ENV:-}" != "1" ]; then
   if [ "${KIT_ALLOW_HEADLESS:-}" = "1" ]; then
-    KIT_MODE="$mode" KIT_JSON="$json" run_kit
+    KIT_MODE="$mode" KIT_SESSION="$session" KIT_JSON="$json" run_kit
     exit $?
   fi
   echo "kit-worker: lanes must run in a herdr tab (HERDR_ENV=1). Set KIT_ALLOW_HEADLESS=1 to override." >&2
@@ -99,7 +131,12 @@ echo "kit-worker: lane tab $tab pane $pane (label $label)" >&2
 
 sleep 1
 herdr pane report-agent "$pane" --source kit-worker --agent kit --state working >/dev/null 2>&1 || true
-herdr pane run "$pane" "cd '$REPO' && KIT_LANE=1 KIT_PROMPT_FILE='$prompt_file' KIT_MODE='$mode' KIT_JSON='$json' ./scripts/kit-worker" >/dev/null
+env_prefix=""
+for name in KIT_MODEL KIT_FALLBACK_MODEL KIT_MAX_STEPS KIT_DECISION_MODEL KIT_BIN KIT_SESSION; do
+  value="${!name:-}"
+  if [ -n "$value" ]; then env_prefix="$env_prefix $name='$value'"; fi
+done
+herdr pane run "$pane" "cd '$REPO' && KIT_LANE=1 KIT_PROMPT_FILE='$prompt_file' KIT_MODE='$mode' KIT_SESSION='$session' KIT_JSON='$json' $env_prefix ./scripts/kit-worker" >/dev/null
 
 herdr pane wait-output "$pane" --match "__KIT_EXIT=" --timeout "${KIT_WAIT_MS:-1800000}" >/dev/null 2>&1 || true
 out="$(herdr pane read "$pane" --source recent-unwrapped --lines 200)"

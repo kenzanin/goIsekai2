@@ -263,7 +263,7 @@ func TestEntryNameRoundTrip(t *testing.T) {
 		}
 		re := Entry{Section: tt.section, Key: tt.key}
 		if re.Name() != name {
-			t.Errorf("round-trip: rebuilt %q != %q", re, name)
+			t.Errorf("round-trip: rebuilt %q != %q", re.Name(), name)
 		}
 	}
 }

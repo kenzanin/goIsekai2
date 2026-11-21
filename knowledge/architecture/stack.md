@@ -17,6 +17,8 @@ table that answers "library or hand-written?" without reading five concepts.
 | Area | Library | Version | Decision |
 |---|---|---|---|
 | SQLite | `modernc.org/sqlite` | v1.62.0 | `decisions/dependency-stack` |
+| ORM | `gorm.io/gorm` | v1.31.2 | `decisions/store-access` |
+| SQLite GORM driver | `github.com/glebarez/sqlite` | v1.11.0 (pure Go) | `decisions/store-access` |
 | HTTP client (scraping) | `bogdanfinn/tls-client` | v1.18.1 | `decisions/dependency-stack` |
 | Lua | `yuin/gopher-lua` | v1.1.2 | `decisions/dependency-stack` |
 | JS | `modernc.org/quickjs` | v0.27.0 | `decisions/dependency-stack` |
@@ -30,22 +32,23 @@ table that answers "library or hand-written?" without reading five concepts.
 | JPEG XL encode | `gen2brain/jpegxl` | unpinned | `decisions/image-pipeline` |
 | Decode / resize | `golang.org/x/image` | v0.48.0 | `decisions/image-pipeline` |
 | Tray | `fyne.io/systray` | v1.11.0 | `decisions/tray` |
-| INI config file | `gopkg.in/ini.v1` (repo `github.com/go-ini/ini`) | v1.68.0 | `decisions/config-file-format` |
+| INI config file | `unknwon.dev/ini/v2` | v2.0.0-beta.7 | `decisions/config-file-format` |
 | Native `.so` loading | `ebitengine/purego` | only if native plugins are adopted | `decisions/tray` |
 
 Stdlib for everything else: `net/http`, `html/template`, `log/slog`, `encoding/json`, `crypto/*`,
-`database/sql`, `os/exec`, `flag`.
+`database/sql`, `os/exec`, `flag`, `unicode/utf8` (rune-aware text handling: UTF-8 validation, rune counts
+and truncation for titles, slugs and cache names — never byte slicing).
 
 ## Hand-written (deliberate, no library)
 
 | Piece | Why not a library |
 |---|---|
-| Config registry: flag + env + default + provenance + strict/lenient resolution | the baseline precedence rules are ours; the ini format is handled by `gopkg.in/ini.v1` (`decisions/config-file-format`) |
+| Config registry: flag + env + default + provenance + strict/lenient resolution | the baseline precedence rules are ours; the ini format is handled by `unknwon.dev/ini/v2` (`decisions/config-file-format`) |
 | Events facade + single actor over `gookit/event` | typed payloads are the point; the library is untyped `map[string]any` |
 | Stream hub (bounded, drop-oldest) | nobody ships drop-oldest fan-out that never blocks the publisher |
 | FSM layer: typed enums + `fire()` wrappers + SQLite external state | compile-time safety the engine cannot give (`State = any`) |
 | Update scheduler, candidate selection, backoff, pacing, backup tick | product rules from `specs/updates`; the SQL window query is written by hand |
-| Store: SQL, migrations, `schema_version`, anti-nested-Tx helper | no ORM by rule; V1 used `go-jet`, so this row is open for review (see below) |
+| Store: typed repository methods over GORM; SQL statements, migrations, `schema_version`, anti-nested-Tx helper | the frozen SQL lives only in the `internal/store/sql` module, gated by `make lint`; `decisions/store-access` |
 | Plugin loader + 3-runtime bridge + host tools | ABI is frozen by the baseline (`specs/host-tools`, `specs/plugin-host`) |
 | Image cache tree, slug, `cache_ns`, disk LRU, sidecar, GC | baseline cache layout is a frozen contract (`specs/image-cache`) |
 | Daemon routes, SSR handlers, `/cache/img`, config save | thin layer over chi + `html/template` |
@@ -71,6 +74,8 @@ Stdlib for everything else: `net/http`, `html/template`, `log/slog`, `encoding/j
    `CGO_ENABLED=0`, so the goja plan and the WASI build step are both dropped.
 3. **Realtime transport.** `coder/websocket` over `internal/stream`, WS `GET /ws/log` parity, not SSE
    (`decisions/http-framework`).
+4. **Pool policy.** No generic worker pool: GORM's `SetMaxOpenConns(1)` replaces `db_pool(1)`;
+   plugin/fetch calls use semaphores; only scheduler jobs get bounded runners (`decisions/concurrency-pool-policy`).
 
 ## Rule
 

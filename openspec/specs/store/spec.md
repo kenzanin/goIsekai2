@@ -25,6 +25,7 @@ inventory rather than a behaviour:
 | `chapters` | `(plugin, slug, chapter_id)` | `number` (double, display/sort only), `title`, `url`, `flags`, `updated_at` |
 | `chapter_pages` | `(plugin, slug, chapter_id, idx)` | `idx` 0-based reading order, `url` of the source image |
 | `api_cache` | `(plugin_id, query_hash)` | `params_json`, `fetched_at`, `ttl_s`, payload stored as a JSON blob |
+| `library_fts` | none (FTS5 virtual table) | `plugin UNINDEXED`, `slug UNINDEXED`, `name`, `alt_titles` (raw JSON), `synopsis`; one row per indexed title |
 
 `saved_manga` carries: `name`, `cover`, `added_at`, `status` (verbatim from the source), `total_ch`,
 `read_ch`, `last_read_at`, `updated_at`, `synopsis`, `alt_titles` (JSON array), `dup_group`,
@@ -113,15 +114,46 @@ transaction). `--dump-config` and `--help` SHALL NOT touch the database.
 - **WHEN** `schema_version` is greater than the binary's latest migration
 - **THEN** boot refuses to start and says the database is newer than the binary, rather than downgrading
 
+### Requirement: FTS5 title index
+
+The store SHALL create `library_fts` at boot (`CREATE VIRTUAL TABLE IF NOT EXISTS library_fts USING
+fts5(plugin UNINDEXED, slug UNINDEXED, name, alt_titles, synopsis)`). Saves, refreshes and source
+migrations replace the row for `(plugin, slug)`; removals delete it. Local search SHALL use
+`MATCH ... ORDER BY bm25(library_fts)` with prefix terms. DDL and MATCH stay in `internal/store/sql`.
+If creation fails, warn once, keep LIKE search and leave `dup_group = 0`.
+
+#### Scenario: Fresh database gets the index
+- **WHEN** the store opens a file with no tables
+- **THEN** `library_fts` is created before boot completes and an empty search returns no rows
+
+#### Scenario: Refresh replaces the indexed row
+- **WHEN** a title's synopsis or alternative titles change and the row is saved again
+- **THEN** the index holds exactly one row for that `(plugin, slug)` with `name`, raw-JSON
+  `alt_titles` and the new `synopsis`
+
+#### Scenario: Ranked local search
+- **WHEN** a query matches both a title name and another title's synopsis
+- **THEN** results are ordered by `bm25(library_fts)`, best score first, and a prefix term matches
+
+#### Scenario: FTS5 unavailable
+- **WHEN** creating the virtual table fails
+- **THEN** boot warns once, local search falls back to LIKE, and duplicate grouping stays disabled
+
 ### Requirement: Deduplication group recomputation
 
-`dup_group` SHALL be a derived value computed at boot (and after a save) from the same-work
-clustering inputs, never trusted from a previous run. A stale `dup_group` on disk SHALL NOT
-affect grouping after restart.
+`dup_group` SHALL be recomputed at boot and after saves from current data, never trusted from disk.
+Candidates SHALL come from `library_fts` via `MATCH ... ORDER BY bm25(library_fts) LIMIT 20`, filtered
+by the baseline token-multiset similarity rules; grouping SHALL use union-find, with every group write
+in one transaction.
 
 #### Scenario: Groups are rebuilt at boot
 - **WHEN** the daemon restarts with three titles that now share a synopsis and author
 - **THEN** all three carry the same non-zero `dup_group` after boot even if they were written as `0`
+
+#### Scenario: Baseline similarity and grouping rules
+- **WHEN** BM25 candidates are checked with token-multiset Dice similarity
+- **THEN** a title score >= 0.75, a name score >= 0.75, or 0.5*title + 0.5*synopsis >= 0.6 joins a group;
+  singletons get `0`, multi-row groups get sequential ids from 1, and all writes share one transaction
 
 ### Requirement: Write-through API cache
 

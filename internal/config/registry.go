@@ -184,8 +184,11 @@ func parseValue(e Entry, raw string) (Value, error) {
 		if err != nil {
 			return Value{}, fmt.Errorf("entry %q: invalid value %q for %s: %w", name, raw, e.Kind, err)
 		}
-		if (e.Min != 0 || e.Max != 0) && (v < e.Min || v > e.Max) {
-			return Value{}, fmt.Errorf("entry %q: value %d out of bounds [%d, %d]", name, v, e.Min, e.Max)
+		if e.Min != 0 && v < e.Min {
+			return Value{}, fmt.Errorf("entry %q: value %d out of bounds (min %d)", name, v, e.Min)
+		}
+		if e.Max != 0 && v > e.Max {
+			return Value{}, fmt.Errorf("entry %q: value %d out of bounds (max %d)", name, v, e.Max)
 		}
 		return Value{Kind: e.Kind, Int: v}, nil
 

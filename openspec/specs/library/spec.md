@@ -187,6 +187,26 @@ disabled error.
 - **WHEN** the query yields no results, or the plugin call fails
 - **THEN** the grid shows the empty or error state respectively, without navigating away
 
+### Requirement: Local library title search
+
+The library page SHALL also offer a local search over saved titles, distinct from the plugin-backed
+discovery search above. A local query SHALL execute as FTS5 `MATCH` against `library_fts` with results
+ordered by `bm25(library_fts)`; prefix terms SHALL match. This search SHALL NOT call a plugin. When
+FTS5 is unavailable, it SHALL fall back to LIKE over `name` and `alt_titles` without relevance ordering,
+and the page SHALL show that results are unranked.
+
+#### Scenario: Ranked local results
+- **WHEN** a local query matches one title's name and another title's synopsis
+- **THEN** the name match appears first, ordered by `bm25(library_fts)`
+
+#### Scenario: Prefix query
+- **WHEN** the local query is a prefix such as `ise`
+- **THEN** saved titles containing a matching token are returned
+
+#### Scenario: Fallback without FTS5
+- **WHEN** `library_fts` could not be created
+- **THEN** local search returns LIKE matches and labels them as unranked
+
 ### Requirement: Search results are cached and counted
 
 Search SHALL serve from the write-through `api_cache` inside its TTL and SHALL return the plugin's

@@ -41,8 +41,11 @@ The wrapper resolves the key from `OMNIROUTE_API_KEY`, else the 9router entry in
 under `~/.kit/sessions/<cwd>/`, so a lane that ran out of steps is continued, not restarted. Override
 `KIT_PROVIDER_URL` / `KIT_BIN` / `KIT_WAIT_MS` if needed.
 
-**Dispatch serially.** One worker at a time — the user requires serial fixer delegation. Never run two
-`kit-worker` invocations whose file scopes could overlap.
+**Dispatch at most two lanes in parallel.** The user allows a maximum of two active KIT lanes;
+never run a third, and never let two lanes write overlapping files. For a failed lane, continue the
+same session with `--continue` instead of respawning a fresh one. Never run two `--continue` lanes
+at once: both pick the most recent session for the cwd and fight over the JSONL file. For parallel
+follow-ups use fresh sessions or `--session=<jsonl-path>`.
 
 ## Language
 
@@ -55,12 +58,27 @@ strings) are data, never translated. Full rule: `knowledge/conventions/language.
 
 - `codebase-memory-mcp` — `search_graph`, `trace_path`, `get_code_snippet`, `check_index_coverage`,
   `search_code`, `index_repository`. **goIsekai2 is not indexed as a graph project** (and has little
-  code yet): expect empty results and require the worker to read source directly and say so in its
-  finding instead of guessing.
-- `okf` — `okf_search`, `okf_show`, `okf_validate`. Read-only use by default; see the guardrails.
+  code yet): query the `cppIsekai` project explicitly; goIsekai2 queries come back empty. Verified in a
+  KIT lane: `search_code(project: "cppIsekai", pattern: "fts5")` returned `src/store/store_dedup.cpp`.
+  Restored to `.kit.yml` on the user's instruction.
+- `okf` — `okf_search`, `okf_show`, `okf_validate`, `okf_create`, `okf_update`. Workers **must** write back
+  what they verified: `scripts/kit-worker` appends an OKF duty to every brief (search first, at most 3
+  concepts of type `Fact`/`Decision` under `notes/<slug>`, evidence in the body, then
+  `okf validate knowledge --strict --drift`). The main session reviews those concepts like any other
+  diff: unverified or duplicated notes get fixed or dropped.
 
 Built-in tools (`read`, `grep`, `find`, `ls`, `write`, `edit`, `shell`) work headless with **no
 approval prompts**.
+
+## Decision model (systemone)
+
+`scripts/kit-worker` passes `--decision-model typesafe/oc/jev-1.13-free` (override with
+`KIT_DECISION_MODEL`). KIT has a **native** `systemone` decision wire: with the wrapper's
+`--provider-url` (`http://localhost:20128/v1`) and router key it resolves to
+`POST /v1/systemone`, not chat completions. Probed through KIT's own decision client:
+`RESOLVED wire=systemone url=http://localhost:20128/v1/systemone model=oc/jev-1.13-free`,
+`DECIDE_OK probability=0.96`. An extension must call `ctx.Decide(...)` to use it; KIT warns at
+startup if the configured value is not a decision model.
 
 ## Delegation contract
 
@@ -84,8 +102,9 @@ Bad: "implement the config package" — that is a lane the main session owns.
   library has misread the project.
 - **No new dependency** without a decision from the main session (the stack is fixed in
   `knowledge/decisions/dependency-stack.md`).
-- **Specs and knowledge are read-only to the worker** unless it was explicitly told to record one
-  fact; the main session writes `openspec/` and OKF concepts.
+- **Specs stay read-only** (`openspec/` is the main session's); knowledge is written **only** through the
+  appended OKF duty — never free-form edits to existing concepts, never a note without the evidence that
+  proved it.
 - **Tests next to the package**, stdlib `testing` only, no new test framework.
 - **Report `git diff --stat`** at the end plus the exact gate command and its exit status.
 
@@ -104,7 +123,9 @@ claim, not evidence — amend the same session with `--continue` instead of spaw
 
 - Headless KIT executes tools with no approval prompt and no OS sandbox; a vague brief can write the
   wrong file. Keep jobs to one file or one shape fix.
-- `openai/free` is a **combo alias**, not a single model: each request is routed to a different
+- Default chat model is `openai/adv/msi/GLM-5.3-Flash-EXL3` (user-directed; the `openai/` prefix is
+required so KIT forwards the full router model id instead of stripping `adv/` and failing with
+`No active credentials for provider: msi`). `KIT_MODEL` overrides it. `openai/free` is a **combo alias**, not a single model: each request is routed to a different
   upstream (observed: `msi/GLM-5.3-Flash-EXL3`, then `gemini-3.5-flash-lite`). Some upstreams inside
   the combo answer with an empty body, and KIT then reports `input=0 output=0`, exits 0 and writes no
   files. That is the cause of "lane exited 0 with zero files", not a context limit: the alias has a
@@ -119,3 +140,24 @@ claim, not evidence — amend the same session with `--continue` instead of spaw
 - No UI/visual verification through KIT; the main session verifies rendering.
 - KIT session history is local JSONL — durable knowledge belongs in OKF + OpenSpec + Magic Context,
   not in a worker's transcript.
+
+## Optional jev / systemone tool (opt-in)
+
+`KIT_JEV=1 ./scripts/kit-worker "..."` adds the local jev MCP server with
+`--mcp "jev=<node> ~/.config/opencode/vendor/jev-mcp/dist/index.js"`, exporting
+`JEV_API_KEY` from the wrapper's resolved router key (never committed), plus
+`JEV_BASE_URL`, `JEV_MODEL=oc/jev-1.13-free` and `JEV_TIMEOUT_MS`. The lane brief
+gains one line with the tool's real schema:
+`{texts: string[], instructions: string, options?: {label: description}}`.
+Default lanes do not pay for those tool schemas.
+
+Verified: a KIT lane called `jev.classify` through this MCP server and received
+`{"model":"oc/jev-1.13-free","results":[{"index":0,"choice":"yes",...}]}`
+with a `0.91` confidence. A wrong first call using the raw `/v1/systemone`
+schema (`state`/`questions`) failed input validation; the tool schema above is
+the one that works.
+
+systemone is **not** a drop-in KIT model: `--provider-wire` accepts only
+`openai`, `openai-compat`, `anthropic` and `google`, and a chat-completions
+request with `oc/jev-1.13-free` returns `400 ModelProtocolUnsupported`. Use it
+as a tool for classification/decision calls, not as the lane's reasoning model.

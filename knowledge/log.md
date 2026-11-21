@@ -1,4 +1,37 @@
 ## 2026-11-21
+* **Update**: Linked `notes/config-projection-and-mergesave.md` to `notes/config-resolution-gotchas.md` (Projection and MergeSave build upon configuration resolution rules.).
+* **Creation**: Documented concept `notes/config-projection-and-mergesave.md` (Projection and MergeSave verified for internal/config).
+* **Update**: Linked `notes/events-bus-implementation.md` to `architecture/event-driven-core.md` (Refined implementation of the event bus conforms to the event-driven core architecture.).
+* **Update**: Updated concept `notes/events-bus-implementation.md`.
+* **Update**: Linked `notes/events-bus-implementation.md` to `architecture/event-driven-core.md` (Implementation of the event bus conforms to the event-driven core architecture.).
+* **Creation**: Documented concept `notes/events-bus-implementation.md` (Events bus implementation verified with FIFO, panic recovery, and recorder).
+* **Update**: Linked `notes/jev-systemone-kit.md` to `references/kit-worker.md` (records both the native decision wire and the opt-in MCP route in the KIT launcher).
+* **Update**: Updated concept `notes/jev-systemone-kit.md`.
+* **Update**: Linked `notes/jev-systemone-kit.md` to `references/kit-worker.md` (records the opt-in jev MCP tool added to the KIT worker harness).
+* **Creation**: Documented concept `notes/jev-systemone-kit.md` (systemone/jev is a KIT MCP tool, not a KIT model).
+* **Update**: Linked `notes/probe-2026-11-21.md` to `process/porting-order.md` (Probe snapshot verifying the tree is green at the current porting stage).
+* **Creation**: Documented concept `notes/probe-2026-11-21.md` (Probe 2026-11-21: tree builds and tests green).
+* **Update**: Linked `notes/fts5-purego-probe.md` to `architecture/concurrency-ownership.md` (FTS5 adds no worker-pool requirement; the policy is recorded separately).
+* **Update**: Linked `decisions/concurrency-pool-policy.md` to `decisions/state-machine-engine.md` (plugin runtime slots map to Enabled/Idle/Busy states, not to generic workers).
+* **Update**: Linked `decisions/concurrency-pool-policy.md` to `decisions/store-access.md` (GORM's connection pool replaces the baseline db_pool; no work pool is added).
+* **Update**: Linked `decisions/concurrency-pool-policy.md` to `architecture/concurrency-ownership.md` (locks the pool policy already implied by the ownership and backpressure tables).
+* **Creation**: Documented concept `decisions/concurrency-pool-policy.md` (No generic worker pool: job runners plus semaphores).
+* **Update**: Linked `notes/fts5-purego-probe.md` to `decisions/store-access.md` (proves FTS5 and BM25 work on the chosen pure-Go GORM stack).
+* **Update**: Updated concept `notes/fts5-purego-probe.md`.
+* **Update**: Linked `notes/fts5-purego-probe.md` to `decisions/store-access.md` (proves the chosen pure-Go GORM stack supports the FTS5 feature the baseline relies on).
+* **Creation**: Documented concept `notes/fts5-purego-probe.md` (FTS5 works on the pure-Go GORM stack, but V2 specs omit it).
+* **Update**: Updated concept `conventions/sql-boundary.md`.
+* **Update**: Updated concept `decisions/store-access.md`.
+* **Update**: Linked `conventions/sql-boundary.md` to `architecture/stack.md` (the review page points at the gate that keeps store SQL in one place).
+* **Update**: Linked `decisions/store-access.md` to `conventions/sql-boundary.md` (the decision's enforcement mechanism is the raw-SQL boundary rule).
+* **Update**: Linked `decisions/store-access.md` to `decisions/dependency-stack.md` (extends the dependency stack with GORM on the pure-Go SQLite driver).
+* **Creation**: Documented concept `conventions/sql-boundary.md` (Raw SQL boundary).
+* **Creation**: Documented concept `decisions/store-access.md` (Store access: GORM with one raw-SQL boundary).
+* **Update**: Linked `notes/config-resolution-gotchas.md` to `notes/go-ini-v2-behaviour.md` (both record verified behaviour of the config layer built for add-config).
+* **Update**: Linked `notes/config-resolution-gotchas.md` to `decisions/config-file-format.md` (records implementation traps found while applying the config-file-format decision).
+* **Update**: Linked `notes/go-ini-v2-behaviour.md` to `decisions/config-file-format.md` (records the library behaviour the config-file-format decision depends on).
+* **Creation**: Documented concept `notes/config-resolution-gotchas.md` (Config resolution gotchas found while building add-config).
+* **Creation**: Documented concept `notes/go-ini-v2-behaviour.md` (unknwon.dev/ini/v2 round-trip behaviour).
 * **Update**: Linked `decisions/config-file-format.md` to `decisions/dependency-stack.md` (adds gopkg.in/ini.v1 to the approved pure-Go dependency set).
 * **Update**: Linked `decisions/config-file-format.md` to `architecture/stack.md` (supplies the ini parser row in the stack review and replaces the hand-written INI plan).
 * **Creation**: Documented concept `conventions/language.md` (English for all artifacts, Indonesian only in chat).

@@ -95,3 +95,17 @@ Rules that follow:
 - [Capability porting order](../process/porting-order.md)
 - [Dependency stack decision](../decisions/dependency-stack.md)
 - [Godoc comment rule](../conventions/godoc.md)
+
+## Current launcher settings (user-directed, 2026-11-21)
+
+- The user removed `--quiet --bare --no-skills --no-agents --no-extensions` from
+  `scripts/kit-worker` so a lane's activity is visible in its herdr tab. The
+  fallback to the pinned model on an empty answer is still in place.
+- `--decision-model typesafe/oc/jev-1.13-free` is passed to KIT. Its native
+  `systemone` wire targets `http://localhost:20128/v1/systemone` using the same
+  router URL/key; verified with `RESOLVED wire=systemone …`, `DECIDE_OK
+  probability=0.96`. The MCP tool route (`KIT_JEV=1`) remains available.
+- `codebase-memory-mcp` is back in `.kit.yml` (it had been removed because its
+  status was `failed` and goIsekai2 is not graph-indexed). Query the `cppIsekai`
+  project explicitly; a KIT run confirmed `search_code(project: cppIsekai,
+  pattern: fts5)` returns `src/store/store_dedup.cpp`.
