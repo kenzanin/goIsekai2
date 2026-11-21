@@ -1,4 +1,11 @@
 ## 2026-11-21
+* **Update**: Linked `notes/go-mod-tidy-prunes-unimported-deps.md` to `decisions/dependency-stack.md` (dependency pin maintenance finding from the plugin runtime lanes).
+* **Update**: Linked `notes/js-quickjs-thrown-string-errors.md` to `decisions/dependency-stack.md` (QuickJS error-shape finding from the plugin JS runtime built on the pinned pure-Go engine).
+* **Update**: Updated concept `notes/plugin-envelope-v1.md`.
+* **Creation**: Documented concept `notes/go-mod-tidy-prunes-unimported-deps.md` (go mod tidy prunes not-yet-imported deps; hand-edit for single promotions).
+* **Creation**: Documented concept `notes/js-quickjs-thrown-string-errors.md` (QuickJS thrown-string errors keep exact text; match wrapped sentinels with Contains).
+* **Update**: Linked `notes/plugin-envelope-v1.md` to `architecture/overview.md` (Implements the frozen plugin ABI baseline recorded in the architecture overview (envelope contract, method vocabulary).).
+* **Creation**: Documented concept `notes/plugin-envelope-v1.md` (Plugin host contract v1 implemented and gated in internal/plugin).
 * **Update**: Linked `notes/tmp-probe-go-test.md` to `notes/tmp-probe-go-build.md` (Same scratch package: the build probe proved compilation, this test probe proves the test gate too.).
 * **Creation**: Documented concept `notes/tmp-probe-go-test.md` (tmp probe test green: go test ./tmp -count=1 exit 0, TestOK passes against OK() sentinel).
 * **Update**: Linked `notes/tmp-probe-go-build.md` to `notes/tmp-dummy-probe.md` (Sibling scratch verification in tmp/: this probe extends the fixture chain with a compilable Go package sentinel.).

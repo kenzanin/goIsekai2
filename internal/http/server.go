@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -19,6 +20,7 @@ import (
 	"goisekai2/internal/config"
 	"goisekai2/internal/events"
 	"goisekai2/internal/http/components"
+	"goisekai2/internal/plugin"
 )
 
 //go:embed assets/*
@@ -40,16 +42,18 @@ type Server struct {
 	iniPath    string
 	httpServer *http.Server
 	bus        *events.Bus
+	host       *plugin.Host
 	generation atomic.Uint64
 }
 
 // New builds a server for reg and the ini file at iniPath. A nil bus disables
 // domain-event publishing (used by tests that only exercise rendering).
-func New(reg *config.Registry, iniPath string, bus *events.Bus) *Server {
+func New(reg *config.Registry, iniPath string, bus *events.Bus, host *plugin.Host) *Server {
 	s := &Server{
 		reg:     reg,
 		iniPath: iniPath,
 		bus:     bus,
+		host:    host,
 	}
 	s.httpServer = &http.Server{
 		Handler:           s.Handler(),
@@ -60,7 +64,11 @@ func New(reg *config.Registry, iniPath string, bus *events.Bus) *Server {
 
 // Pages returns the implemented pages in navigation order.
 func (s *Server) Pages() []Page {
-	return append([]Page(nil), pages...)
+	out := append([]Page(nil), pages...)
+	if s.host != nil {
+		out = append(out, Page{Path: "/plugins", Title: "Plugins"})
+	}
+	return out
 }
 
 // Handler returns the chi router; handlers stay plain http.HandlerFunc.
@@ -71,6 +79,12 @@ func (s *Server) Handler() http.Handler {
 	}
 	r.Get("/config", s.getConfig)
 	r.Post("/config", s.postConfig)
+	if s.host != nil {
+		r.Get("/plugins", s.renderPlugins)
+		r.Post("/plugins/{id}/toggle", s.togglePlugin)
+		r.Post("/plugins/{id}/reload", s.reloadPlugin)
+		r.Get("/plugins/{id}/logo", s.pluginLogo)
+	}
 	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.FS(assetRoot))))
 	return r
 }
@@ -83,6 +97,80 @@ func (s *Server) Serve(l net.Listener) error {
 // Shutdown stops accepting new requests and waits for in-flight handlers.
 func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
+}
+
+func (s *Server) renderPlugins(w http.ResponseWriter, r *http.Request) {
+	active := components.Page{Path: "/plugins", Title: "Plugins"}
+	pages := make([]components.Page, 0, len(s.Pages()))
+	for _, p := range s.Pages() {
+		pages = append(pages, components.Page{Path: p.Path, Title: p.Title})
+	}
+	rows := make([]components.PluginRow, 0)
+	for _, row := range s.host.Rows(r.Context()) {
+		rows = append(rows, pluginRowFromHost(row))
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := components.Plugins(active, pages, rows, s.host.Dir()).Render(r.Context(), w); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func pluginRowFromHost(row plugin.HostRow) components.PluginRow {
+	return components.PluginRow{
+		ID: row.ID, Name: row.Name, Version: row.Version, Runtime: row.Runtime,
+		Capabilities: row.Capabilities, TitleCount: row.TitleCount, Status: row.Status,
+		Error: row.Error, Enabled: row.Enabled, HasLogo: row.HasLogo,
+	}
+}
+
+func (s *Server) pluginRow(id string) (components.PluginRow, bool) {
+	for _, row := range s.host.Rows(context.Background()) {
+		if row.ID == id {
+			return pluginRowFromHost(row), true
+		}
+	}
+	return components.PluginRow{}, false
+}
+
+func (s *Server) renderPluginStatus(w http.ResponseWriter, r *http.Request, id string, actionErr error) {
+	row, ok := s.pluginRow(id)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	if actionErr != nil {
+		row.Status, row.Error = "error", actionErr.Error()
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = components.PluginStatusFragment(row).Render(r.Context(), w)
+}
+
+func (s *Server) togglePlugin(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	row, ok := s.pluginRow(id)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	err := s.host.SetEnabled(r.Context(), id, !row.Enabled)
+	s.renderPluginStatus(w, r, id, err)
+}
+
+func (s *Server) reloadPlugin(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	err := s.host.Reload(r.Context())
+	s.renderPluginStatus(w, r, id, err)
+}
+
+func (s *Server) pluginLogo(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	for _, row := range s.host.Rows(r.Context()) {
+		if row.ID == id && row.HasLogo && row.Logo != "" {
+			http.ServeFile(w, r, filepath.Join(s.host.Dir(), id, row.Logo))
+			return
+		}
+	}
+	http.NotFound(w, r)
 }
 
 func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request) {

@@ -16,20 +16,22 @@ import (
 
 	"goisekai2/internal/config"
 	"goisekai2/internal/events"
+	"goisekai2/internal/plugin"
+	"goisekai2/internal/store"
 )
 
 func testIni(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "cfg.ini")
-	if err := os.WriteFile(path, []byte("[paths]\ndata_dir = "+dir+"\nlibrary = "+filepath.Join(dir, "lib.db")+"\n\n[server]\n; listen port\nport = 8090\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte("[paths]\ndata_dir = "+dir+"\nlibrary = "+filepath.Join(dir, "lib.db")+"\n\n[plugin]\nplugins = "+filepath.Join(dir, "plugins")+"\n\n[server]\n; listen port\nport = 8090\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return path
 }
 
 func TestRoutesOnlyIncludeImplementedPages(t *testing.T) {
-	s := New(config.Knobs(), testIni(t), nil)
+	s := New(config.Knobs(), testIni(t), nil, nil)
 	if got := s.Pages(); len(got) != 1 || got[0].Path != "/settings" {
 		t.Fatalf("pages = %v, want only /settings", got)
 	}
@@ -52,7 +54,7 @@ func TestRoutesOnlyIncludeImplementedPages(t *testing.T) {
 
 func TestGetConfigReflectsFileEdits(t *testing.T) {
 	path := testIni(t)
-	s := New(config.Knobs(), path, nil)
+	s := New(config.Knobs(), path, nil, nil)
 	get := func() []config.Projection {
 		rec := httptest.NewRecorder()
 		s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/config", nil))
@@ -80,7 +82,7 @@ func TestGetConfigReflectsFileEdits(t *testing.T) {
 
 func TestPostConfigMergeSaveAndReject(t *testing.T) {
 	path := testIni(t)
-	s := New(config.Knobs(), path, nil)
+	s := New(config.Knobs(), path, nil, nil)
 	post := func(body string) *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/config", bytes.NewBufferString(body))
@@ -113,7 +115,7 @@ func TestPostConfigMergeSaveAndReject(t *testing.T) {
 }
 
 func TestServeAndShutdown(t *testing.T) {
-	s := New(config.Knobs(), testIni(t), nil)
+	s := New(config.Knobs(), testIni(t), nil, nil)
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -160,7 +162,7 @@ func TestPostConfigPublishesAfterWriteAndAppliesLive(t *testing.T) {
 	bus := events.New()
 	t.Cleanup(bus.Close)
 	rec := bus.Record(events.ConfigChanged)
-	s := New(config.Knobs(), path, bus)
+	s := New(config.Knobs(), path, bus, nil)
 
 	post := func(body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, "/config", bytes.NewBufferString(body))
@@ -199,8 +201,53 @@ func TestPostConfigPublishesAfterWriteAndAppliesLive(t *testing.T) {
 	}
 }
 
+func TestPluginsPageAndActions(t *testing.T) {
+	dir := t.TempDir()
+	pluginDir := filepath.Join(dir, "plugins")
+	folder := filepath.Join(pluginDir, "p")
+	if err := os.MkdirAll(folder, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	manifest := `{"name":"Fixture","version":"1","runtime":"lua","capabilities":["search"],"api":1,"entry":"plugin.lua"}`
+	if err := os.WriteFile(filepath.Join(folder, "main.json"), []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(folder, "plugin.lua"), []byte(`function handle(req) return '{"ok":true}' end`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.Open(filepath.Join(dir, "lib.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	host := plugin.NewHost(st, nil, pluginDir, nil)
+	ctx := context.Background()
+	if err := host.Boot(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := host.SetEnabled(ctx, "p", true); err != nil {
+		t.Fatal(err)
+	}
+	s := New(config.Knobs(), testIni(t), nil, host)
+
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/plugins", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Fixture") ||
+		!strings.Contains(rec.Body.String(), `href="/library?plugin=p"`) {
+		t.Fatalf("plugins page: %d %s", rec.Code, rec.Body.String())
+	}
+
+	for _, path := range []string{"/plugins/p/toggle", "/plugins/p/reload"} {
+		action := httptest.NewRecorder()
+		s.Handler().ServeHTTP(action, httptest.NewRequest(http.MethodPost, path, nil))
+		if action.Code != http.StatusOK {
+			t.Fatalf("%s = %d", path, action.Code)
+		}
+	}
+}
+
 func TestAssetsAreServedLocally(t *testing.T) {
-	s := New(config.Knobs(), testIni(t), nil)
+	s := New(config.Knobs(), testIni(t), nil, nil)
 
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/settings", nil))
@@ -223,7 +270,7 @@ func TestPostConfigHTMXFragment(t *testing.T) {
 	if err := os.WriteFile(path, []byte("[log]\nlevel = info\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s := New(config.Knobs(), path, nil)
+	s := New(config.Knobs(), path, nil, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/config", strings.NewReader("log.level=debug"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
