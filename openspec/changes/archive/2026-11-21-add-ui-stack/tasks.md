@@ -23,7 +23,7 @@
 
 - [x] 4.1 Record the stack decision and refresh `knowledge/architecture/stack.md`, `overview.md` and `decisions/http-framework.md` — verify `okf validate knowledge --strict --drift` reports 0 errors/gates/orphans.
 - [x] 4.2 Run the full gate set — verify `make generate`, `make test lint`, `go vet ./...`, `gofmt -l .` empty and `openspec validate add-ui-stack --strict` all exit 0.
-- [ ] 4.3 Update the porting-order record when this change is archived — verify `knowledge/process/porting-order.md` marks `add-ui-stack` archived and `add-store` active.
+- [x] 4.3 Update the porting-order record when this change is archived — verify `knowledge/process/porting-order.md` marks `add-ui-stack` archived and `add-store` active.
 
 ## Workflow follow-up
 
