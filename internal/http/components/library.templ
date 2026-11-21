@@ -1,0 +1,168 @@
+package components
+
+import (
+	"maps"
+	"slices"
+	"strconv"
+	"strings"
+)
+
+// LibraryRow is one saved manga rendered as a card on the library grid. The
+// data-bearing fields feed both the card link and the client-side filter
+// attributes; the slices carry stored detail metadata.
+type LibraryRow struct {
+	Plugin      string
+	Slug        string
+	Name        string
+	Cover       string
+	Status      string
+	StatusFlags int
+	DupGroup    int
+	Authors     []string
+	Artists     []string
+	Tags        []string
+}
+
+// libraryGridState is the Alpine component behind the grid: it reads the
+// ?plugin= deep link, filters cards by their data-plugin attribute, slices the
+// filtered list into pages of twelve and exposes the pager state.
+const libraryGridState = `{
+	per: 12,
+	page: 1,
+	plugin: '',
+	cards: [],
+	init() {
+		this.cards = Array.from(this.$refs.grid.querySelectorAll('[data-plugin]'));
+		const q = new URLSearchParams(location.search).get('plugin') || '';
+		if (q) this.plugin = q;
+		this.$watch('plugin', () => { this.page = 1; });
+	},
+	get filtered() {
+		if (!this.plugin) return this.cards;
+		const p = this.plugin;
+		return this.cards.filter(c => c.dataset.plugin === p);
+	},
+	get shown() {
+		return new Set(this.filtered.slice((this.page - 1) * this.per, this.page * this.per));
+	},
+	visible(el) {
+		return this.shown.has(el);
+	},
+	get pageCount() {
+		return Math.max(1, Math.ceil(this.filtered.length / this.per));
+	}
+}`
+
+// Library renders the saved-library grid: one cover card per saved manga
+// linking to its reader page, a plugin filter seeded from the ?plugin= query
+// parameter, client-side pagination at twelve cards per page, and the empty
+// state when nothing is saved. Each card carries data-dup, data-status-flags
+// and data-status so client filters never need another request.
+templ Library(active Page, pages []Page, rows []LibraryRow) {
+	@Base(active, pages) {
+		<div class="space-y-6">
+			<div class="flex flex-wrap items-end justify-between gap-4">
+				<div>
+					<h1 class="font-mono text-2xl font-semibold tracking-tight text-zinc-50">Library</h1>
+					<p class="mt-1 text-sm text-zinc-400">Manga saved from across every plugin.</p>
+				</div>
+				if len(rows) > 0 {
+					<p class="font-mono text-xs uppercase tracking-widest text-zinc-500">{ strconv.Itoa(len(rows)) } saved</p>
+				}
+			</div>
+			if len(rows) == 0 {
+				@libraryEmpty()
+			} else {
+				<div x-data={ libraryGridState } class="space-y-4">
+					<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+						<label class="flex items-center gap-2 text-sm text-zinc-400">
+							Plugin
+							<select x-model="plugin" aria-label="Filter by plugin" class="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none">
+								<option value="">All</option>
+								for _, p := range libraryPlugins(rows) {
+									<option value={ p }>{ p }</option>
+								}
+							</select>
+						</label>
+						<p x-show="plugin !== ''" class="text-xs text-zinc-500">
+							<span x-text="filtered.length"></span>
+							of { strconv.Itoa(len(rows)) } saved
+						</p>
+					</div>
+					<ul x-ref="grid" role="list" class="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4">
+						for _, r := range rows {
+							@libraryCard(r)
+						}
+					</ul>
+					<p x-show="filtered.length === 0" class="text-sm text-zinc-500">No saved titles for this plugin.</p>
+					<nav x-show="pageCount > 1" aria-label="Library pages" class="flex items-center justify-center gap-4">
+						<button type="button" x-on:click="page--" x-bind:disabled="page <= 1" class="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100 disabled:opacity-40">
+							Prev
+						</button>
+						<span class="font-mono text-xs text-zinc-500">page <span x-text="page"></span>/<span x-text="pageCount"></span></span>
+						<button type="button" x-on:click="page++" x-bind:disabled="page >= pageCount" class="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100 disabled:opacity-40">
+							Next
+						</button>
+					</nav>
+				</div>
+			}
+		</div>
+	}
+}
+
+// libraryCard renders one saved manga: the cover (or an initial tile when no
+// cover is stored) linking to /view/manga/<plugin>/<slug>, the name and the
+// stored detail metadata, plus the filterable data attributes.
+templ libraryCard(r LibraryRow) {
+	<li
+		x-show="visible($el)"
+		data-plugin={ r.Plugin }
+		data-dup={ strconv.Itoa(r.DupGroup) }
+		data-status-flags={ strconv.Itoa(r.StatusFlags) }
+		data-status={ r.Status }
+	>
+		<a href={ templ.SafeURL("/view/manga/" + r.Plugin + "/" + r.Slug) } class="group block">
+			if r.Cover != "" {
+				<img src={ r.Cover } alt={ r.Name + " cover" } loading="lazy" class="aspect-[2/3] w-full rounded-lg border border-zinc-800 object-cover transition group-hover:border-zinc-600"/>
+			} else {
+				<span aria-hidden="true" class="flex aspect-[2/3] w-full items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/60 font-mono text-3xl font-semibold text-amber-300">
+					{ pluginInitial(r.Name) }
+				</span>
+			}
+			<h2 class="mt-2 truncate text-sm font-semibold text-zinc-100 transition group-hover:text-amber-300">{ r.Name }</h2>
+		</a>
+		if len(r.Authors) > 0 {
+			<p class="mt-0.5 truncate text-xs text-zinc-500">{ strings.Join(r.Authors, ", ") }</p>
+		}
+		if len(r.Artists) > 0 {
+			<p class="mt-0.5 truncate text-xs text-zinc-600">art: { strings.Join(r.Artists, ", ") }</p>
+		}
+		if len(r.Tags) > 0 {
+			<ul aria-label="Tags" class="mt-1.5 flex flex-wrap gap-1">
+				for _, t := range r.Tags {
+					<li class="rounded bg-zinc-800/70 px-1.5 py-0.5 text-[10px] leading-4 text-zinc-400">{ t }</li>
+				}
+			</ul>
+		}
+	</li>
+}
+
+// libraryEmpty replaces the grid when no manga is saved yet.
+templ libraryEmpty() {
+	<div class="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 px-6 py-12 text-center">
+		<h2 class="font-mono text-sm font-semibold text-zinc-100">Nothing saved yet</h2>
+		<p class="mt-2 text-sm text-zinc-400">Manga you save will show up here.</p>
+	</div>
+}
+
+// libraryPlugins returns the sorted distinct plugin ids across the rows, for
+// the filter dropdown.
+func libraryPlugins(rows []LibraryRow) []string {
+	seen := make(map[string]struct{}, len(rows))
+	for _, r := range rows {
+		if r.Plugin != "" {
+			seen[r.Plugin] = struct{}{}
+		}
+	}
+	return slices.Sorted(maps.Keys(seen))
+}

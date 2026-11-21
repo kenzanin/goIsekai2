@@ -1,4 +1,8 @@
 ## 2026-11-21
+* **Update**: Linked `notes/library-grid-select-options.md` to `decisions/ui-stack.md` (The SSR-options-vs-x-for decision concrete applies the ui-stack decision's templ+Alpine split to form controls.).
+* **Update**: Linked `notes/library-grid-client-contract.md` to `decisions/ui-stack.md` (The grid contract is the consumer side of the frozen UI stack: templ SSR plus vendored Alpine, no new runtime dependency.).
+* **Creation**: Documented concept `notes/library-grid-select-options.md` (SSR the plugin filter options; Alpine only hydrates the deep-link value).
+* **Creation**: Documented concept `notes/library-grid-client-contract.md` (Library grid: client-only filter/pagination over data attributes).
 * **Update**: Linked `notes/dispatch-urlencode-queryescape.md` to `notes/plugin-tools-text.md` (url_encode divergence sits next to the locked text-helper semantics in the same dispatch surface.).
 * **Creation**: Documented concept `notes/dispatch-urlencode-queryescape.md` (tools url_encode: QueryEscape semantics, + for space -- recorded divergence from cppIsekai %20).
 * **Update**: Linked `notes/js-host-bindings.md` to `notes/go-filename-goos-suffix-trap.md` (The binding file lives as bindings_quickjs.go because the brief's bindings_js.go hit the GOOS suffix rule.).

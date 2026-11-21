@@ -16,6 +16,7 @@ import (
 
 	"goisekai2/internal/config"
 	"goisekai2/internal/events"
+	"goisekai2/internal/library"
 	"goisekai2/internal/plugin"
 	"goisekai2/internal/store"
 )
@@ -31,9 +32,9 @@ func testIni(t *testing.T) string {
 }
 
 func TestRoutesOnlyIncludeImplementedPages(t *testing.T) {
-	s := New(config.Knobs(), testIni(t), nil, nil)
-	if got := s.Pages(); len(got) != 1 || got[0].Path != "/settings" {
-		t.Fatalf("pages = %v, want only /settings", got)
+	s := New(config.Knobs(), testIni(t), nil, nil, nil, nil)
+	if got := s.Pages(); len(got) != 3 || got[0].Path != "/settings" || got[1].Path != "/library" || got[2].Path != "/search" {
+		t.Fatalf("pages = %v, want settings/library/search", got)
 	}
 
 	rec := httptest.NewRecorder()
@@ -45,7 +46,7 @@ func TestRoutesOnlyIncludeImplementedPages(t *testing.T) {
 	if !strings.Contains(body, `href="/settings" aria-current="page"`) {
 		t.Fatalf("active Settings link missing: %s", body)
 	}
-	for _, dead := range []string{`href="/library"`, `href="/plugins"`} {
+	for _, dead := range []string{`href="/plugins"`, `href="/reader"`} {
 		if strings.Contains(body, dead) {
 			t.Fatalf("dead nav link %q rendered", dead)
 		}
@@ -54,7 +55,7 @@ func TestRoutesOnlyIncludeImplementedPages(t *testing.T) {
 
 func TestGetConfigReflectsFileEdits(t *testing.T) {
 	path := testIni(t)
-	s := New(config.Knobs(), path, nil, nil)
+	s := New(config.Knobs(), path, nil, nil, nil, nil)
 	get := func() []config.Projection {
 		rec := httptest.NewRecorder()
 		s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/config", nil))
@@ -82,7 +83,7 @@ func TestGetConfigReflectsFileEdits(t *testing.T) {
 
 func TestPostConfigMergeSaveAndReject(t *testing.T) {
 	path := testIni(t)
-	s := New(config.Knobs(), path, nil, nil)
+	s := New(config.Knobs(), path, nil, nil, nil, nil)
 	post := func(body string) *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/config", bytes.NewBufferString(body))
@@ -115,7 +116,7 @@ func TestPostConfigMergeSaveAndReject(t *testing.T) {
 }
 
 func TestServeAndShutdown(t *testing.T) {
-	s := New(config.Knobs(), testIni(t), nil, nil)
+	s := New(config.Knobs(), testIni(t), nil, nil, nil, nil)
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -162,7 +163,7 @@ func TestPostConfigPublishesAfterWriteAndAppliesLive(t *testing.T) {
 	bus := events.New()
 	t.Cleanup(bus.Close)
 	rec := bus.Record(events.ConfigChanged)
-	s := New(config.Knobs(), path, bus, nil)
+	s := New(config.Knobs(), path, bus, nil, nil, nil)
 
 	post := func(body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, "/config", bytes.NewBufferString(body))
@@ -228,7 +229,7 @@ func TestPluginsPageAndActions(t *testing.T) {
 	if err := host.SetEnabled(ctx, "p", true); err != nil {
 		t.Fatal(err)
 	}
-	s := New(config.Knobs(), testIni(t), nil, host)
+	s := New(config.Knobs(), testIni(t), nil, host, nil, nil)
 
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/plugins", nil))
@@ -246,8 +247,53 @@ func TestPluginsPageAndActions(t *testing.T) {
 	}
 }
 
+func TestLibraryRoutes(t *testing.T) {
+	path := testIni(t)
+	st, err := store.Open(filepath.Join(t.TempDir(), "lib.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s := New(config.Knobs(), path, nil, nil, library.New(st, nil), st)
+
+	post := func(url, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, url, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+		return rec
+	}
+	rec := post("/api/library", `{"plugin":"p","slug":"s","name":"Name","cover":"c"}`)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"saved":true`) {
+		t.Fatalf("save = %d %s", rec.Code, rec.Body.String())
+	}
+	rec = httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/library", nil))
+	var rows []map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0]["name"] != "Name" || rows[0]["total_ch"] != float64(0) {
+		t.Fatalf("listing = %v", rows)
+	}
+	if _, exists := rows[0]["has_update"]; exists {
+		t.Fatal("has_update leaked into listing")
+	}
+
+	page := httptest.NewRecorder()
+	s.Handler().ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/library", nil))
+	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), `data-status="`) {
+		t.Fatalf("grid = %d %s", page.Code, page.Body.String())
+	}
+
+	rec = post("/api/library/remove", `{"plugin":"p","slug":"s"}`)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"saved":false`) {
+		t.Fatalf("remove = %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestAssetsAreServedLocally(t *testing.T) {
-	s := New(config.Knobs(), testIni(t), nil, nil)
+	s := New(config.Knobs(), testIni(t), nil, nil, nil, nil)
 
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/settings", nil))
@@ -270,7 +316,7 @@ func TestPostConfigHTMXFragment(t *testing.T) {
 	if err := os.WriteFile(path, []byte("[log]\nlevel = info\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s := New(config.Knobs(), path, nil, nil)
+	s := New(config.Knobs(), path, nil, nil, nil, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/config", strings.NewReader("log.level=debug"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -290,5 +336,17 @@ func TestPostConfigHTMXFragment(t *testing.T) {
 	onDisk, _ := os.ReadFile(path)
 	if !strings.Contains(string(onDisk), "level = debug") {
 		t.Fatalf("form values not saved: %q", onDisk)
+	}
+}
+
+func TestSearchPageUsesEnabledPlugins(t *testing.T) {
+	s := New(config.Knobs(), testIni(t), nil, nil, nil, nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/search?q=manga", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `name="q"`) || !strings.Contains(rec.Body.String(), `name="plugin"`) {
+		t.Fatalf("search page = %d %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), `href="/library?plugin=demo"`) {
+		t.Fatal("unexpected plugin option")
 	}
 }
