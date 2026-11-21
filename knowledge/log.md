@@ -1,4 +1,8 @@
 ## 2026-11-21
+* **Update**: Linked `notes/plugin-tools-surface.md` to `notes/config-zero-value-string.md` (ToolSet.ConfigGet carries the explicit not-found branch because a zero config.Value renders "0".).
+* **Update**: Linked `notes/plugin-tools-surface.md` to `architecture/overview.md` (Implements the host-tools slice of the plugin layer; ToolSet is the per-plugin capability bundle the runtimes bind.).
+* **Creation**: Documented concept `notes/config-zero-value-string.md` (Zero config.Value renders "0", not "" — absent-knob paths must early-return).
+* **Creation**: Documented concept `notes/plugin-tools-surface.md` (tools.ToolSet: storage delegates to plugin_state, missing keys return gorm not-found).
 * **Update**: Linked `notes/go-mod-tidy-prunes-unimported-deps.md` to `decisions/dependency-stack.md` (dependency pin maintenance finding from the plugin runtime lanes).
 * **Update**: Linked `notes/js-quickjs-thrown-string-errors.md` to `decisions/dependency-stack.md` (QuickJS error-shape finding from the plugin JS runtime built on the pinned pure-Go engine).
 * **Update**: Updated concept `notes/plugin-envelope-v1.md`.
