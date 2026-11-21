@@ -1,4 +1,6 @@
 ## 2026-11-21
+* **Update**: Linked `notes/dispatch-urlencode-queryescape.md` to `notes/plugin-tools-text.md` (url_encode divergence sits next to the locked text-helper semantics in the same dispatch surface.).
+* **Creation**: Documented concept `notes/dispatch-urlencode-queryescape.md` (tools url_encode: QueryEscape semantics, + for space -- recorded divergence from cppIsekai %20).
 * **Update**: Linked `notes/js-host-bindings.md` to `notes/go-filename-goos-suffix-trap.md` (The binding file lives as bindings_quickjs.go because the brief's bindings_js.go hit the GOOS suffix rule.).
 * **Update**: Linked `notes/js-host-bindings.md` to `notes/plugin-tools-surface.md` (JS host surface mirrors the Lua host surface over the same frozen tool set.).
 * **Creation**: Documented concept `notes/js-host-bindings.md` (JS runtime host bindings: envelope via __host_call, throwing typed wrappers, bound only with Tools).
