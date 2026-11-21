@@ -1,4 +1,7 @@
 ## 2026-11-21
+* **Update**: Updated concept `notes/plugin-envelope-v1.md`.
+* **Creation**: Documented concept `notes/go-mod-tidy-prunes-unimported-deps.md` (go mod tidy prunes not-yet-imported deps; hand-edit for single promotions).
+* **Creation**: Documented concept `notes/js-quickjs-thrown-string-errors.md` (QuickJS thrown-string errors keep exact text; match wrapped sentinels with Contains).
 * **Update**: Linked `notes/plugin-envelope-v1.md` to `architecture/overview.md` (Implements the frozen plugin ABI baseline recorded in the architecture overview (envelope contract, method vocabulary).).
 * **Creation**: Documented concept `notes/plugin-envelope-v1.md` (Plugin host contract v1 implemented and gated in internal/plugin).
 * **Update**: Linked `notes/tmp-probe-go-test.md` to `notes/tmp-probe-go-build.md` (Same scratch package: the build probe proved compilation, this test probe proves the test gate too.).

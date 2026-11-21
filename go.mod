@@ -10,6 +10,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	gorm.io/gorm v1.31.2
 	unknwon.dev/ini/v2 v2.0.0-beta.7
+	modernc.org/quickjs v0.27.0
 )
 
 require (
@@ -32,6 +33,5 @@ require (
 	modernc.org/libquickjs v0.14.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
-	modernc.org/quickjs v0.27.0 // indirect
 	modernc.org/sqlite v1.62.0 // indirect
 )
