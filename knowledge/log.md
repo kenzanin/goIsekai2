@@ -1,4 +1,5 @@
 ## 2026-11-21
+* **Update**: Linked `notes/fts5-purego-probe.md` to `architecture/concurrency-ownership.md` (FTS5 adds no worker-pool requirement; the policy is recorded separately).
 * **Update**: Linked `decisions/concurrency-pool-policy.md` to `decisions/state-machine-engine.md` (plugin runtime slots map to Enabled/Idle/Busy states, not to generic workers).
 * **Update**: Linked `decisions/concurrency-pool-policy.md` to `decisions/store-access.md` (GORM's connection pool replaces the baseline db_pool; no work pool is added).
 * **Update**: Linked `decisions/concurrency-pool-policy.md` to `architecture/concurrency-ownership.md` (locks the pool policy already implied by the ownership and backpressure tables).

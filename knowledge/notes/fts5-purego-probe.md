@@ -1,9 +1,9 @@
 ---
 type: Fact
 title: "FTS5 works on the pure-Go GORM stack, but V2 specs omit it"
-description: "modernc.org/sqlite v1.62.0 exposes SQLite 3.54.1 with FTS5 and bm25(); MATCH and ranking work under CGO_ENABLED=0, but the goIsekai2 specs still lack an FTS5 requirement."
+description: "modernc.org/sqlite v1.62.0 exposes SQLite 3.54.1 with FTS5 and bm25(); MATCH and ranking work under CGO_ENABLED=0, and the store/library specs now require FTS5 title search and BM25-ranked dedup."
 tags: [store, fts5, gorm, parity]
-generated: { by: agent/cli, at: "2026-11-21T14:34:26Z" }
+generated: { by: agent/cli, at: "2026-11-21T14:42:21Z" }
 status: stable
 ---
 
@@ -22,25 +22,29 @@ Throwaway probes with `gorm.Open(glebarez.Open(...), &gorm.Config{})` under
 
 The same query against the system `sqlite3` CLI produced **identical** scores,
 so the pure-Go engine is not altering BM25 semantics. Column weights and
-`bm25()` work; small magnitudes are normal for a three-row corpus, not a driver
-defect.
+`bm25()` work; small magnitudes are normal for a three-row corpus.
 
-## Consequence for the store
+## Baseline contract ported into V2 specs
 
-GORM has no typed FTS5 API: virtual-table DDL, trigger maintenance and
-`MATCH ... ORDER BY bm25(...)` are raw SQL, so they belong inside the
-`internal/store/sql` module and are covered by the boundary gate. Typed
-repository methods expose the results to callers.
+The baseline creates (in `src/store/store_core.cpp`):
+`CREATE VIRTUAL TABLE IF NOT EXISTS library_fts USING fts5(plugin UNINDEXED,
+slug UNINDEXED, name, alt_titles, synopsis)`. `fts_sync` replaces rows by
+`(plugin, slug)`; `fts_delete` removes them. Dedup uses
+`MATCH '{name alt_titles} : (...)' ORDER BY bm25(library_fts) LIMIT 20`,
+token-multiset Dice similarity at the baseline thresholds, and union-find.
 
-## Parity gap
+V2 specs now carry this as requirements:
 
-The cppIsekai baseline has `knowledge/architecture/fts5-search-dedup.md`:
-FTS5 + `bm25()` ranking for title search and dedup candidates, replacing LIKE.
-The goIsekai2 capability specs (`openspec/specs/store/spec.md`,
-`openspec/specs/library/spec.md`) contain no FTS5 requirement, virtual table or
-MATCH scenario. This is a missing requirement, not a driver limitation — it
-must be added (as a delta or a spec MODIFIED entry) before `add-store` locks the
-frozen schema, so the index tables are part of the migration set from day one.
+- `openspec/specs/store/spec.md`: `library_fts` in the frozen schema, an FTS5
+  title-index requirement (create, refresh, ranked MATCH, prefixed terms,
+  LIKE fallback), and BM25 candidates in the dedup requirement.
+- `openspec/specs/library/spec.md`: local library title search using FTS5
+  `MATCH` + `bm25`, distinct from plugin-backed discovery search, with prefix
+  matching and an unranked LIKE fallback.
+
+All FTS5 DDL and MATCH statements are raw SQL and therefore live inside the
+`internal/store/sql` module under the boundary gate.
 
 # Related Concepts
 - [Store access: GORM with one raw-SQL boundary](../decisions/store-access.md): proves FTS5 and BM25 work on the chosen pure-Go GORM stack
+- [Concurrency and ownership: one owner per mutable resource, bounded everything](../architecture/concurrency-ownership.md): FTS5 adds no worker-pool requirement; the policy is recorded separately
