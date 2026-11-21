@@ -19,6 +19,7 @@ import (
 	"goisekai2/internal/events"
 	httpserver "goisekai2/internal/http"
 	"goisekai2/internal/plugin"
+	"goisekai2/internal/plugin/tools"
 	"goisekai2/internal/store"
 )
 
@@ -121,7 +122,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if !filepath.IsAbs(pluginDir) && !strings.ContainsRune(pluginDir, os.PathSeparator) {
 		pluginDir = filepath.Join(dataDir, pluginDir)
 	}
-	host := plugin.NewHost(st, bus, pluginDir, nil)
+	host := plugin.NewHost(st, bus, pluginDir, &tools.ToolSet{
+		Store: st, Snapshot: snap, DataDir: dataDir, Log: slog.Default(),
+	})
 	if err := host.Boot(ctx); err != nil {
 		fmt.Fprintf(stderr, "goisekai2: plugin host: %v\n", err)
 		return 1
