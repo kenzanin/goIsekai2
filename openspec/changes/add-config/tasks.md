@@ -9,7 +9,7 @@
 ## 2. Knob registry
 
 - [ ] 2.1 Implement `internal/config/registry.go`: `Entry{Section, Key, Type, Default, Flag, Env, Doc, Allowed, RestartOnly}` plus typed constructors (`Int`, `Int64`, `Bool`, `String`, `Enum`) — verify a table test asserts every entry has a non-empty doc, a unique `section.key` and a derivable env name
-- [ ] 2.2 Declare the first registry set (server.port, server.proxy, plugin.fetch_profile, plugin.dir, cache.cache_max_mb, cache.image_format, cache.cover_max_px, paths.data_dir, paths.library, paths.log_file, log.level) — verify `--dump-config` lists each once with its default and doc (test against a golden ini)
+- [ ] 2.2 Declare the first registry set (server.port, server.proxy, plugin.fetch_profile, plugin.plugins, cache.cache_max_mb, cache.image_format, cache.cover_max_px, paths.data_dir, paths.library, paths.log_file, log.level) — verify `--dump-config` lists each once with its default and doc (test against a golden ini)
 - [ ] 2.3 Implement type/range validation returning the offending key, value and layer — verify table tests reject `cache_max_mb = -1`, `log.level = loud` and `server.port = http`
 
 ## 3. INI handling on `gopkg.in/ini.v1` and atomic writer

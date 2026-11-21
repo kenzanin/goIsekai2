@@ -3,7 +3,7 @@
 ## Why
 
 `config` is first in the porting order because every later capability boots from a resolved
-configuration snapshot: the store needs `paths.data_dir`, the plugin host needs `plugins.dir` and the
+configuration snapshot: the store needs `paths.data_dir`, the plugin host needs `plugin.plugins` and the
 fetch profile, the cache needs its cap and format. If those subsystems each read the environment or
 the ini on their own, precedence drifts and the dump/save surface stops being the single source of
 truth the baseline guarantees.
