@@ -12,7 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"goisekai2/internal/config"
 	"goisekai2/internal/events"
+	"goisekai2/internal/plugin/tools"
 	"goisekai2/internal/store"
 )
 
@@ -51,6 +53,20 @@ func (noopTools) StorageSet(string, string) {}
 // Hash returns the value unchanged until a crypto tool is wired.
 func (noopTools) Hash(value string) string { return value }
 
+func snapshotOf(ts *tools.ToolSet) *config.Snapshot {
+	if ts == nil {
+		return nil
+	}
+	return ts.Snapshot
+}
+
+func dataDirOf(ts *tools.ToolSet, dir string) string {
+	if ts != nil && ts.DataDir != "" {
+		return ts.DataDir
+	}
+	return filepath.Dir(dir)
+}
+
 // Health is the last call outcome; it is never a lifecycle state.
 type Health struct {
 	OK    bool
@@ -73,17 +89,14 @@ type Host struct {
 	store     *store.Store
 	bus       *events.Bus
 	dir       string
-	tools     HostTools
+	tools     *tools.ToolSet
 	mu        sync.RWMutex
 	instances map[string]*Instance
 }
 
 // NewHost creates a host; nil tools get the safe noop implementation.
-func NewHost(st *store.Store, bus *events.Bus, dir string, tools HostTools) *Host {
-	if tools == nil {
-		tools = noopTools{}
-	}
-	return &Host{store: st, bus: bus, dir: dir, tools: tools, instances: make(map[string]*Instance)}
+func NewHost(st *store.Store, bus *events.Bus, dir string, ts *tools.ToolSet) *Host {
+	return &Host{store: st, bus: bus, dir: dir, tools: ts, instances: make(map[string]*Instance)}
 }
 
 func loadRuntime(m *Manifest, entry string) (Runtime, error) {
@@ -140,6 +153,13 @@ func (h *Host) Boot(ctx context.Context) error {
 			rt = nil
 		}
 		lc := NewLifecycle(h.store, h.bus, folder, initial)
+		ts := &tools.ToolSet{
+			Store: h.store, Snapshot: snapshotOf(h.tools), Dir: folder,
+			DataDir: dataDirOf(h.tools, h.dir), PluginID: folder, Log: slog.Default(),
+		}
+		if binder, ok := rt.(interface{ SetTools(*tools.ToolSet) }); ok {
+			binder.SetTools(ts)
+		}
 		next[folder] = &Instance{Manifest: m, Runtime: rt, Lifecycle: lc, sem: make(chan struct{}, 1)}
 	}
 	rows, err := h.store.AllPlugins(ctx)

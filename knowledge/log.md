@@ -1,4 +1,30 @@
 ## 2026-11-21
+* **Update**: Linked `notes/dispatch-urlencode-queryescape.md` to `notes/plugin-tools-text.md` (url_encode divergence sits next to the locked text-helper semantics in the same dispatch surface.).
+* **Creation**: Documented concept `notes/dispatch-urlencode-queryescape.md` (tools url_encode: QueryEscape semantics, + for space -- recorded divergence from cppIsekai %20).
+* **Update**: Linked `notes/js-host-bindings.md` to `notes/go-filename-goos-suffix-trap.md` (The binding file lives as bindings_quickjs.go because the brief's bindings_js.go hit the GOOS suffix rule.).
+* **Update**: Linked `notes/js-host-bindings.md` to `notes/plugin-tools-surface.md` (JS host surface mirrors the Lua host surface over the same frozen tool set.).
+* **Creation**: Documented concept `notes/js-host-bindings.md` (JS runtime host bindings: envelope via __host_call, throwing typed wrappers, bound only with Tools).
+* **Creation**: Documented concept `notes/go-filename-goos-suffix-trap.md` (Go filename suffix trap: *_js.go is an implicit GOOS=js constraint).
+* **Update**: Linked `notes/lua-host-bindings.md` to `notes/plugin-tools-surface.md` (host.* wrappers delegate to the same ToolSet storage/log/clock surface; absent-key behaviour matches its gorm not-found fact.).
+* **Creation**: Documented concept `notes/lua-host-bindings.md` (Lua runtime host bindings: host.call envelope + typed wrappers, bound per Call state).
+* **Update**: Linked `notes/plugin-tools-fs-read.md` to `notes/plugin-tools-surface.md` (fs.Read is one host tool on the ToolSet surface exposed to plugin runtimes.).
+* **Creation**: Documented concept `notes/plugin-tools-fs-read.md` (tools fs: Read() sandboxes plugin file reads inside the plugin dir).
+* **Update**: Linked `notes/plugin-tools-crypto.md` to `notes/plugin-tools-surface.md` (crypto helpers are part of the same host tool surface; storage/http/text/regex/cookies facts hang off it too.).
+* **Creation**: Documented concept `notes/plugin-tools-crypto.md` (tools crypto: lowercase-hex digests; Sign = HMAC-SHA256 alias; vectors openssl-verified).
+* **Update**: Linked `notes/plugin-tools-regex.md` to `notes/plugin-tools-surface.md` (regex helpers extend the plugin host tool surface; same package and gate).
+* **Creation**: Documented concept `notes/plugin-tools-regex.md` (tools regex: Capture falls back to whole match, Replace expands $1, no compile cache).
+* **Update**: Linked `notes/plugin-tools-text.md` to `notes/plugin-tools-surface.md` (text helpers extend the host tool surface next to the ToolSet core.).
+* **Creation**: Documented concept `notes/plugin-tools-text.md` (tools text helpers: Clean keeps newline/tab as whitespace, DateEpoch dual-layout, JSONBlob sorted-key stable).
+* **Update**: Linked `notes/plugin-tools-cookies.md` to `notes/plugin-tools-surface.md` (Cookie persistence is the third leg of the same ToolSet host surface, beside storage and HTTP fetch.).
+* **Creation**: Documented concept `notes/plugin-tools-cookies.md` (tools cookies: per-plugin TSV jar; SaveJar needs a LoadJar jar (stdlib jar has no enumeration)).
+* **Update**: Linked `notes/tls-client-v1-api-shape.md` to `decisions/dependency-stack.md` (Pinpoints the exact NewHttpClient/option/fhttp call shape of the tls-client version recorded in the dependency decision.).
+* **Update**: Linked `notes/plugin-tools-http.md` to `notes/plugin-tools-surface.md` (HTTP tools extend the same ToolSet surface as storage/log; same package, same gates.).
+* **Creation**: Documented concept `notes/tls-client-v1-api-shape.md` (tls-client v1.18.1 API: functional options + fhttp types, DefaultClientProfile=Chrome_150).
+* **Creation**: Documented concept `notes/plugin-tools-http.md` (tools HTTP surface: non-2xx is data, FetchBody errors on non-200, bare map means headers).
+* **Update**: Linked `notes/plugin-tools-surface.md` to `notes/config-zero-value-string.md` (ToolSet.ConfigGet carries the explicit not-found branch because a zero config.Value renders "0".).
+* **Update**: Linked `notes/plugin-tools-surface.md` to `architecture/overview.md` (Implements the host-tools slice of the plugin layer; ToolSet is the per-plugin capability bundle the runtimes bind.).
+* **Creation**: Documented concept `notes/config-zero-value-string.md` (Zero config.Value renders "0", not "" — absent-knob paths must early-return).
+* **Creation**: Documented concept `notes/plugin-tools-surface.md` (tools.ToolSet: storage delegates to plugin_state, missing keys return gorm not-found).
 * **Update**: Linked `notes/go-mod-tidy-prunes-unimported-deps.md` to `decisions/dependency-stack.md` (dependency pin maintenance finding from the plugin runtime lanes).
 * **Update**: Linked `notes/js-quickjs-thrown-string-errors.md` to `decisions/dependency-stack.md` (QuickJS error-shape finding from the plugin JS runtime built on the pinned pure-Go engine).
 * **Update**: Updated concept `notes/plugin-envelope-v1.md`.

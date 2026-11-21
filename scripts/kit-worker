@@ -8,6 +8,8 @@
 #         ./scripts/kit-worker --json "<prompt>" | jq .
 # Key:    OMNIROUTE_API_KEY, or the 9router key from ~/.config/opencode/opencode.json.
 # Escape: KIT_ALLOW_HEADLESS=1 runs KIT in this terminal when herdr is unavailable.
+# JSON output is on by default (KIT_NO_JSON=1 disables it); --quiet is never passed.
+# A shared system prompt is passed via --system-prompt (KIT_SYSTEM_PROMPT overrides the path).
 #
 # Environment: KIT_BIN, KIT_PROVIDER_URL, KIT_MODEL (default custom/adv/msi/GLM-5.3-Flash-EXL3), KIT_FALLBACK_MODEL
 # (default custom/agnes/agnes-3.0-flash), KIT_MAX_STEPS, KIT_WAIT_MS (lane timeout, default 30 min).
@@ -65,7 +67,9 @@ label with its confidence."
   fi
   [ -n "${KIT_MODE:-}" ] && args+=("$KIT_MODE")
   if [ -n "${KIT_SESSION:-}" ]; then args+=(--session "$KIT_SESSION"); fi
-  [ -n "${KIT_JSON:-}" ] && args+=(--json)
+  if [ "${KIT_NO_JSON:-0}" != "1" ]; then args+=(--json); fi
+  system_prompt="${KIT_SYSTEM_PROMPT:-$REPO/.kit/system-prompt.md}"
+  [ -f "$system_prompt" ] && args+=(--system-prompt "$system_prompt")
   fallback="${KIT_FALLBACK_MODEL:-custom/agnes/agnes-3.0-flash}"
   wire_flags=()
   if [ -n "${KIT_PROVIDER_WIRE:-}" ]; then wire_flags+=(--provider-wire "$KIT_PROVIDER_WIRE"); fi
