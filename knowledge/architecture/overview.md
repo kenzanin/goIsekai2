@@ -129,9 +129,10 @@ data/
 | SQLite driver | `modernc.org/sqlite` v1.62.0 (pure Go, BSD-3) | decided |
 | HTTP client | `bogdanfinn/tls-client` v1.18.1 (pure Go via utls, BSD-3) | decided |
 | Lua runtime | `github.com/yuin/gopher-lua` v1.1.2 (pure Go, Lua 5.1) | decided |
-| JS runtime | `github.com/dop251/goja` (pure Go; V1 already ran its JS plugins on goja) | decided |
+| JS runtime | `modernc.org/quickjs` v0.27.0 (pure Go, ES2023, V1-proven) | decided (`decisions/dependency-stack`) |
 | WASM runtime | `github.com/tetratelabs/wazero` v1.12.0 (pure Go, Apache-2.0) | decided |
 | Real-time | `coder/websocket` v1.8.15 over `internal/stream` (drop-oldest) | decided: WS `GET /ws/log` parity, not SSE |
+| Tray | `fyne.io/systray` v1.11.0 in a separate tray command | decided (`decisions/tray`) |
 
 Hard constraint: **no cgo anywhere**. The build gate is `CGO_ENABLED=0 go build ./...`, so any dependency
 that needs a C toolchain is rejected outright -- that excludes `mattn/go-sqlite3`, `buke/quickjs-go` (cgo,
@@ -142,12 +143,10 @@ Remaining compatibility gates (not blockers, but they decide behaviour):
 
 1. **gopher-lua is Lua 5.1, not LuaJIT.** The baseline embeds LuaJIT; 5.1 semantics match, LuaJIT extras (`ffi`,
    `bit`) do not. Any plugin needing them is a runtime bug we must surface explicitly.
-2. **goja handles ES2020 syntax, but not promise settling.** Verified by execution, not by docs:
-   `?.`, `??`, `BigInt`, spread, template literals and classes all pass; `Promise` exists, but microtasks are
-   not pumped, so `async`/`await` leaves values `pending`. That is an ABI limit, not an engine limit: the
-   plugin contract is synchronous `call(method, json) -> json`, so async plugins cannot return a value under
-   any runtime, QuickJS included. Accepting them later means adding a job pump to the host. If real QuickJS
-   semantics are ever required, the cgo-free route is quickjs-ng compiled to a WASI reactor on wazero.
+2. **JS engine is ES2023 (`modernc.org/quickjs`), but the ABI stays synchronous.** The engine has a real job
+   pump (`ExecutePendingJobs`), `SetEvalTimeout` and `Interrupt`, so async is a host decision, not a wall. The
+   plugin contract is still `call(method, json) -> json`; a plugin that returns a `Promise` is an error unless
+   the host later adds a settlement step.
 
 ## Known divergences to record
 

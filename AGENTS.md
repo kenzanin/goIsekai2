@@ -96,6 +96,8 @@ code lands. Planned packages under `internal/`:
   SQLite external state; persist before publish. See `knowledge/architecture/state-machines.md`.
   Cache entries and daemon boot are deliberately not machines.
 - `cmd/goisekai2/` -- entry point
+- `cmd/goisekai-tray/` -- optional tray supervisor (pure Go dbus on Linux, cgo only on macOS) that spawns
+  the daemon; the daemon itself never links a tray. See `knowledge/decisions/tray.md`.
 
 ## Conventions
 
@@ -108,7 +110,7 @@ code lands. Planned packages under `internal/`:
   plus an OpenSpec MODIFIED delta.
 - Committed artifacts (docs, knowledge, openspec, reports) are English only.
 - No cgo, ever: `CGO_ENABLED=0 go build ./...` is the gate. A dependency needing a C toolchain is
-  rejected; the stack is modernc.org/sqlite, bogdanfinn/tls-client, gopher-lua, goja, wazero
+  rejected; the stack is modernc.org/sqlite, bogdanfinn/tls-client, gopher-lua, modernc.org/quickjs, wazero
   (see `knowledge/decisions/dependency-stack.md`).
 - Bus rules: event names are constants in `internal/events`, payloads are typed structs, no goroutine
   touches `*event.Manager` except the actor, the async API is banned, and commands are never events.

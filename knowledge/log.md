@@ -1,4 +1,6 @@
 ## 2026-11-21
+* **Update**: Linked `decisions/tray.md` to `architecture/stack.md` (resolves the tray slot listed as open on the stack page).
+* **Creation**: Documented concept `decisions/tray.md` (Tray as a separate pure-Go command on fyne.io/systray).
 * **Update**: Linked `architecture/stack.md` to `decisions/event-dispatch.md` (event bus and stream hub rows point at the dispatch decision).
 * **Update**: Linked `architecture/stack.md` to `decisions/image-pipeline.md` (image codecs are listed as library rows on the stack page).
 * **Update**: Linked `architecture/stack.md` to `decisions/dependency-stack.md` (stack page is the review index over the per-area dependency decisions).

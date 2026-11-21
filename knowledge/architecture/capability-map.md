@@ -24,7 +24,7 @@ prose and archive annotations dropped, and the V2 decision applied where it diff
 |---|---|---|
 | `config` | `cli-config`, `settings-page` | env prefix `GOISEKAI_*`, provenance reporting, immutable snapshot, restart-only knobs declared as such |
 | `store` | `chapter-store`, `library-save` (write side), `search-cache` (`api_cache`) | `schema_version` table, FSM state columns, `jobs` table, single connection with a non-nesting Tx helper |
-| `plugin-host` | `plugin-system`, `plugins-page`, `lua-runtime`, `js-runtime`, `wasm-runtime` | one runtime interface, `qmuntal/stateless` lifecycle (disabled/enabled(idle/busy)/failed), goja + wazero + gopher-lua |
+| `plugin-host` | `plugin-system`, `plugins-page`, `lua-runtime`, `js-runtime`, `wasm-runtime` | one runtime interface, `qmuntal/stateless` lifecycle (disabled/enabled(idle/busy)/failed), quickjs + wazero + gopher-lua |
 | `host-tools` | `host-tools`, `plugin-host-tools` | same tool names and envelopes; the tool table is explicit, plugins never see the event bus or the DB |
 | `library` | `library-save`, `search-page`, `search-cache` (read side) | unchanged surface; covers the save/remove/pin/status flows |
 | `reader` | `reader-page`, `reader-fullscreen`, `chapter-list-controls` | unchanged window math (limit 10, strictly-after), prefetch as a direct call |

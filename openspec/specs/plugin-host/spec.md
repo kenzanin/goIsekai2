@@ -13,7 +13,7 @@ event bus, never the filesystem outside its own folder.
 | Runtime | Implementation | Known limits that must fail loudly |
 |---|---|---|
 | `lua` | `gopher-lua` (Lua 5.1) | no LuaJIT `ffi`/`bit`; requiring them returns a clear "unsupported module" error |
-| `js` | `goja` | ES2020 syntax works, but microtasks are not pumped: a plugin returning a `Promise` is an error, never a silent empty result |
+| `js` | `quickjs` (modernc.org/quickjs) | ES2023 engine, pure Go; the host contract is still synchronous, so a plugin returning a `Promise` is an error, never a silent empty result |
 | `wasm` | `wazero` (WASI preview1) | imports are flat `env.<group>_<fn>`; the module must export `handle` |
 
 ## Requirements
