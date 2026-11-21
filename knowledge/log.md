@@ -1,4 +1,6 @@
 ## 2026-11-21
+* **Update**: Linked `notes/tmp-dummy-probe.md` to `references/kit-worker.md` (KIT_OK sentinel probe used to verify worker lane completion markers.).
+* **Creation**: Documented concept `notes/tmp-dummy-probe.md` (tmp/dummy.txt sentinel probe: exact KIT_OK payload, ls exits 0).
 * **Update**: Linked `notes/sqlite-pure-go-stack.md` to `notes/sqlite-pragma-return-values.md` (The pragma return-value gotcha was observed in the same Open verification that proved the pure-Go stack.).
 * **Creation**: Documented concept `notes/sqlite-pragma-return-values.md` (SQLite pragma readback forms: lowercase wal, numeric foreign_keys).
 * **Creation**: Documented concept `notes/sqlite-pure-go-stack.md` (Store DB: pure-Go gorm + glebarez/sqlite verified under CGO_ENABLED=0).

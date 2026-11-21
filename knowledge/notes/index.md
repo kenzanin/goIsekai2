@@ -8,3 +8,4 @@
 * [Projection and MergeSave verified for internal/config](config-projection-and-mergesave.md) - Verified Projection and MergeSave implementation and behavior for internal/config.
 * [Store DB: pure-Go gorm + glebarez/sqlite verified under CGO_ENABLED=0](sqlite-pure-go-stack.md) - gorm v1.31.2 + glebarez/sqlite v1.11.0 (modernc engine) passes the store tests under CGO_ENABLED=0 with single-connection pool and WAL/busy_timeout/foreign_keys pragmas applied in Open.
 * [SQLite pragma readback forms: lowercase wal, numeric foreign_keys](sqlite-pragma-return-values.md) - SQLite PRAGMA results come back lowercase ("wal") and numeric ("1"), so equality checks against "WAL"/"ON" fail.
+* [tmp/dummy.txt sentinel probe: exact KIT_OK payload, ls exits 0](tmp-dummy-probe.md) - tmp/dummy.txt was created with the exact 6-byte payload KIT_OK and ls -l on it exits 0.
