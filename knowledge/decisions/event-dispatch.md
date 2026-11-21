@@ -1,7 +1,7 @@
 ---
 type: decision
 title: Adopt gookit/event behind a single-actor bus; separate stream plane
-description: "User ruling 2026-11-21: gookit/event v1.2.0 as dispatch engine, owned by one actor goroutine, async API banned, typed payload facade, drop-oldest stream hub for SSE; hand-written hub kept as documented fallback."
+description: "User ruling 2026-11-21: gookit/event v1.2.0 as dispatch engine, owned by one actor goroutine, async API banned, typed payload facade, drop-oldest stream hub delivered over WebSocket GET /ws/log; hand-written hub kept as documented fallback."
 tags: [decision, events, gookit, dependency, concurrency]
 generated: { by: agent/cli, at: "2026-11-21T11:46:11Z" }
 status: stable

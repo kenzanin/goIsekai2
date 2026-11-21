@@ -1,7 +1,7 @@
 ---
 type: architecture
 title: "Event-driven core: domain events on gookit/event, stream plane separate"
-description: "Two-plane event architecture: gookit/event managed by a single actor goroutine for domain facts after commit, plus a separate bounded drop-oldest stream hub for SSE; typed facade, event catalog, concurrency contract and gookit internals to defend against."
+description: "Two-plane event architecture: gookit/event managed by a single actor goroutine for domain facts after commit, plus a separate bounded drop-oldest stream hub delivered over WebSocket `GET /ws/log`; typed facade, event catalog, concurrency contract and gookit internals to defend against."
 tags: [architecture, events, gookit, concurrency, sse, store, plugins]
 generated: { by: agent/cli, at: "2026-11-21T12:17:44Z" }
 status: draft
@@ -29,7 +29,7 @@ flowchart LR
     L3["metrics / structured log"]
   end
   SH[["stream hub<br/>per-client buffer, drop-oldest"]]
-  C["SSE clients"]
+  C["WS /ws/log clients"]
 
   H --> Q
   S --> Q
@@ -48,7 +48,7 @@ flowchart LR
 | Plane | Mechanism | Semantics | Examples |
 |---|---|---|---|
 | **Domain events** | gookit manager, fired by the actor goroutine | FIFO, no drop, listener error logged, handler must be sub-millisecond | `library.saved`, `library.read`, `plugin.lifecycle`, `config.changed`, `cache.evicted` |
-| **Stream events** | own `internal/stream` hub, NOT gookit | best-effort, per-subscriber bounded buffer, drop-oldest, coalescable | `log.line`, `job.progress`, `library.refresh` (SSE feed) |
+| **Stream events** | own `internal/stream` hub, NOT gookit | best-effort, per-subscriber bounded buffer, drop-oldest, coalescable | `log.line`, `job.progress`, `library.refresh` (WS feed) |
 
 Rationale: gookit's async path is a single global channel (`ChannelSize` default 100, 3 consumers) that
 **blocks the publisher** when full and has no per-subscriber policy. A slow browser tab must never stall
@@ -59,10 +59,10 @@ through the domain plane.
 
 | Event constant | Value | Payload | Published after | Subscribers |
 |---|---|---|---|---|
-| `EvtLibrarySaved` | `library.saved` | `LibrarySaved{Plugin, Slug, Status}` | store commit | cover prefetch nudge, SSE refresh |
+| `EvtLibrarySaved` | `library.saved` | `LibrarySaved{Plugin, Slug, Status}` | store commit | cover prefetch nudge, WS refresh |
 | `EvtLibraryRead` | `library.read` | `ChapterRead{Plugin, Slug, Chapter, Page}` | store commit | stats invalidation |
 | `EvtStatusChanged` | `library.status` | `StatusChanged{Plugin, Slug, From, To}` | store commit | grid refresh, metrics |
-| `EvtPluginLifecycle` | `plugin.lifecycle` | `PluginLifecycle{ID, State}` | registry commit | scheduler gate, cache GC, SSE |
+| `EvtPluginLifecycle` | `plugin.lifecycle` | `PluginLifecycle{ID, State}` | registry commit | scheduler gate, cache GC, WS |
 | `EvtConfigChanged` | `config.changed` | `ConfigChanged{Key, Old, New, Layer}` | config save commit | live-apply adapters |
 | `EvtCacheEvicted` | `cache.evicted` | `CacheEvicted{RelPath, Bytes, Reason}` | LRU eviction | metrics, placeholder state |
 
@@ -139,7 +139,7 @@ adapter error at runtime.
 
 | Failure | Answer |
 |---|---|
-| A subscriber is slow (SSE client on a bad link) | stream hub drops oldest for that client only; domain plane untouched |
+| A subscriber is slow (WS client on a bad link) | stream hub drops oldest for that client only; domain plane untouched |
 | A listener panics | recovered per command, logged, other listeners for that event still run |
 | Queue full during a burst | publishers wait on their context; sync workers surface the timeout as a retryable error |
 | Event emitted then process crashes before the nudge runs | safe by design: nudges are idempotent and the boot scan re-warms state |

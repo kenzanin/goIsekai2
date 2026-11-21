@@ -123,7 +123,7 @@ data/
 
 | Area | Choice | Status |
 |---|---|---|
-| HTTP | `net/http` + `html/template` + htmx fragments | decided (stdlib-first convention) |
+| HTTP | `go-chi/chi/v5` v5.5.0 + stdlib `html/template` + htmx fragments | decided (`decisions/http-framework`) |
 | Events | `gookit/event` behind one actor | decided (`decisions/event-dispatch`) |
 | FSM | `qmuntal/stateless` behind typed wrappers | decided (`decisions/state-machine-engine`) |
 | SQLite driver | `modernc.org/sqlite` v1.62.0 (pure Go, BSD-3) | decided |
@@ -131,7 +131,7 @@ data/
 | Lua runtime | `github.com/yuin/gopher-lua` v1.1.2 (pure Go, Lua 5.1) | decided |
 | JS runtime | `github.com/dop251/goja` (pure Go; V1 already ran its JS plugins on goja) | decided |
 | WASM runtime | `github.com/tetratelabs/wazero` v1.12.0 (pure Go, Apache-2.0) | decided |
-| Real-time | SSE hub (`internal/stream`) | open: baseline uses WS `/ws/log` |
+| Real-time | `coder/websocket` v1.8.15 over `internal/stream` (drop-oldest) | decided: WS `GET /ws/log` parity, not SSE |
 
 Hard constraint: **no cgo anywhere**. The build gate is `CGO_ENABLED=0 go build ./...`, so any dependency
 that needs a C toolchain is rejected outright -- that excludes `mattn/go-sqlite3`, `buke/quickjs-go` (cgo,
@@ -151,10 +151,7 @@ Remaining compatibility gates (not blockers, but they decide behaviour):
 
 ## Known divergences to record
 
-1. **Realtime transport**: the baseline ships WebSocket `/ws/log` with snapshot replay. A single SSE
-   endpoint per client removes the WS dependency and matches the stream hub, but it changes the transport.
-   Either keep a minimal WS endpoint for parity or accept an additive SSE route; decide before the HTTP
-   capability spec.
+1. **Realtime transport** (resolved): WebSocket `GET /ws/log` with snapshot replay is kept for parity, served by `coder/websocket` over the drop-oldest stream hub; no SSE route. See `decisions/http-framework`.
 2. **Job table**: added for durable cancel/retry (baseline keeps retry in `update_attempts` only).
 3. **Plugin state columns**: added for FSM persistence; API still exposes boolean `enabled`.
 
@@ -163,6 +160,8 @@ Remaining compatibility gates (not blockers, but they decide behaviour):
 - [Event-driven core: domain events on gookit/event, stream plane separate](event-driven-core.md): transport and services publish domain facts through the bus
 - [State machines: plugin and job lifecycle on qmuntal/stateless; cache entry and daemon deliberately not](state-machines.md): plugin and job lifecycles live in the domain service layer
 - [Dependency stack: pure Go only (modernc sqlite, tls-client, gopher-lua, goja, wazero)](../decisions/dependency-stack.md): names the concrete pure-Go libraries behind each stack slot
+- [chi + coder/websocket for HTTP and WebSocket](../decisions/http-framework.md): router and WebSocket transport for the HTTP layer
+- [Stack: libraries vs hand-written code](stack.md): one-page review table of every library row and every hand-written piece
 - [Data flows: five ordered sequences and the invariants that keep them reproducible](data-flows.md): each request path in the overview is expanded here into a full ordered sequence
 - [Boot and shutdown: ordered startup, dependency-ordered teardown, and the test that proves both](boot-shutdown.md): startup and teardown order for the layer map
 - [Image cache: v3 layout, namespace by display name, slug rules, LRU and pure-Go transcode](cache-layout.md): expands the cache tree entry of the frozen contracts

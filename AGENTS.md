@@ -91,7 +91,7 @@ code lands. Planned packages under `internal/`:
 - `reader/` -- window math, read-ahead prefetch, position state
 - `events/` -- typed facade over `gookit/event`; ONE actor goroutine owns the manager; domain facts
   published after commit only. See `knowledge/architecture/event-driven-core.md`.
-- `stream/` -- bounded drop-oldest fan-out for SSE (log, progress, grid refresh)
+- `stream/` -- bounded drop-oldest fan-out served over WebSocket `GET /ws/log` (log, progress, grid refresh); router `go-chi`, ws `coder/websocket` (see `knowledge/decisions/http-framework.md`).
 - `fsm/` -- per-entity lifecycle machines on `qmuntal/stateless` (plugin, job) with typed enums and
   SQLite external state; persist before publish. See `knowledge/architecture/state-machines.md`.
   Cache entries and daemon boot are deliberately not machines.

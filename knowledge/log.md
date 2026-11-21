@@ -1,4 +1,10 @@
 ## 2026-11-21
+* **Update**: Linked `architecture/stack.md` to `decisions/event-dispatch.md` (event bus and stream hub rows point at the dispatch decision).
+* **Update**: Linked `architecture/stack.md` to `decisions/image-pipeline.md` (image codecs are listed as library rows on the stack page).
+* **Update**: Linked `architecture/stack.md` to `decisions/dependency-stack.md` (stack page is the review index over the per-area dependency decisions).
+* **Update**: Linked `decisions/http-framework.md` to `architecture/stack.md` (names the router and websocket libraries on the stack page).
+* **Creation**: Documented concept `architecture/stack.md` (Stack: libraries vs hand-written code).
+* **Creation**: Documented concept `decisions/http-framework.md` (chi + coder/websocket for HTTP and WebSocket).
 * **Update**: Linked `decisions/browser-host-transport.md` to `architecture/overview.md` (browser backend and its supervision are part of the plugin layer described in the overview).
 * **Creation**: Documented concept `knowledge/decisions/browser-host-transport.md` (Browser host transport and supervision in Go).
 * **Update**: Linked `architecture/capability-map.md` to `architecture/overview.md` (the capability layer split that mirrors the architecture layers).
