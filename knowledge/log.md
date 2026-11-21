@@ -1,4 +1,8 @@
 ## 2026-11-21
+* **Update**: Linked `notes/tls-client-v1-api-shape.md` to `decisions/dependency-stack.md` (Pinpoints the exact NewHttpClient/option/fhttp call shape of the tls-client version recorded in the dependency decision.).
+* **Update**: Linked `notes/plugin-tools-http.md` to `notes/plugin-tools-surface.md` (HTTP tools extend the same ToolSet surface as storage/log; same package, same gates.).
+* **Creation**: Documented concept `notes/tls-client-v1-api-shape.md` (tls-client v1.18.1 API: functional options + fhttp types, DefaultClientProfile=Chrome_150).
+* **Creation**: Documented concept `notes/plugin-tools-http.md` (tools HTTP surface: non-2xx is data, FetchBody errors on non-200, bare map means headers).
 * **Update**: Linked `notes/plugin-tools-surface.md` to `notes/config-zero-value-string.md` (ToolSet.ConfigGet carries the explicit not-found branch because a zero config.Value renders "0".).
 * **Update**: Linked `notes/plugin-tools-surface.md` to `architecture/overview.md` (Implements the host-tools slice of the plugin layer; ToolSet is the per-plugin capability bundle the runtimes bind.).
 * **Creation**: Documented concept `notes/config-zero-value-string.md` (Zero config.Value renders "0", not "" — absent-knob paths must early-return).
