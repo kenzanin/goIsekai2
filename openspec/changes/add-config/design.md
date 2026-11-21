@@ -34,17 +34,28 @@ See `proposal.md` — Why. Constraints that shape the approach:
 
 ## Decisions
 
-### D1 — Hand-written INI reader/writer, not a library (baseline: `src/config` ini handling)
+### D1 — `gopkg.in/ini.v1` as the ini reader/writer (baseline: `src/config` ini handling)
 
 Ports from: the baseline keeps the ini as the single on-disk source and preserves comments on save.
 
-`internal/config/ini.go` keeps an ordered document model: `[]section{name, []entry{comment lines, key,
-rawValue, trailingComment}}`, so a save rewrites only the touched `rawValue` and re-emits everything
-else byte-for-byte. The same model is what `POST /config` merges into.
+The user chose a library over a hand-written parser. `github.com/go-ini/ini` is the repository; it
+declares its module path as `gopkg.in/ini.v1` (v1.68.0), so that is the import path — the same package
+goIsekai V1 used. It is pure Go and builds under `CGO_ENABLED=0`.
 
-Alternatives considered: `gopkg.in/ini.v1` (used by goIsekai V1) loses nothing on read but complicates
-guaranteed comment/order preservation and pulls a dependency for ~150 lines of parsing; writing the
-file from a template loses unknown keys (which the spec forbids). Rejected.
+`internal/config/ini.go` wraps it: `ini.LoadSources(ini.LoadOptions{IgnoreInlineComment: false,
+SpaceBeforeInlineComment: true}, raw)` for a comment-bearing read, `Key.SetValue` for the touched knobs,
+and `WriteTo` into the atomic temp file. Everything the spec demands survives a save: comments, key
+order, unknown keys and blank values (measured 2026-11-21 on v1.68.0 with a fixture holding a banner
+comment, an inline comment, an empty `proxy =` and an unknown key).
+
+What does **not** survive, and is therefore not demanded: byte-identical formatting. The library
+realigns `=` per section and moves a trailing inline comment onto its own line above the key. Tests
+assert semantic preservation (comments present, order preserved, unknown keys present, untouched values
+unchanged) rather than byte equality.
+
+Alternatives considered: hand-written ordered document model (~150 LOC, gives byte-identical output,
+but the user rejected the maintenance cost); writing the ini from a template on save (drops unknown
+keys, which the spec forbids).
 
 ### D2 — stdlib `flag` with registry-derived bindings (baseline: `cli-config`)
 

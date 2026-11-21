@@ -1,4 +1,6 @@
 ## 2026-11-21
+* **Update**: Linked `decisions/config-file-format.md` to `decisions/dependency-stack.md` (adds gopkg.in/ini.v1 to the approved pure-Go dependency set).
+* **Update**: Linked `decisions/config-file-format.md` to `architecture/stack.md` (supplies the ini parser row in the stack review and replaces the hand-written INI plan).
 * **Creation**: Documented concept `conventions/language.md` (English for all artifacts, Indonesian only in chat).
 * **Update**: Updated concept `references/kit-worker.md`.
 * **Update**: Linked `conventions/godoc.md` to `architecture/overview.md` (applies to every Go package described by the layer map).

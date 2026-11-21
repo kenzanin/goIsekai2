@@ -12,11 +12,19 @@
 - [ ] 2.2 Declare the first registry set (server.port, server.proxy, plugin.fetch_profile, plugin.dir, cache.cache_max_mb, cache.image_format, cache.cover_max_px, paths.data_dir, paths.library, paths.log_file, log.level) — verify `--dump-config` lists each once with its default and doc (test against a golden ini)
 - [ ] 2.3 Implement type/range validation returning the offending key, value and layer — verify table tests reject `cache_max_mb = -1`, `log.level = loud` and `server.port = http`
 
-## 3. INI document model and atomic writer
+## 3. INI handling on `gopkg.in/ini.v1` and atomic writer
 
-- [ ] 3.1 Implement the ordered document model and parser (`internal/config/ini.go`) preserving comments, blank lines, key order and unknown keys — verify golden round-trip tests: parse → emit is byte-identical for `;`-, `#`-, CRLF- and BOM-bearing fixtures
-- [ ] 3.2 Implement merge-save on the model: change only touched raw values, keep everything else verbatim, create from the dump template when the file is absent — verify a test saves `server.port` and asserts the rest of the file is byte-identical
-- [ ] 3.3 Implement the atomic write (temp file in the same dir, mode 0600, fsync file, rename, fsync dir) — verify a test with a read-only directory leaves the original file byte-identical and returns an error
+- [ ] 3.1 Wrap `gopkg.in/ini.v1` v1.68.0 in `internal/config/ini.go`: `LoadSources` with
+      `IgnoreInlineComment: false, SpaceBeforeInlineComment: true`, section/key access by dotted name,
+      and a `WriteTo` sink — verify golden fixtures keep comments, key order, unknown keys and empty
+      values after a read/write cycle (semantic preservation, not byte equality: the library realigns
+      `=` and relocates inline comments)
+- [ ] 3.2 Implement merge-save: `SetValue` only the touched knobs, leave every other key untouched,
+      and create the file from the dump template when it is absent — verify a test saving `server.port`
+      sees every other key's value unchanged and the banner comment still present
+- [ ] 3.3 Implement the atomic write (temp file in the same dir, mode 0600, fsync file, rename, fsync dir)
+      around the `WriteTo` sink — verify a test with a read-only directory leaves the original file
+      intact and returns an error
 
 ## 4. Resolution and provenance
 

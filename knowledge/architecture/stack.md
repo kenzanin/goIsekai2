@@ -30,6 +30,7 @@ table that answers "library or hand-written?" without reading five concepts.
 | JPEG XL encode | `gen2brain/jpegxl` | unpinned | `decisions/image-pipeline` |
 | Decode / resize | `golang.org/x/image` | v0.48.0 | `decisions/image-pipeline` |
 | Tray | `fyne.io/systray` | v1.11.0 | `decisions/tray` |
+| INI config file | `gopkg.in/ini.v1` (repo `github.com/go-ini/ini`) | v1.68.0 | `decisions/config-file-format` |
 | Native `.so` loading | `ebitengine/purego` | only if native plugins are adopted | `decisions/tray` |
 
 Stdlib for everything else: `net/http`, `html/template`, `log/slog`, `encoding/json`, `crypto/*`,
@@ -39,7 +40,7 @@ Stdlib for everything else: `net/http`, `html/template`, `log/slog`, `encoding/j
 
 | Piece | Why not a library |
 |---|---|
-| Config registry: flag + env + ini + default + provenance | the baseline precedence rules are ours; V1 used `gopkg.in/ini.v1`, so this row is open for review (see below) |
+| Config registry: flag + env + default + provenance + strict/lenient resolution | the baseline precedence rules are ours; the ini format is handled by `gopkg.in/ini.v1` (`decisions/config-file-format`) |
 | Events facade + single actor over `gookit/event` | typed payloads are the point; the library is untyped `map[string]any` |
 | Stream hub (bounded, drop-oldest) | nobody ships drop-oldest fan-out that never blocks the publisher |
 | FSM layer: typed enums + `fire()` wrappers + SQLite external state | compile-time safety the engine cannot give (`State = any`) |
@@ -56,10 +57,7 @@ Stdlib for everything else: `net/http`, `html/template`, `log/slog`, `encoding/j
 
 1. **`golang.org/x/sys`** for a single-instance file lock: probably needed, not yet recorded as an approved
    dependency (it arrives transitively through godbus anyway).
-2. **INI parser vs hand-written**: V1 used `gopkg.in/ini.v1` v1.67.3 and the baseline config has quirks
-   (provenance dump, `[tray]` section). Either reuse that parser or write ~120 LOC; decide before the config
-   capability code lands.
-3. **SQL builder**: V1 used `go-jet/jet/v2`. V2's rule is hand-written SQL over `database/sql`; revisit only
+2. **SQL builder**: V1 used `go-jet/jet/v2`. V2's rule is hand-written SQL over `database/sql`; revisit only
    if the store package's tests start duplicating scan logic.
 
 ## Resolved since the first pass
