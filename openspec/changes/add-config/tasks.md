@@ -4,39 +4,49 @@
 
 - [ ] 1.1 Add `go-chi/chi/v5` and `gookit/event` to `go.mod` and verify `CGO_ENABLED=0 go build ./...` still exits 0 with an empty `internal/` tree
 - [ ] 1.2 Create `internal/config`, `internal/events`, `internal/http` package stubs with doc comments naming their owner in `knowledge/architecture/concurrency-ownership.md`, and verify `go build ./...` and `go vet ./...` pass
-- [ ] 1.3 Create `cmd/goisekai2` boot skeleton (parse args, resolve config, serve) that currently exits with a placeholder, and verify `go run ./cmd/goisekai2 --help` prints usage and exits 0
+- [x] 1.3 Create `cmd/goisekai2` boot skeleton (parse args, resolve config, print the resolved listen address) and verify `go run ./cmd/goisekai2 --help` prints usage and exits 0
 
 ## 2. Knob registry
 
-- [ ] 2.1 Implement `internal/config/registry.go`: `Entry{Section, Key, Type, Default, Flag, Env, Doc, Allowed, RestartOnly}` plus typed constructors (`Int`, `Int64`, `Bool`, `String`, `Enum`) — verify a table test asserts every entry has a non-empty doc, a unique `section.key` and a derivable env name
-- [ ] 2.2 Declare the first registry set (server.port, server.proxy, plugin.fetch_profile, plugin.plugins, cache.cache_max_mb, cache.image_format, cache.cover_max_px, paths.data_dir, paths.library, paths.log_file, log.level) — verify `--dump-config` lists each once with its default and doc (test against a golden ini)
-- [ ] 2.3 Implement type/range validation returning the offending key, value and layer — verify table tests reject `cache_max_mb = -1`, `log.level = loud` and `server.port = http`
+- [x] 2.1 Implement `internal/config/registry.go`: declarative `Entry{Section, Key, Kind, Default, Min, Max, Allowed, Flag, Env, Doc}` with typed kinds and a `Knobs()` table — verify a table test asserts every entry has a non-empty doc, a unique `section.key` and a derivable env name (typed constructors were not needed: struct literals in one table read better)
+- [x] 2.2 Declare the knob set (server.port, server.proxy, plugin.plugins, plugin.fetch_profile, plugin.fetch_timeout_ms, cache.cache_max_mb, cache.image_format, cache.cover_max_px, paths.data_dir, paths.db, paths.log_file, log.level) — verify `--dump-config` lists each once with its default and doc, and the dump re-parses to the same defaults
+- [x] 2.3 Implement type/range validation returning the offending key, value and layer — verify table tests reject `cache_max_mb = -1` (ini and env), `log.level = loud` and `server.port = http`
 
-## 3. INI handling on `gopkg.in/ini.v1` and atomic writer
+## 3. INI handling on `unknwon.dev/ini/v2` and atomic writer
 
-- [ ] 3.1 Wrap `gopkg.in/ini.v1` v1.68.0 in `internal/config/ini.go`: `LoadSources` with
-      `IgnoreInlineComment: false, SpaceBeforeInlineComment: true`, section/key access by dotted name,
-      and a `WriteTo` sink — verify golden fixtures keep comments, key order, unknown keys and empty
+- [x] 3.1 Wrap `unknwon.dev/ini/v2` v2.0.0-beta.7 in `internal/config/ini.go`: `LoadIni` with
+      `IgnoreInlineComment(false), SpaceBeforeInlineComment(true)`, section/key access by dotted name,
+      and a `WriteTo` sink — verify tests keep comments, key order, unknown keys and empty
       values after a read/write cycle (semantic preservation, not byte equality: the library realigns
       `=` and relocates inline comments)
-- [ ] 3.2 Implement merge-save: `SetValue` only the touched knobs, leave every other key untouched,
+- [ ] 3.2 Implement merge-save: `Set` only the touched knobs, leave every other key untouched,
       and create the file from the dump template when it is absent — verify a test saving `server.port`
       sees every other key's value unchanged and the banner comment still present
-- [ ] 3.3 Implement the atomic write (temp file in the same dir, mode 0600, fsync file, rename, fsync dir)
+- [x] 3.3 Implement the atomic write (temp file in the same dir, mode 0600, fsync file, rename, fsync dir)
       around the `WriteTo` sink — verify a test with a read-only directory leaves the original file
       intact and returns an error
 
 ## 4. Resolution and provenance
 
-- [ ] 4.1 Implement resolution `default < ini < GOISEKAI_* < explicit flag` using `flag.Visit` for explicit-pass detection, returning a `Snapshot{Values, Provenance, Generation}` — verify the precedence matrix test asserts value and winning layer for all four layers, including "flag not passed keeps ini"
-- [ ] 4.2 Make boot strict: unparseable, unknown-enum or out-of-range ini/env values exit non-zero naming key, value and layer, and leave the data dir and ini untouched — verify a test asserts the exit code and that no file was created
+- [x] 4.1 Implement resolution `default < ini < GOISEKAI_* < explicit flag` using `flag.Visit` for
+      explicit-pass detection, returning a `Snapshot{Values, Provenance, Generation}` — verify the
+      precedence matrix test asserts value and winning layer for all four layers, including "flag not
+      passed keeps ini"
+- [x] 4.2 Make boot strict: unparseable, unknown-enum or out-of-range ini/env values exit non-zero
+      naming key, value and layer, and leave the data dir and ini untouched — verify `cmd/goisekai2`
+      tests assert exit 1 and that no file was created
 - [ ] 4.3 Implement the lenient projection resolver used by `GET /config` (re-reads the file, marks `invalid: true`, falls back to the default for that knob only) — verify a test feeds the same malformed ini as 4.2 and asserts 200 with exactly one invalid knob
 
 ## 5. CLI surface
 
-- [ ] 5.1 Require `--config <path>`: missing `--config` without `--help`/`--dump-config` prints usage plus a `--help` hint and exits 2 — verify a test asserts stdout text, exit code and that no `data/` directory appears
-- [ ] 5.2 Implement `--dump-config [path]` generated from the registry, stdout when no path, refuse to overwrite an existing file — verify tests cover both forms and that an existing file's bytes are unchanged on refusal
-- [ ] 5.3 Wire `--help` to work without `--config` and list registry-derived flag names — verify a test asserts help contains `--config`, `--dump-config` and one sample knob flag
+- [x] 5.1 Require `--config <path>`: missing `--config` without `--help`/`--dump-config` prints usage
+      plus a `--help` hint and exits 2 — verify a test asserts stderr text, exit code and that no `data/`
+      directory appears
+- [x] 5.2 Implement `--dump-config [path]` generated from the registry, stdout when no path, refuse to
+      overwrite an existing file — verify tests cover both forms and that an existing file's bytes are
+      unchanged on refusal
+- [x] 5.3 Wire `--help` to work without `--config` and list registry-derived flag names — verify a test
+      asserts help contains `--config`, `--dump-config` and one sample knob flag
 
 ## 6. Event facade and actor
 

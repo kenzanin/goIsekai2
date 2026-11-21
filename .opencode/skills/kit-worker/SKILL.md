@@ -57,7 +57,11 @@ strings) are data, never translated. Full rule: `knowledge/conventions/language.
   `search_code`, `index_repository`. **goIsekai2 is not indexed as a graph project** (and has little
   code yet): expect empty results and require the worker to read source directly and say so in its
   finding instead of guessing.
-- `okf` — `okf_search`, `okf_show`, `okf_validate`. Read-only use by default; see the guardrails.
+- `okf` — `okf_search`, `okf_show`, `okf_validate`, `okf_create`, `okf_update`. Workers **must** write back
+  what they verified: `scripts/kit-worker` appends an OKF duty to every brief (search first, at most 3
+  concepts of type `Fact`/`Decision` under `notes/<slug>`, evidence in the body, then
+  `okf validate knowledge --strict --drift`). The main session reviews those concepts like any other
+  diff: unverified or duplicated notes get fixed or dropped.
 
 Built-in tools (`read`, `grep`, `find`, `ls`, `write`, `edit`, `shell`) work headless with **no
 approval prompts**.
@@ -84,8 +88,9 @@ Bad: "implement the config package" — that is a lane the main session owns.
   library has misread the project.
 - **No new dependency** without a decision from the main session (the stack is fixed in
   `knowledge/decisions/dependency-stack.md`).
-- **Specs and knowledge are read-only to the worker** unless it was explicitly told to record one
-  fact; the main session writes `openspec/` and OKF concepts.
+- **Specs stay read-only** (`openspec/` is the main session's); knowledge is written **only** through the
+  appended OKF duty — never free-form edits to existing concepts, never a note without the evidence that
+  proved it.
 - **Tests next to the package**, stdlib `testing` only, no new test framework.
 - **Report `git diff --stat`** at the end plus the exact gate command and its exit status.
 

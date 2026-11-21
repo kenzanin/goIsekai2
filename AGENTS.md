@@ -121,7 +121,9 @@ code lands. Planned packages under `internal/`:
 - FSM rules: only the owning actor fires triggers, callbacks enqueue only, illegal trigger is a typed
   error plus a counter (never a panic), and every model change updates the graph golden test.
 - KIT lanes run in their own herdr tab: always `./scripts/kit-worker ...` (it creates the tab, waits for the
-  exit sentinel, prints the tail); never call `kit` directly. Full rule: `.opencode/skills/kit-worker/SKILL.md`.
+  exit sentinel, prints the tail); never call `kit` directly. Every lane also carries the OKF duty: the
+  wrapper appends an instruction to record verified findings as okf concepts, so a lane leaves evidence
+  behind. Full rule: `.opencode/skills/kit-worker/SKILL.md`.
 - Language rule: all produced work is English -- source, comments, tests, docs, specs, knowledge,
   commit messages, worker briefs and worker reports. Only chat replies to the user may be Indonesian.
   Full rule: `knowledge/conventions/language.md`.

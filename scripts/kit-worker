@@ -33,6 +33,17 @@ run_kit() {
   key="$(resolve_key)"
   [ -n "$key" ] || { echo "kit-worker: set OMNIROUTE_API_KEY to the local router key" >&2; exit 78; }
   if [ -n "${KIT_PROMPT_FILE:-}" ]; then prompt="$(cat "$KIT_PROMPT_FILE")"; fi
+  prompt="$prompt
+
+OKF DUTY (mandatory, after the code work, before you finish): persist what you verified to this
+repo's okf knowledge bundle with the okf MCP tools (or the \`okf\` CLI when MCP is unavailable).
+- okf_search first to avoid duplicates; okf_update over okf_create when a concept already covers it.
+- At most 3 concepts, one fact or decision each. type: \"Fact\" for behaviour you proved by running
+  something, \"Decision\" only when you actually chose between alternatives. concept_id: notes/<slug>.
+  tags: the package or file it belongs to. description: one sentence. body: the evidence (command
+  plus output) and the consequence for our code.
+- Record only verified findings, never guesses, never a restatement of the brief.
+- Then run \`okf validate knowledge --strict --drift\` and report every concept id you wrote."
   [ -n "${KIT_MODE:-}" ] && args+=("$KIT_MODE")
   [ -n "${KIT_JSON:-}" ] && args+=(--json)
   fallback="${KIT_FALLBACK_MODEL:-openai/gemini-3.5-flash-lite}"

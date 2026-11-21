@@ -1,4 +1,9 @@
 ## 2026-11-21
+* **Update**: Linked `notes/config-resolution-gotchas.md` to `notes/go-ini-v2-behaviour.md` (both record verified behaviour of the config layer built for add-config).
+* **Update**: Linked `notes/config-resolution-gotchas.md` to `decisions/config-file-format.md` (records implementation traps found while applying the config-file-format decision).
+* **Update**: Linked `notes/go-ini-v2-behaviour.md` to `decisions/config-file-format.md` (records the library behaviour the config-file-format decision depends on).
+* **Creation**: Documented concept `notes/config-resolution-gotchas.md` (Config resolution gotchas found while building add-config).
+* **Creation**: Documented concept `notes/go-ini-v2-behaviour.md` (unknwon.dev/ini/v2 round-trip behaviour).
 * **Update**: Linked `decisions/config-file-format.md` to `decisions/dependency-stack.md` (adds gopkg.in/ini.v1 to the approved pure-Go dependency set).
 * **Update**: Linked `decisions/config-file-format.md` to `architecture/stack.md` (supplies the ini parser row in the stack review and replaces the hand-written INI plan).
 * **Creation**: Documented concept `conventions/language.md` (English for all artifacts, Indonesian only in chat).
