@@ -122,7 +122,8 @@ claim, not evidence — amend the same session with `--continue` instead of spaw
 ## Known limits
 
 - Headless KIT executes tools with no approval prompt and no OS sandbox; a vague brief can write the
-  wrong file. Keep jobs to one file or one shape fix.
+  wrong file. Keep jobs to one file or one shape fix. The wrapper's appended duty forbids editing or
+  deleting files outside that scope (notably `.kit.yml`, `scripts/`, `openspec/`).
 - Default chat model is `custom/adv/msi/GLM-5.3-Flash-EXL3`, with fallback `custom/agnes/agnes-3.0-flash`.
   This follows the documented KIT rule for `--provider-url`: with an explicit model KIT routes through
   the `custom/` OpenAI-compatible wire and strips the prefix from the model id. The earlier

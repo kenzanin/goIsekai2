@@ -9,3 +9,7 @@
 * [Store DB: pure-Go gorm + glebarez/sqlite verified under CGO_ENABLED=0](sqlite-pure-go-stack.md) - gorm v1.31.2 + glebarez/sqlite v1.11.0 (modernc engine) passes the store tests under CGO_ENABLED=0 with single-connection pool and WAL/busy_timeout/foreign_keys pragmas applied in Open.
 * [SQLite pragma readback forms: lowercase wal, numeric foreign_keys](sqlite-pragma-return-values.md) - SQLite PRAGMA results come back lowercase ("wal") and numeric ("1"), so equality checks against "WAL"/"ON" fail.
 * [tmp/dummy.txt sentinel probe: exact KIT_OK payload, ls exits 0](tmp-dummy-probe.md) - tmp/dummy.txt was created with the exact 6-byte payload KIT_OK and ls -l on it exits 0.
+* [tmp/nested/b.txt fixture: exact BETA payload, no newline; find exits 0](tmp-nested-b-fixture.md) - tmp/nested/b.txt holds the exact 4-byte payload BETA (no trailing newline) and find tmp -type f exits 0.
+* [tmp/a.txt fixture: exact ALPHA payload, no newline; wc -c exits 0](tmp-a-txt-fixture.md) - tmp/a.txt holds the exact 5-byte payload ALPHA (no trailing newline) and wc -c on it exits 0.
+* [tmp/probe.go builds: package tmp with OK() sentinel, go build ./tmp exit 0](tmp-probe-go-build.md) - tmp/probe.go (package tmp, func OK() string) compiles: go build ./tmp exits 0.
+* [tmp probe test green: go test ./tmp -count=1 exit 0, TestOK passes against OK() sentinel](tmp-probe-go-test.md) - go test ./tmp -count=1 exits 0: TestOK asserts OK()=="OK" and the existing sentinel passes.

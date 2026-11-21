@@ -1,4 +1,12 @@
 ## 2026-11-21
+* **Update**: Linked `notes/tmp-probe-go-test.md` to `notes/tmp-probe-go-build.md` (Same scratch package: the build probe proved compilation, this test probe proves the test gate too.).
+* **Creation**: Documented concept `notes/tmp-probe-go-test.md` (tmp probe test green: go test ./tmp -count=1 exit 0, TestOK passes against OK() sentinel).
+* **Update**: Linked `notes/tmp-probe-go-build.md` to `notes/tmp-dummy-probe.md` (Sibling scratch verification in tmp/: this probe extends the fixture chain with a compilable Go package sentinel.).
+* **Creation**: Documented concept `notes/tmp-probe-go-build.md` (tmp/probe.go builds: package tmp with OK() sentinel, go build ./tmp exit 0).
+* **Update**: Linked `notes/tmp-a-txt-fixture.md` to `notes/tmp-nested-b-fixture.md` (Sibling tmp/ fixture probes with identical verification pattern (exact payload, no trailing newline, exit 0).).
+* **Creation**: Documented concept `notes/tmp-a-txt-fixture.md` (tmp/a.txt fixture: exact ALPHA payload, no newline; wc -c exits 0).
+* **Update**: Linked `notes/tmp-nested-b-fixture.md` to `notes/tmp-dummy-probe.md` (Sibling scratch-probe fact: same tmp/ fixture pattern, byte-exact payload plus exit-code proof.).
+* **Creation**: Documented concept `notes/tmp-nested-b-fixture.md` (tmp/nested/b.txt fixture: exact BETA payload, no newline; find exits 0).
 * **Update**: Linked `notes/tmp-dummy-probe.md` to `references/kit-worker.md` (KIT_OK sentinel probe used to verify worker lane completion markers.).
 * **Creation**: Documented concept `notes/tmp-dummy-probe.md` (tmp/dummy.txt sentinel probe: exact KIT_OK payload, ls exits 0).
 * **Update**: Linked `notes/sqlite-pure-go-stack.md` to `notes/sqlite-pragma-return-values.md` (The pragma return-value gotcha was observed in the same Open verification that proved the pure-Go stack.).

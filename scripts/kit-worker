@@ -45,6 +45,8 @@ repo's okf knowledge bundle with the okf MCP tools (or the \`okf\` CLI when MCP 
   tags: the package or file it belongs to. description: one sentence. body: the evidence (command
   plus output) and the consequence for our code.
 - Record only verified findings, never guesses, never a restatement of the brief.
+- Write only files named in the brief. Never delete or edit .kit.yml, scripts/, openspec/,
+  or knowledge/ except your own note.
 - Then run \`okf validate knowledge --strict --drift\` and report every concept id you wrote."
   if [ "${KIT_JEV:-0}" = "1" ]; then
     jev_bin="${JEV_MCP_BIN:-$HOME/.config/opencode/vendor/jev-mcp/dist/index.js}"
