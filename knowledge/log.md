@@ -1,4 +1,6 @@
 ## 2026-11-21
+* **Update**: Linked `references/kit-worker.md` to `process/porting-order.md` (worker lanes accelerate the capability implementation sequence).
+* **Creation**: Documented concept `references/kit-worker.md` (KIT headless worker harness (.kit.yml + scripts/kit-worker + kit-worker skill)).
 * **Update**: Linked `process/porting-order.md` to `architecture/overview.md` (orders the implementation of the layers described here).
 * **Update**: Linked `process/porting-order.md` to `architecture/capability-map.md` (defines the execution order and per-change gates for the capabilities mapped here).
 * **Creation**: Documented concept `process/porting-order.md` (Capability porting order: one OpenSpec change per capability, config first).
