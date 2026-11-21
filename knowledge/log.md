@@ -1,4 +1,6 @@
 ## 2026-11-21
+* **Update**: Linked `notes/plugin-tools-crypto.md` to `notes/plugin-tools-surface.md` (crypto helpers are part of the same host tool surface; storage/http/text/regex/cookies facts hang off it too.).
+* **Creation**: Documented concept `notes/plugin-tools-crypto.md` (tools crypto: lowercase-hex digests; Sign = HMAC-SHA256 alias; vectors openssl-verified).
 * **Update**: Linked `notes/plugin-tools-regex.md` to `notes/plugin-tools-surface.md` (regex helpers extend the plugin host tool surface; same package and gate).
 * **Creation**: Documented concept `notes/plugin-tools-regex.md` (tools regex: Capture falls back to whole match, Replace expands $1, no compile cache).
 * **Update**: Linked `notes/plugin-tools-text.md` to `notes/plugin-tools-surface.md` (text helpers extend the host tool surface next to the ToolSet core.).
