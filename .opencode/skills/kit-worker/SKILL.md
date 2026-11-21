@@ -79,6 +79,10 @@ approval prompts**.
 `DECIDE_OK probability=0.96`. An extension must call `ctx.Decide(...)` to use it; KIT warns at
 startup if the configured value is not a decision model.
 
+The wrapper passes `--json` by default (use `KIT_NO_JSON=1` to disable), never `--quiet`, and loads
+general rules from `.kit/system-prompt.md` via `--system-prompt` (`KIT_SYSTEM_PROMPT` overrides the
+path). This makes a lane's progress followable in its herdr tab.
+
 ## Delegation contract
 
 Give the worker a bounded, checkable change: exact file(s), symptom, expected behaviour, and the gate

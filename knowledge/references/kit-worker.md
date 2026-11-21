@@ -112,3 +112,9 @@ Rules that follow:
   status was `failed` and goIsekai2 is not graph-indexed). Query the `cppIsekai`
   project explicitly; a KIT run confirmed `search_code(project: cppIsekai,
   pattern: fts5)` returns `src/store/store_dedup.cpp`.
+
+## Followable lane output
+
+`scripts/kit-worker` now passes `--json` by default and never `--quiet`, so the lane's steps are
+visible in its herdr tab. General rules are loaded from `.kit/system-prompt.md` via KIT's
+`--system-prompt` flag; `KIT_SYSTEM_PROMPT` overrides the path, and `KIT_NO_JSON=1` disables JSON.
