@@ -1,29 +1,96 @@
 #!/usr/bin/env bash
-# goIsekai2 KIT worker: bounded headless task with codebase-memory + okf MCP.
-# Usage:  ./scripts/kit-worker "<prompt>"                       # new session
-#         ./scripts/kit-worker --continue "<follow-up prompt>"  # resume last
-#         ./scripts/kit-worker --resume                         # pick a session
-# Key:    export OMNIROUTE_API_KEY=sk-...   (or it is read from the local router config)
-# KIT persists tree-based JSONL sessions under ~/.kit/sessions/<cwd>/
-# so a failed lane can be continued instead of restarted from scratch.
+# goIsekai2 KIT worker. Every lane runs in its OWN herdr tab: this script creates
+# the tab, starts KIT inside it, waits for the lane to finish and prints the tail.
+#
+# Usage:  ./scripts/kit-worker "<prompt>"
+#         ./scripts/kit-worker --continue "<follow-up>"   # resume the last session
+#         ./scripts/kit-worker --json "<prompt>" | jq .
+# Key:    OMNIROUTE_API_KEY, or the 9router key from ~/.config/opencode/opencode.json.
+# Escape: KIT_ALLOW_HEADLESS=1 runs KIT in this terminal when herdr is unavailable.
+#
+# Environment: KIT_BIN, KIT_PROVIDER_URL, KIT_WAIT_MS (lane timeout, default 30 min).
 set -euo pipefail
 
-if [ -z "${OMNIROUTE_API_KEY:-}" ]; then
-  OMNIROUTE_API_KEY="$(python3 - <<'PY' 2>/dev/null || true
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+KIT_BIN="${KIT_BIN:-$HOME/.local/bin/kit}"
+
+resolve_key() {
+  if [ -n "${OMNIROUTE_API_KEY:-}" ]; then
+    printf '%s' "$OMNIROUTE_API_KEY"
+    return
+  fi
+  python3 - <<'PY' 2>/dev/null || true
 import json, os, re
 p = os.path.expanduser("~/.config/opencode/opencode.json")
-raw = open(p).read()
-raw = re.sub(r",(\s*[}\]])", r"\1", raw)  # tolerate trailing commas
-d = json.loads(raw)
-print(d["providers"]["9router"]["settings"]["apiKey"])
+raw = re.sub(r",(\s*[}\]])", r"\1", open(p).read())  # tolerate trailing commas
+print(json.loads(raw)["providers"]["9router"]["settings"]["apiKey"])
 PY
-)"
+}
+
+run_kit() {
+  local key prompt="" args=()
+  key="$(resolve_key)"
+  [ -n "$key" ] || { echo "kit-worker: set OMNIROUTE_API_KEY to the local router key" >&2; exit 78; }
+  if [ -n "${KIT_PROMPT_FILE:-}" ]; then prompt="$(cat "$KIT_PROMPT_FILE")"; fi
+  [ -n "${KIT_MODE:-}" ] && args+=("$KIT_MODE")
+  [ -n "${KIT_JSON:-}" ] && args+=(--json)
+  export KIT_PROVIDER_API_KEY="$key"
+  export KIT_PROVIDER_URL="${KIT_PROVIDER_URL:-http://localhost:20128/v1}"
+  export KIT_PROVIDER_WIRE="${KIT_PROVIDER_WIRE:-openai-compat}"
+  cd "$REPO"
+  "$KIT_BIN" --quiet "${args[@]+"${args[@]}"}" "$prompt"
+}
+
+# Inner mode: herdr already put us in the lane's tab.
+if [ "${KIT_LANE:-}" = "1" ]; then
+  rc=0
+  run_kit || rc=$?
+  echo "__KIT_EXIT=$rc"
+  exit "$rc"
 fi
-: "${OMNIROUTE_API_KEY:?set OMNIROUTE_API_KEY to the local router key (export OMNIROUTE_API_KEY=sk-...)}"
 
-export KIT_PROVIDER_API_KEY="$OMNIROUTE_API_KEY"
-export KIT_PROVIDER_URL="${KIT_PROVIDER_URL:-http://localhost:20128/v1}"
-export KIT_PROVIDER_WIRE="${KIT_PROVIDER_WIRE:-openai-compat}"
+prompt="" mode="" json=""
+for arg in "$@"; do
+  case "$arg" in
+    --continue|--resume) mode="$arg" ;;
+    --json) json="1" ;;
+    *) prompt="$arg" ;;
+  esac
+done
 
-cd "$(dirname "$0")/.."
-exec "${KIT_BIN:-$HOME/.local/bin/kit}" --quiet "$@"
+if [ "${HERDR_ENV:-}" != "1" ]; then
+  if [ "${KIT_ALLOW_HEADLESS:-}" = "1" ]; then
+    KIT_MODE="$mode" KIT_JSON="$json" run_kit
+    exit $?
+  fi
+  echo "kit-worker: lanes must run in a herdr tab (HERDR_ENV=1). Set KIT_ALLOW_HEADLESS=1 to override." >&2
+  exit 64
+fi
+
+tmpdir="${TMPDIR:-/tmp/opencode}"
+mkdir -p "$tmpdir"
+prompt_file="$(mktemp "$tmpdir/kit-lane-XXXXXX")"
+printf '%s' "$prompt" >"$prompt_file"
+trap 'rm -f "$prompt_file"' EXIT
+
+label="kit:$(printf '%s' "$prompt" | tr -s ' \n\t' ' ' | cut -c1-24)"
+tab_json="$(herdr tab create --workspace "${HERDR_WORKSPACE_ID:-}" --label "$label" --no-focus)"
+pane="$(printf '%s' "$tab_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["root_pane"]["pane_id"])')"
+tab="$(printf '%s' "$tab_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["tab"]["tab_id"])')"
+echo "kit-worker: lane tab $tab pane $pane (label $label)" >&2
+
+sleep 1
+herdr pane report-agent "$pane" --source kit-worker --agent kit --state working >/dev/null 2>&1 || true
+herdr pane run "$pane" "cd '$REPO' && KIT_LANE=1 KIT_PROMPT_FILE='$prompt_file' KIT_MODE='$mode' KIT_JSON='$json' ./scripts/kit-worker" >/dev/null
+
+herdr pane wait-output "$pane" --match "__KIT_EXIT=" --timeout "${KIT_WAIT_MS:-1800000}" >/dev/null 2>&1 || true
+out="$(herdr pane read "$pane" --source recent-unwrapped --lines 200)"
+printf '%s\n' "$out"
+herdr pane report-agent "$pane" --source kit-worker --agent kit --state idle >/dev/null 2>&1 || true
+
+rc="$(printf '%s' "$out" | grep -o '__KIT_EXIT=[0-9]*' | tail -1 | cut -d= -f2)"
+if [ -z "$rc" ]; then
+  echo "kit-worker: lane did not report completion within ${KIT_WAIT_MS:-1800000}ms; inspect tab $tab" >&2
+  exit 1
+fi
+exit "$rc"

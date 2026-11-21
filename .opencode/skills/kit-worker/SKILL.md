@@ -11,19 +11,35 @@ config: `.kit.yml` (MCP servers + `openai/free` model) and `scripts/kit-worker` 
 `~/.config/opencode/opencode.json`). Use it for **bounded** implementation tasks; the main session
 stays the reviewer, the spec author and the final verifier.
 
+## Mandatory: every lane runs in its own herdr tab
+
+`./scripts/kit-worker` creates a new herdr tab (`kit:<prompt prefix>`), starts KIT inside it, waits for the
+lane's `__KIT_EXIT=` sentinel, prints the tail, and leaves the tab open for inspection. Rules:
+
+- **Never run `kit` directly** and never launch a lane from a bare background shell — the tab is how the
+  user watches a lane, and how a stalled lane is diagnosed.
+- **Outside herdr the wrapper refuses** (exit 64) unless `KIT_ALLOW_HEADLESS=1` is set. Do not set it for
+  real lanes; it exists for CI or a broken herdr server only.
+- The wrapper prints `kit-worker: lane tab <tab> pane <pane>` on stderr. Quote that id to the user, and use
+  `herdr pane read <pane> --source recent-unwrapped --lines 80` to inspect without disturbing the lane.
+- A lane that ends without the sentinel is **not** a success: read the tab, then resume with `--continue`.
+  Never respawn a fresh session for the same lane.
+- Keep the tab until the lane is reviewed; close it with `herdr tab close <tab>` afterwards.
+
 ## Invoke
 
 ```bash
 cd /home/kenzanin/tmp/go/goIsekai2
-./scripts/kit-worker "<bounded prompt>"            # plain final answer
+./scripts/kit-worker "<bounded prompt>"            # runs in a new herdr tab, prints the tail
 ./scripts/kit-worker --json "<prompt>" | jq .      # JSON envelope
-./scripts/kit-worker --continue "<follow-up>"      # resume the last session
+./scripts/kit-worker --continue "<follow-up>"      # resume the lane's session
 ```
 
-The wrapper exports `KIT_PROVIDER_API_KEY`, `KIT_PROVIDER_URL` (default
-`http://localhost:20128/v1`) and `KIT_PROVIDER_WIRE=openai-compat`, then runs `kit --quiet`.
-Sessions persist as tree-based JSONL under `~/.kit/sessions/<cwd>/`, so a lane that ran out of steps
-is continued, not restarted. Override with `KIT_PROVIDER_URL` / `KIT_BIN`.
+The wrapper resolves the key from `OMNIROUTE_API_KEY`, else the 9router entry in
+`~/.config/opencode/opencode.json`, then exports `KIT_PROVIDER_API_KEY`, `KIT_PROVIDER_URL` (default
+`http://localhost:20128/v1`) and `KIT_PROVIDER_WIRE=openai-compat`. Sessions persist as tree-based JSONL
+under `~/.kit/sessions/<cwd>/`, so a lane that ran out of steps is continued, not restarted. Override
+`KIT_PROVIDER_URL` / `KIT_BIN` / `KIT_WAIT_MS` if needed.
 
 **Dispatch serially.** One worker at a time — the user requires serial fixer delegation. Never run two
 `kit-worker` invocations whose file scopes could overlap.
@@ -81,7 +97,10 @@ claim, not evidence — amend the same session with `--continue` instead of spaw
 
 - Headless KIT executes tools with no approval prompt and no OS sandbox; a vague brief can write the
   wrong file. Keep jobs to one file or one shape fix.
-- The `openai/free` router model is decent at tool discipline but wanders on multi-step ambiguity.
+- The `openai/free` router model (GLM-4.7) is decent at tool discipline but wanders on multi-step
+  ambiguity, and sometimes ends a response with nothing at all. That shows up as a lane with no
+  `__KIT_EXIT=` sentinel: read the tab, then `--continue` with a shorter, more imperative brief
+  ("write these 5 files now, then run these gates") instead of re-reading context.
 - No UI/visual verification through KIT; the main session verifies rendering.
 - KIT session history is local JSONL — durable knowledge belongs in OKF + OpenSpec + Magic Context,
   not in a worker's transcript.
