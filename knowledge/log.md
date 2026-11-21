@@ -1,4 +1,6 @@
 ## 2026-11-21
+* **Update**: Linked `notes/plugin-tools-regex.md` to `notes/plugin-tools-surface.md` (regex helpers extend the plugin host tool surface; same package and gate).
+* **Creation**: Documented concept `notes/plugin-tools-regex.md` (tools regex: Capture falls back to whole match, Replace expands $1, no compile cache).
 * **Update**: Linked `notes/plugin-tools-text.md` to `notes/plugin-tools-surface.md` (text helpers extend the host tool surface next to the ToolSet core.).
 * **Creation**: Documented concept `notes/plugin-tools-text.md` (tools text helpers: Clean keeps newline/tab as whitespace, DateEpoch dual-layout, JSONBlob sorted-key stable).
 * **Update**: Linked `notes/plugin-tools-cookies.md` to `notes/plugin-tools-surface.md` (Cookie persistence is the third leg of the same ToolSet host surface, beside storage and HTTP fetch.).
