@@ -79,3 +79,4 @@ that proves the plugin ABI, the host tools and the store all agree.
 
 # Related Concepts
 - [Architecture overview: layers, import rules and frozen external contracts](overview.md): the capability layer split that mirrors the architecture layers
+- [Capability porting order](../process/porting-order.md): the execution sequence and per-change gates that turn this map into one OpenSpec change at a time

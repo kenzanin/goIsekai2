@@ -1,4 +1,7 @@
 ## 2026-11-21
+* **Update**: Linked `process/porting-order.md` to `architecture/overview.md` (orders the implementation of the layers described here).
+* **Update**: Linked `process/porting-order.md` to `architecture/capability-map.md` (defines the execution order and per-change gates for the capabilities mapped here).
+* **Creation**: Documented concept `process/porting-order.md` (Capability porting order: one OpenSpec change per capability, config first).
 * **Update**: Linked `decisions/tray.md` to `architecture/stack.md` (resolves the tray slot listed as open on the stack page).
 * **Creation**: Documented concept `decisions/tray.md` (Tray as a separate pure-Go command on fyne.io/systray).
 * **Update**: Linked `architecture/stack.md` to `decisions/event-dispatch.md` (event bus and stream hub rows point at the dispatch decision).
