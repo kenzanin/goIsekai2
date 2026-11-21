@@ -1,7 +1,5 @@
 # KIT worker config for goIsekai2.
 # Provider URL/key/wire are supplied by scripts/kit-worker (never commit the key).
-model: openai/free
-
 mcpServers:
   okf:
     type: local
