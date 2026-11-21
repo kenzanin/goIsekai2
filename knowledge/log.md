@@ -1,4 +1,8 @@
 ## 2026-11-21
+* **Update**: Updated concept `process/porting-order.md`.
+* **Update**: Linked `decisions/ui-stack.md` to `architecture/stack.md` (UI stack rows belong in the consolidated dependency review).
+* **Update**: Linked `decisions/ui-stack.md` to `decisions/http-framework.md` (replaces the html/template + htmx fragment note with the full four-piece UI stack).
+* **Creation**: Documented concept `decisions/ui-stack.md` (UI stack: templ + Tailwind + Alpine + htmx).
 * **Update**: Linked `notes/config-projection-and-mergesave.md` to `notes/config-resolution-gotchas.md` (Projection and MergeSave build upon configuration resolution rules.).
 * **Creation**: Documented concept `notes/config-projection-and-mergesave.md` (Projection and MergeSave verified for internal/config).
 * **Update**: Linked `notes/events-bus-implementation.md` to `architecture/event-driven-core.md` (Refined implementation of the event bus conforms to the event-driven core architecture.).

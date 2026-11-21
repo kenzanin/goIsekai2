@@ -123,7 +123,7 @@ data/
 
 | Area | Choice | Status |
 |---|---|---|
-| HTTP | `go-chi/chi/v5` v5.5.0 + stdlib `html/template` + htmx fragments | decided (`decisions/http-framework`) |
+| HTTP | `go-chi/chi/v5` v5.5.0 + templ v0.3.1118 + Tailwind v4.3.5 + Alpine/htmx | decided (`decisions/ui-stack`) |
 | Events | `gookit/event` behind one actor | decided (`decisions/event-dispatch`) |
 | FSM | `qmuntal/stateless` behind typed wrappers | decided (`decisions/state-machine-engine`) |
 | SQLite driver | `modernc.org/sqlite` v1.62.0 (pure Go, BSD-3) | decided |

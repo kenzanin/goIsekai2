@@ -35,7 +35,11 @@ table that answers "library or hand-written?" without reading five concepts.
 | INI config file | `unknwon.dev/ini/v2` | v2.0.0-beta.7 | `decisions/config-file-format` |
 | Native `.so` loading | `ebitengine/purego` | only if native plugins are adopted | `decisions/tray` |
 
-Stdlib for everything else: `net/http`, `html/template`, `log/slog`, `encoding/json`, `crypto/*`,
+| UI templates (templ) | `github.com/a-h/templ` | v0.3.1118 | `decisions/ui-stack` |
+| CSS build | Tailwind CLI | v4.3.5 | `decisions/ui-stack` |
+| Browser interaction | Alpine.js + htmx (vendored) | v3.17.5 / v2.0.11 | `decisions/ui-stack` |
+
+Stdlib for everything else: `net/http`, `log/slog`, `encoding/json`, `crypto/*`,
 `database/sql`, `os/exec`, `flag`, `unicode/utf8` (rune-aware text handling: UTF-8 validation, rune counts
 and truncation for titles, slugs and cache names — never byte slicing).
 
@@ -51,7 +55,7 @@ and truncation for titles, slugs and cache names — never byte slicing).
 | Store: typed repository methods over GORM; SQL statements, migrations, `schema_version`, anti-nested-Tx helper | the frozen SQL lives only in the `internal/store/sql` module, gated by `make lint`; `decisions/store-access` |
 | Plugin loader + 3-runtime bridge + host tools | ABI is frozen by the baseline (`specs/host-tools`, `specs/plugin-host`) |
 | Image cache tree, slug, `cache_ns`, disk LRU, sidecar, GC | baseline cache layout is a frozen contract (`specs/image-cache`) |
-| Daemon routes, SSR handlers, `/cache/img`, config save | thin layer over chi + `html/template` |
+| Daemon routes, SSR handlers, `/cache/img`, config save | chi + templ components + compiled Tailwind CSS; vendored Alpine/htmx for interaction |
 | Reader window math, prefetch, position | small, tested against the baseline maths |
 | Browser host supervision (`os/exec`, single respawn, owned shutdown) | Go gives this directly; see `decisions/browser-host-transport` |
 | Plugin scraping logic | no Go HTML parser: plugins use their own patterns/regex, as the baseline does |

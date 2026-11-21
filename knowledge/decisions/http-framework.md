@@ -24,7 +24,7 @@ is required.
 |---|---|---|
 | Router / framework | `github.com/go-chi/chi/v5` v5.5.0 (MIT) | `http.Handler`-native, zero transitive deps, route groups + middleware, `chi/middleware` (Recoverer, RequestID, RealIP, Logger); streaming stays `http.ResponseWriter` |
 | WebSocket | `github.com/coder/websocket` v1.8.15 (ISC) | context-aware API on `net/http`, single-writer discipline handled internally, ping/pong built in, zero transitive deps |
-| Templates / SSR | stdlib `html/template` + htmx fragments | unchanged |
+Stdlib `html/template` was used by the first settings page; `decisions/ui-stack` replaces it with compiled templ components and vendored Alpine/htmx fragments.
 | Static and image responses | stdlib `http.FileServer` / `http.ServeContent` behind chi routes | unchanged |
 
 Transport stays WebSocket, not SSE: `GET /ws/log` with snapshot replay is part of the frozen route surface,
