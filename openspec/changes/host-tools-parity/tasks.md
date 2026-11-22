@@ -15,9 +15,9 @@ Lane gate: `go vet ./... && gofmt -l internal && CGO_ENABLED=0 go build ./... &&
 
 ## 2. Lane 2 — crypto and codec surface
 
-- [ ] 2.1 Audit `crypto.sha256_hex`, `crypto.md5_hex`, `crypto.hmac_sha256_hex`, `crypto.vrf_sign` against the existing hash/hmac/sign entries; register aliases where vector tests prove identical output, else add canonical entries — verify known vectors for every name.
-- [ ] 2.2 Register `codecs.base64_encode`, `codecs.base64_decode`, `codecs.hex_encode`, `codecs.hex_decode` as aliases of the crypto base64/hex helpers — verify the alias-equals-canonical test.
-- [ ] 2.3 Implement `crypto.aes_gcm_decrypt` as a new canonical entry — verify a known key/nonce/ciphertext vector round-trips and a tampered tag fails typed.
+- [x] 2.1 Audit `crypto.sha256_hex`, `crypto.md5_hex`, `crypto.hmac_sha256_hex`, `crypto.vrf_sign` against the existing hash/hmac/sign entries; register aliases where vector tests prove identical output, else add canonical entries — verify known vectors for every name.
+- [x] 2.2 Register `codecs.base64_encode`, `codecs.base64_decode`, `codecs.hex_encode`, `codecs.hex_decode` as aliases of the crypto base64/hex helpers — verify the alias-equals-canonical test.
+- [x] 2.3 Implement `crypto.aes_gcm_decrypt` as a new canonical entry — verify a known key/nonce/ciphertext vector round-trips and a tampered tag fails typed.
 
 Lane gate: lane 1 gate.
 

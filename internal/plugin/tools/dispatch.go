@@ -347,6 +347,48 @@ func (t *ToolSet) Dispatch(name string, args ...any) (any, error) {
 			return nil, err
 		}
 		return Sign(payload, key)
+	case "crypto.hmac_sha256_hex":
+		data, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		key, err := argString(args, 1)
+		if err != nil {
+			return nil, err
+		}
+		return HMAC("sha256", key, data)
+	case "crypto.vrf_sign":
+		path, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		params, ok := asStringMap(args[1])
+		if !ok {
+			return nil, fmt.Errorf("tools: vrf_sign params must be an object")
+		}
+		stages, ok := asAnySlice(args[2])
+		if !ok {
+			return nil, fmt.Errorf("tools: vrf_sign stages must be an array")
+		}
+		return VRFSign(path, params, stages)
+	case "crypto.aes_gcm_decrypt":
+		iv, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		ct, err := argString(args, 1)
+		if err != nil {
+			return nil, err
+		}
+		tag, err := argString(args, 2)
+		if err != nil {
+			return nil, err
+		}
+		key, err := argString(args, 3)
+		if err != nil {
+			return nil, err
+		}
+		return AESGCMDecrypt(iv, ct, tag, key)
 	case "crypto.b64enc":
 		s, err := argString(args, 0)
 		return Base64Encode(s), err

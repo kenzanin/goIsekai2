@@ -4,6 +4,7 @@ import "testing"
 
 func TestHash(t *testing.T) {
 	cases := []struct{ alg, in, want string }{
+		{"md5", "hello", "5d41402abc4b2a76b9719d911017c592"},
 		{"sha1", "hello", "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d"},
 		{"sha256", "hello", "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"},
 		{"sha512", "hello", "9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043"},
@@ -14,7 +15,7 @@ func TestHash(t *testing.T) {
 			t.Errorf("Hash(%q,%q) = %q,%v want %q", c.alg, c.in, got, err, c.want)
 		}
 	}
-	if _, err := Hash("md5", "x"); err == nil {
+	if _, err := Hash("bogus", "x"); err == nil {
 		t.Error("Hash(unknown) should error")
 	}
 }
@@ -28,7 +29,7 @@ func TestHMAC(t *testing.T) {
 	if err != nil || got != "de7c9b85b8b78aa6bc8a7a36f70a90701c9db4d9" {
 		t.Errorf("HMAC sha1 vector = %q,%v", got, err)
 	}
-	if _, err := HMAC("md5", "k", "v"); err == nil {
+	if _, err := HMAC("bogus", "k", "v"); err == nil {
 		t.Error("HMAC(unknown) should error")
 	}
 }

@@ -16,6 +16,7 @@ var aliases = map[string]alias{
 	"codecs.hex_encode":    {canonical: "crypto.hexenc"},
 	"codecs.hex_decode":    {canonical: "crypto.hexdec"},
 	"crypto.sha256_hex":    {canonical: "crypto.hash", fixedArg: "sha256"},
+	"crypto.md5_hex":       {canonical: "crypto.hash", fixedArg: "md5"},
 }
 
 // resolveAlias returns the canonical tool name and any fixed leading argument.
