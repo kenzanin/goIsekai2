@@ -20,6 +20,7 @@ is a cross-cutting foundation change against the `config` capability, tracked as
 | 3 | plugin-host | `add-plugin-host` | store | archived |
 | 3a | Lua 5.5 runtime (modernc.org/lua) | `add-lua55` | plugin-host | archived |
 | 4 | host-tools | `add-host-tools` | plugin-host | archived |
+| 4a | host-tools baseline name parity | `host-tools-parity` | host-tools | archived |
 | 5 | library | `add-library` | host-tools, store | archived |
 | 6 | reader | `add-reader` | library | archived |
 | 6a | reader fullscreen/controls parity | `add-reader-parity` | reader | archived |

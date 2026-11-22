@@ -38,5 +38,5 @@ Lane gate: lane 3 gate plus the io fixtures.
 
 ## 5. Close-out (main session)
 
-- [ ] 5.1 `openspec validate host-tools-parity --strict` clean; archive the change and sync specs.
-- [ ] 5.2 Record the confined-io divergence as a decision concept per the OKF pipeline (main-session duty; subagents do not touch `knowledge/`).
+- [x] 5.1 `openspec validate host-tools-parity --strict` clean; archive the change and sync specs.
+- [x] 5.2 Record the confined-io divergence as a decision concept per the OKF pipeline (main-session duty; subagents do not touch `knowledge/`).
