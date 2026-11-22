@@ -126,6 +126,7 @@ code lands. Planned packages under `internal/`:
   exit sentinel, prints the tail); never call `kit` directly. Every lane also carries the OKF duty: the
   wrapper appends an instruction to record verified findings as okf concepts, so a lane leaves evidence
   behind. Full rule: `.opencode/skills/kit-worker/SKILL.md`.
+- PI lanes use `./scripts/pi-worker --sid=<id> --timeout=<ms> "<prompt>"`; sessions persist and resume.
 - Language rule: all produced work is English -- source, comments, tests, docs, specs, knowledge,
   commit messages, worker briefs and worker reports. Only chat replies to the user may be Indonesian.
   Full rule: `knowledge/conventions/language.md`.

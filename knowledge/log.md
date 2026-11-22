@@ -1,4 +1,6 @@
 ## 2026-11-22
+* **Update**: Linked `references/pi-worker.md` to `references/kit-worker.md` (Alternative headless worker harness using pi instead of KIT).
+* **Creation**: Documented concept `references/pi-worker.md` (PI worker harness).
 * **Update**: Updated concept `notes/webp-self-registers-image-decoder.md`.
 * **Update**: Updated concept `notes/cache-cover-cgo-gate.md`.
 * **Update**: Linked `notes/webp-self-registers-image-decoder.md` to `architecture/cache-layout.md` (Decoder-registration behaviour the cache transcode and any webp re-decode rely on.).

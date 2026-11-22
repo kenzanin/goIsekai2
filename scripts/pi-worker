@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# goIsekai2 PI worker. Every lane runs in its OWN herdr tab: this script creates
+# the tab, starts pi inside it, waits for the lane to finish and prints the tail.
+#
+# Usage:  ./scripts/pi-worker "<prompt>"
+#         ./scripts/pi-worker --sid=add-detail-a "<follow-up>"   # resume a named session
+#         ./scripts/pi-worker --timeout=3600000 "<long lane>"
+# Key:    ~/.pi/agent/auth.json (provider 9router). No key is passed on the CLI.
+# Escape: PI_ALLOW_HEADLESS=1 runs pi in this terminal when herdr is unavailable.
+# JSON output is on by default (PI_NO_JSON=1 disables it).
+# Sessions are always enabled: PI_SESSION_DIR and --sid make the lane resumable.
+set -euo pipefail
+
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+PI_BIN="${PI_BIN:-$HOME/.local/bin/pi}"
+SESSION_DIR="${PI_SESSION_DIR:-/tmp/opencode/pi-sessions}"
+
+run_pi() {
+  local sid="$PI_SID" args=() prompt
+  prompt="$(cat "$PI_PROMPT_FILE")"
+  mkdir -p "$SESSION_DIR"
+  args+=(
+    -p
+    --provider "${PI_PROVIDER:-9router}"
+    --model "${PI_MODEL:-free}"
+    --session-dir "$SESSION_DIR"
+    --session-id "$sid"
+  )
+  if [ "${PI_NO_JSON:-0}" != "1" ]; then args+=(--mode json); fi
+  system_prompt="${PI_SYSTEM_PROMPT:-$REPO/.pi/system-prompt.md}"
+  [ -f "$system_prompt" ] && args+=(--append-system-prompt "$system_prompt")
+  cd "$REPO"
+  "$PI_BIN" "${args[@]}" -- "$prompt"
+}
+
+# Inner mode: herdr already put us in the lane's tab.
+if [ "${PI_LANE:-}" = "1" ]; then
+  rc=0
+  run_pi || rc=$?
+  echo "__PI_EXIT=$rc"
+  exit "$rc"
+fi
+
+prompt="" sid="" timeout_ms=""
+for arg in "$@"; do
+  case "$arg" in
+    --sid=*) sid="${arg#--sid=}" ;;
+    --timeout=*) timeout_ms="${arg#--timeout=}" ;;
+    --session-dir=*) SESSION_DIR="${arg#--session-dir=}" ;;
+    *) if [ -n "$prompt" ]; then prompt="$prompt
+$arg"; else prompt="$arg"; fi ;;
+  esac
+done
+
+if [ -z "$prompt" ]; then
+  echo "pi-worker: missing prompt" >&2
+  exit 64
+fi
+if [ -z "$sid" ]; then
+  sid="pi-$(printf '%s' "$prompt" | sha256sum | cut -c1-12)"
+fi
+timeout_ms="${timeout_ms:-${PI_WAIT_MS:-3600000}}"
+
+if [ "${HERDR_ENV:-}" != "1" ]; then
+  if [ "${PI_ALLOW_HEADLESS:-}" = "1" ]; then
+    tmpdir="${TMPDIR:-/tmp/opencode}"
+    mkdir -p "$tmpdir"
+    prompt_file="$(mktemp "$tmpdir/pi-headless-XXXXXX")"
+    printf '%s' "$prompt" >"$prompt_file"
+    trap 'rm -f "$prompt_file"' EXIT
+    PI_SID="$sid" PI_PROMPT_FILE="$prompt_file" \
+      PI_TIMEOUT_MS="$timeout_ms" run_pi
+    exit $?
+  fi
+  echo "pi-worker: lanes must run in a herdr tab (HERDR_ENV=1). Set PI_ALLOW_HEADLESS=1 to override." >&2
+  exit 64
+fi
+
+tmpdir="${TMPDIR:-/tmp/opencode}"
+mkdir -p "$tmpdir"
+prompt_file="$(mktemp "$tmpdir/pi-lane-XXXXXX")"
+printf '%s' "$prompt" >"$prompt_file"
+trap 'rm -f "$prompt_file"' EXIT
+
+label="pi:$(printf '%s' "$prompt" | tr -s ' \n\t' ' ' | cut -c1-24)"
+tab_json="$(herdr tab create --workspace "${HERDR_WORKSPACE_ID:-}" --label "$label" --no-focus)"
+pane="$(printf '%s' "$tab_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["root_pane"]["pane_id"])')"
+tab="$(printf '%s' "$tab_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["tab"]["tab_id"])')"
+echo "pi-worker: lane tab $tab pane $pane session $sid timeout ${timeout_ms}ms (label $label)" >&2
+
+sleep 1
+herdr pane report-agent "$pane" --source pi-worker --agent pi --state working >/dev/null 2>&1 || true
+herdr pane run "$pane" "cd '$REPO' && PI_LANE=1 PI_SID='$sid' PI_PROMPT_FILE='$prompt_file' PI_TIMEOUT_MS='$timeout_ms' PI_SESSION_DIR='$SESSION_DIR' ./scripts/pi-worker" >/dev/null
+
+herdr pane wait-output "$pane" --match "__PI_EXIT=" --timeout "$timeout_ms" >/dev/null 2>&1 || true
+out="$(herdr pane read "$pane" --source recent-unwrapped --lines 300)"
+printf '%s\n' "$out"
+herdr pane report-agent "$pane" --source pi-worker --agent pi --state idle >/dev/null 2>&1 || true
+
+rc="$(printf '%s' "$out" | grep -o '__PI_EXIT=[0-9]*' | tail -1 | cut -d= -f2)"
+if [ -z "$rc" ]; then
+  echo "pi-worker: lane did not report completion within ${timeout_ms}ms; inspect tab $tab, resume with --sid=$sid" >&2
+  exit 1
+fi
+exit "$rc"
