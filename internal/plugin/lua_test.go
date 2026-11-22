@@ -8,7 +8,7 @@ import (
 )
 
 func TestLuaRuntimeCall(t *testing.T) {
-	rt, err := NewLuaRuntime(`function handle(req) return '{"ok":true,"data":' .. req .. '}' end`)
+	rt, err := NewLuaRuntime(`function handle(req) return { ok = true, data = req } end`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -16,7 +16,7 @@ func TestLuaRuntimeCall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(out) != `{"ok":true,"data":{"n":1}}` {
+	if string(out) != `{"data":{"n":1},"ok":true}` && string(out) != `{"ok":true,"data":{"n":1}}` {
 		t.Fatalf("out = %s", out)
 	}
 }

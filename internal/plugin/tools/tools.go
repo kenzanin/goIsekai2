@@ -24,6 +24,7 @@ type ToolSet struct {
 	Log            *slog.Logger
 	Browser        browser.Browser
 	BrowserAllowed func(string) bool
+	Params         map[string]any
 }
 
 // Now returns the current Unix time in seconds.

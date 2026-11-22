@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"encoding/json"
+	"fmt"
 
 	lua "github.com/yuin/gopher-lua"
 
@@ -66,7 +67,80 @@ func bindLua(L *lua.LState, ts *tools.ToolSet) {
 		L.Push(lua.LString(tools.Clean(L.CheckString(1))))
 		return 1
 	}))
+	L.SetField(text, "strip_html", L.NewFunction(func(L *lua.LState) int {
+		L.Push(lua.LString(tools.Clean(L.CheckString(1))))
+		return 1
+	}))
 	L.SetField(host, "text", text)
+	plugin := L.NewTable()
+	L.SetField(plugin, "param", L.NewFunction(func(L *lua.LState) int {
+		if v, ok := ts.Params[L.CheckString(1)]; ok {
+			L.Push(goToLua(L, v))
+		} else {
+			L.Push(lua.LNil)
+		}
+		return 1
+	}))
+	L.SetField(host, "plugin", plugin)
+	L.SetField(host, "url_encode", L.NewFunction(func(L *lua.LState) int {
+		L.Push(lua.LString(tools.URLEncode(L.CheckString(1))))
+		return 1
+	}))
+	L.SetField(host, "url_decode", L.NewFunction(func(L *lua.LState) int {
+		v, err := tools.URLDecode(L.CheckString(1))
+		if err != nil {
+			L.RaiseError("host.url_decode: %v", err)
+		}
+		L.Push(lua.LString(v))
+		return 1
+	}))
+	httpTable := L.NewTable()
+	for _, name := range []string{"fetch", "fetch_body", "get_json", "post_json"} {
+		tool := name
+		L.SetField(httpTable, name, L.NewFunction(func(L *lua.LState) int {
+			args := []any{L.CheckString(1)}
+			if L.GetTop() >= 2 && L.CheckAny(2) != lua.LNil {
+				args = append(args, luaValue(L.CheckAny(2)))
+			}
+			v, err := ts.Dispatch("http."+tool, args...)
+			if err != nil {
+				L.Push(lua.LNil)
+				L.Push(lua.LString(err.Error()))
+				return 2
+			}
+			L.Push(goToLua(L, v))
+			L.Push(lua.LNil)
+			return 2
+		}))
+	}
+	L.SetField(host, "http", httpTable)
+}
+
+func goToLua(L *lua.LState, v any) lua.LValue {
+	switch x := v.(type) {
+	case string:
+		return lua.LString(x)
+	case float64:
+		return lua.LNumber(x)
+	case int:
+		return lua.LNumber(x)
+	case bool:
+		return lua.LBool(x)
+	case map[string]any:
+		t := L.NewTable()
+		for k, v := range x {
+			L.SetField(t, k, goToLua(L, v))
+		}
+		return t
+	case []any:
+		t := L.NewTable()
+		for _, v := range x {
+			t.Append(goToLua(L, v))
+		}
+		return t
+	default:
+		return lua.LString(fmt.Sprint(x))
+	}
 }
 
 // hostResult is the JSON envelope returned by host.call.

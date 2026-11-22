@@ -206,8 +206,12 @@ func (h *Host) Boot(ctx context.Context) error {
 			ts.Browser = h.tools.Browser
 		}
 		ts.BrowserAllowed = func(id string) bool { return hasCapability(m, "browser") }
+		ts.Params = m.Params
 		if binder, ok := rt.(interface{ SetTools(*tools.ToolSet) }); ok {
 			binder.SetTools(ts)
+		}
+		if lr, ok := rt.(*LuaRuntime); ok {
+			lr.SetDir(filepath.Join(h.dir, folder))
 		}
 		next[folder] = &Instance{Manifest: m, Runtime: rt, Lifecycle: lc, sem: make(chan struct{}, 1)}
 	}
@@ -240,14 +244,17 @@ func (h *Host) instance(id string) (*Instance, error) {
 // Call serializes one plugin call per instance and honours the caller deadline
 // while queued.
 func (h *Host) Call(ctx context.Context, id, method string, params json.RawMessage) ([]byte, error) {
+	slog.Debug("plugin call start", "plugin", id, "method", method, "params_bytes", len(params))
 	if err := ValidateMethod(method); err != nil {
 		return nil, err
 	}
 	inst, err := h.instance(id)
 	if err != nil {
+		slog.Debug("plugin call rejected", "plugin", id, "reason", err.Error())
 		return nil, err
 	}
 	state, err := inst.Lifecycle.State(ctx)
+	slog.Debug("plugin call state", "plugin", id, "state", state)
 	if err != nil {
 		return nil, err
 	}
@@ -266,6 +273,7 @@ func (h *Host) Call(ctx context.Context, id, method string, params json.RawMessa
 	_ = inst.Lifecycle.Fire(ctx, TriggerCallStarted)
 	envelope, _ := json.Marshal(Envelope{API: HostAPI, Method: method, Params: params})
 	out, err := inst.Runtime.Call(ctx, envelope)
+	slog.Debug("plugin call finished", "plugin", id, "method", method, "out_bytes", len(out), "error", err)
 	now := time.Now()
 	inst.mu.Lock()
 	if err != nil {

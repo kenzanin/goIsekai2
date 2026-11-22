@@ -18,16 +18,17 @@ var runtimes = map[string]bool{"lua": true, "js": true, "wasm": true}
 // Manifest is the plugin main.json contract. Field names match the cppIsekai
 // manifest ABI; logo is a host-side addition absent from the C++ schema.
 type Manifest struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	Version      string   `json:"version"`
-	Runtime      string   `json:"runtime"`
-	Capabilities []string `json:"capabilities"`
-	API          int      `json:"api"`
-	Entry        string   `json:"entry"`
-	Logo         string   `json:"logo"`
-	Website      string   `json:"website"`
-	ImageReferer string   `json:"image_referer"`
+	ID           string         `json:"id"`
+	Name         string         `json:"name"`
+	Version      string         `json:"version"`
+	Runtime      string         `json:"runtime"`
+	Capabilities []string       `json:"capabilities"`
+	API          int            `json:"api"`
+	Entry        string         `json:"entry"`
+	Logo         string         `json:"logo"`
+	Website      string         `json:"website"`
+	ImageReferer string         `json:"image_referer"`
+	Params       map[string]any `json:"params"`
 }
 
 // LoadManifest reads and validates the manifest file at path. Entry resolves

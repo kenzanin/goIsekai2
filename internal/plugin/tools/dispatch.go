@@ -2,6 +2,7 @@ package tools
 
 import (
 	"fmt"
+	"log/slog"
 	"net/url"
 )
 
@@ -40,6 +41,7 @@ func argMap(args []any, i int) (map[string]any, error) {
 // Dispatch invokes one frozen host tool by name. Runtime bindings are thin
 // marshals over this single implementation.
 func (t *ToolSet) Dispatch(name string, args ...any) (any, error) {
+	slog.Debug("host tool dispatch", "tool", name, "args", len(args), "plugin", t.PluginID)
 	switch name {
 	case "now":
 		return t.Now(), nil

@@ -6,6 +6,7 @@ import (
 	"embed"
 	"encoding/json"
 	"io/fs"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -124,6 +125,7 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/", s.renderLibrary)
 	r.Get("/library", s.renderLibrary)
 	r.Get("/search", s.renderSearch)
+	r.Get("/api/search", s.apiSearch)
 	r.Get("/api/library", s.listLibrary)
 	r.Get("/read/{plugin}/{slug}", s.renderRead)
 	r.Get("/api/pages/{plugin}/{slug}/{ch}", s.getPages)
@@ -423,6 +425,38 @@ func (s *Server) renderSearch(w http.ResponseWriter, r *http.Request) {
 	if err := components.Search(active, pages, plugins, hits, query).Render(r.Context(), w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func (s *Server) apiSearch(w http.ResponseWriter, r *http.Request) {
+	if s.host == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "error": "plugin host unavailable"})
+		return
+	}
+	pluginID := r.FormValue("plugin")
+	if pluginID == "" {
+		for _, row := range s.host.Rows(r.Context()) {
+			if row.Enabled {
+				pluginID = row.ID
+				break
+			}
+		}
+	}
+	if pluginID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "no enabled plugin"})
+		return
+	}
+	params, _ := json.Marshal(map[string]any{
+		"query": r.FormValue("q"), "page": 1,
+	})
+	slog.Debug("plugin search api", "plugin", pluginID, "query", r.FormValue("q"))
+	out, err := s.host.Call(r.Context(), pluginID, "search", params)
+	slog.Debug("plugin search api result", "plugin", pluginID, "bytes", len(out), "error", err)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"ok": false, "error": err.Error(), "plugin": pluginID})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(out)
 }
 
 func (s *Server) renderRead(w http.ResponseWriter, r *http.Request) {

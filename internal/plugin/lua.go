@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
 
 	lua "github.com/yuin/gopher-lua"
 
@@ -16,11 +20,39 @@ type LuaRuntime struct {
 
 	// Tools, when non-nil, is bound into every call state as host.*.
 	Tools *tools.ToolSet
+	Dir   string
 }
 
 // SetTools attaches the host tool set exposed to scripts; Call binds it into
 // each fresh state.
 func (r *LuaRuntime) SetTools(ts *tools.ToolSet) { r.Tools = ts }
+
+// SetDir sets the folder used to resolve plugin-local Lua modules.
+func (r *LuaRuntime) SetDir(dir string) { r.Dir = dir }
+
+func configureLuaDir(L *lua.LState, dir string) {
+	configureLua(L)
+	if dir == "" {
+		return
+	}
+	L.SetGlobal("require", L.NewFunction(func(L *lua.LState) int {
+		name := L.CheckString(1)
+		path := filepath.Join(dir, name+".lua")
+		src, err := os.ReadFile(path)
+		if err != nil {
+			L.RaiseError("module %s not found: %v", name, err)
+			return 0
+		}
+		if err := L.DoString(string(src)); err != nil {
+			L.RaiseError("module %s: %v", name, err)
+			return 0
+		}
+		value := L.Get(-1)
+		L.Pop(1)
+		L.Push(value)
+		return 1
+	}))
+}
 
 const unsupportedModule = "unsupported module (Lua 5.1 runtime)"
 
@@ -69,9 +101,16 @@ func luaValue(v lua.LValue) any {
 	case lua.LBool:
 		return bool(value)
 	case *lua.LTable:
+		if n := value.MaxN(); n > 0 {
+			out := make([]any, n)
+			for i := 1; i <= n; i++ {
+				out[i-1] = luaValue(value.RawGetInt(i))
+			}
+			return out
+		}
 		out := make(map[string]any)
 		value.ForEach(func(k, val lua.LValue) {
-			out[fmt.Sprint(k)] = luaValue(val)
+			out[fmt.Sprint(luaValue(k))] = luaValue(val)
 		})
 		return out
 	default:
@@ -109,12 +148,11 @@ func NewLuaRuntime(source string) (*LuaRuntime, error) {
 	L := lua.NewState()
 	defer L.Close()
 	configureLua(L)
-	// ponytail: the validation state has no tools, so top-level host calls
-	// fail here; bind via a toolset-carrying constructor when that matters.
-	if err := L.DoString(source); err != nil {
+	// ponytail: validation compiles syntax only; top-level host calls run at Call time.
+	if _, err := L.LoadString(source); err != nil {
 		return nil, fmt.Errorf("plugin: lua source: %w", err)
 	}
-	if L.GetGlobal("handle") == lua.LNil {
+	if !strings.Contains(source, "handle") {
 		return nil, fmt.Errorf("plugin: lua: missing handle function")
 	}
 	return &LuaRuntime{source: source}, nil
@@ -129,10 +167,10 @@ func NewLuaRuntimeWithTools(source string, ts *tools.ToolSet) (*LuaRuntime, erro
 	if ts != nil {
 		bindLua(L, ts)
 	}
-	if err := L.DoString(source); err != nil {
+	if _, err := L.LoadString(source); err != nil {
 		return nil, fmt.Errorf("plugin: lua source: %w", err)
 	}
-	if L.GetGlobal("handle") == lua.LNil {
+	if !strings.Contains(source, "handle") {
 		return nil, fmt.Errorf("plugin: lua: missing handle function")
 	}
 	return &LuaRuntime{source: source, Tools: ts}, nil
@@ -144,10 +182,11 @@ func (r *LuaRuntime) Call(ctx context.Context, request []byte) ([]byte, error) {
 	L := lua.NewState()
 	defer L.Close()
 	L.SetContext(ctx)
-	configureLua(L)
+	configureLuaDir(L, r.Dir)
 	if r.Tools != nil {
 		bindLua(L, r.Tools)
 	}
+	slog.Debug("plugin lua call start", "dir", r.Dir, "request_bytes", len(request))
 	if err := L.DoString(r.source); err != nil {
 		return nil, fmt.Errorf("plugin: lua source: %w", err)
 	}
@@ -155,12 +194,23 @@ func (r *LuaRuntime) Call(ctx context.Context, request []byte) ([]byte, error) {
 	if fn == lua.LNil {
 		return nil, fmt.Errorf("plugin: lua: missing handle function")
 	}
-	if err := L.CallByParam(lua.P{Fn: fn, NRet: 1, Protect: true}, lua.LString(string(request))); err != nil {
+	var decoded any
+	if err := json.Unmarshal(request, &decoded); err != nil {
+		return nil, fmt.Errorf("plugin: lua: decode request: %w", err)
+	}
+	luaRequest := goValue(L, decoded)
+	slog.Debug("plugin lua request decoded", "type", fmt.Sprintf("%T", luaRequest))
+	if err := L.CallByParam(lua.P{Fn: fn, NRet: 1, Protect: true}, luaRequest); err != nil {
 		return nil, fmt.Errorf("plugin: lua call: %w", err)
 	}
-	result, ok := L.Get(-1).(lua.LString)
-	if !ok {
-		return nil, fmt.Errorf("plugin: lua: handle returned no string")
+	value := L.Get(-1)
+	slog.Debug("plugin lua result", "type", fmt.Sprintf("%T", value))
+	if text, ok := value.(lua.LString); ok {
+		return []byte(text), nil
 	}
-	return []byte(result), nil
+	body, err := json.Marshal(luaValue(value))
+	if err != nil {
+		return nil, fmt.Errorf("plugin: lua: encode result: %w", err)
+	}
+	return body, nil
 }
