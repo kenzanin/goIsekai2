@@ -99,7 +99,7 @@ const readerState = `{
 		return this.zoom === 'original' ? 'block h-auto' : 'block h-auto w-full';
 	},
 	get stageImgClass() {
-		if (this.zoom === 'width') return 'h-auto max-h-full w-full object-contain';
+		if (this.zoom === 'width') return 'h-auto w-full max-w-none';
 		if (this.zoom === 'original') return 'max-w-none';
 		return 'max-h-full max-w-full object-contain';
 	},
