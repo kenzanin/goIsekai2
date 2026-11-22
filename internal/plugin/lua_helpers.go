@@ -82,17 +82,42 @@ host.now = function() return call("now") end
 host.log = {}
 host.log.info = function(msg) call("log.info", msg) end
 host.log.error = function(msg) call("log.error", msg) end
-host.log.debug = function(msg) call("log.info", msg) end
+host.log.debug = function(msg) call("log.debug", msg) end
 
 host.storage = {}
 host.storage.get = function(key) return call("storage.get", key) end
 host.storage.set = function(key, value) return call("storage.set", key, value) end
 
+host.text = host.text or {}
 host.text.clean = function(s) return call("text.clean", s) end
-host.text.strip_html = function(s) return call("text.clean", s) end
-host.text.trim = function(s) return call("text.clean", s) end
+host.text.strip_html = function(s) return call("text.strip_html", s) end
+host.text.trim = function(s) return call("text.trim", s) end
+host.text.chapter_num = function(s) return call("text.chapter_num", s) end
 host.text.date_epoch = function(s) return call("text.date_epoch", s) end
 host.text.date_to_iso = function(s) return call("text.date_to_iso", s) end
+host.text.normalize_status = function(s) return call("text.normalize_status", s) end
+host.text.json_blob = function(s, marker) return call("text.json_blob", s, marker) end
+host.text.unescape = function(s) return call("text.unescape", s) end
+
+host.plugin = { param = function(key) return call("plugin.param", key) end }
+host.config = { get = function(key) return call("config.get", key) end }
+host.fs = {
+  read = function(name) return call("fs.read", name) end,
+  read_lib = function(name) return call("fs.read_lib", name) end,
+}
+
+host.codecs = {}
+host.codecs.base64_encode = function(s) return call("codecs.base64_encode", s) end
+host.codecs.base64_decode = function(s) return call("codecs.base64_decode", s) end
+host.codecs.hex_encode = function(s) return call("codecs.hex_encode", s) end
+host.codecs.hex_decode = function(s) return call("codecs.hex_decode", s) end
+
+host.html = {}
+host.html.select = function(doc, selector) return call("html.select", doc, selector) end
+host.html.attr = function(doc, selector, attr) return call("html.attr", doc, selector, attr) end
+host.html.xpath = function(expr, doc) return call("html.xpath", expr, doc) end
+
+host.browser = { call = function(tool, args) return call("browser.call", tool, args) end }
 
 host.url_encode = function(s) return call("url_encode", s) end
 host.url_decode = function(s) return call("url_decode", s) end
@@ -106,7 +131,39 @@ for _, name in ipairs(fetchTools) do
   end
 end
 
-host.re2 = function(pattern, subject) return call("re2.match", pattern, subject) end
+io = {
+  read = function(name) return call("fs.read", name) end,
+  lines = function(name)
+    local body, err = call("fs.read", name)
+    if body == nil then return nil, err end
+    local pos = 1
+    return function()
+      if pos > #body then return nil end
+      local nl = string.find(body, "\n", pos, true)
+      local line
+      if nl then
+        line = string.sub(body, pos, nl - 1)
+        pos = nl + 1
+      else
+        line = string.sub(body, pos)
+        pos = #body + 1
+      end
+      return line
+    end
+  end,
+}
+
+local re2_call = function(pattern, subject) return call("re2.match", pattern, subject) end
+host.re2 = setmetatable({
+  match = function(p, s) return call("re2.match", p, s) end,
+  find = function(p, s) return call("re2.find", p, s) end,
+  find_all = function(p, s) return call("re2.find_all", p, s) end,
+  gmatch = function(p, s) return call("re2.gmatch", p, s) end,
+  replace = function(p, r, s) return call("re2.replace", p, r, s) end,
+  quote = function(s) return call("re2.quote", s) end,
+  find_index = function(p, s) return call("re2.find_index", p, s) end,
+  capture = function(p, s) return call("re2.capture", p, s) end,
+}, { __call = function(_, p, s) return re2_call(p, s) end })
 `
 
 // luaInvokeHelper converts a handle result to the frozen JSON envelope while

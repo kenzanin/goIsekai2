@@ -33,33 +33,6 @@ func bindLua(m *lua.VM, ts *tools.ToolSet) error {
 		return err
 	}
 
-	params, err := m.NewTable()
-	if err != nil {
-		return err
-	}
-	if err := params.Set("param", func(key string) any {
-		if ts == nil {
-			return nil
-		}
-		return ts.Params[key]
-	}); err != nil {
-		return err
-	}
-	if err := host.Set("plugin", params); err != nil {
-		return err
-	}
-
-	textTable, err := m.NewTable()
-	if err != nil {
-		return err
-	}
-	if err := textTable.Set("normalize_status", func(s string) string { return tools.NormalizeStatus(s) }); err != nil {
-		return err
-	}
-	if err := host.Set("text", textTable); err != nil {
-		return err
-	}
-
 	js, err := m.NewTable()
 	if err != nil {
 		return err

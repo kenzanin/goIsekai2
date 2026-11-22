@@ -2,6 +2,7 @@ package tools
 
 import (
 	"crypto/hmac"
+	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -13,6 +14,7 @@ import (
 
 // hashers maps supported Hash/HMAC algorithm names to constructors.
 var hashers = map[string]func() hash.Hash{
+	"md5":    md5.New,
 	"sha1":   sha1.New,
 	"sha256": sha256.New,
 	"sha512": sha512.New,

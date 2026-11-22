@@ -2,10 +2,15 @@ package tools
 
 import (
 	"encoding/json"
+	stdhtml "html"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
+
+	xhtml "golang.org/x/net/html"
 )
 
 // NormalizeStatus canonicalises an upstream status label for enrichment
@@ -53,6 +58,98 @@ func DateEpoch(s string) (int64, error) {
 		}
 	}
 	return 0, &time.ParseError{Value: s, Message: ": not RFC3339 nor 2006-01-02"}
+}
+
+// JSONBlobFrom returns the first balanced JSON object or array after marker,
+// tracking quoted strings so braces inside strings do not end the blob.
+func JSONBlobFrom(s, marker string) (string, bool) {
+	text := s
+	if marker != "" {
+		at := strings.Index(text, marker)
+		if at < 0 {
+			return "", false
+		}
+		text = text[at+len(marker):]
+	}
+	start := strings.IndexAny(text, "{[")
+	if start < 0 {
+		return "", false
+	}
+	open, closer := text[start], byte('}')
+	if open == '[' {
+		closer = ']'
+	}
+	inString, escaped := false, false
+	depth := 0
+	for i := start; i < len(text); i++ {
+		c := text[i]
+		if inString {
+			if escaped {
+				escaped = false
+			} else if c == '\\' {
+				escaped = true
+			} else if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		if c == '"' {
+			inString = true
+		} else if c == open {
+			depth++
+		} else if c == closer {
+			depth--
+			if depth == 0 {
+				return text[start : i+1], true
+			}
+		}
+	}
+	return "", false
+}
+
+// ChapterNum returns the first numeric token in s, or nil when none exists.
+// It follows the baseline's optional-double contract for chapter labels.
+func ChapterNum(s string) any {
+	re := regexp.MustCompile(`[0-9]+(?:\.[0-9]+)?`)
+	m := re.FindString(s)
+	if m == "" {
+		return nil
+	}
+	f, err := strconv.ParseFloat(m, 64)
+	if err != nil {
+		return nil
+	}
+	return f
+}
+
+// DateToISO parses an RFC3339 or plain date and returns its ISO form, or nil.
+func DateToISO(s string) any {
+	for _, layout := range []string{time.RFC3339, "2006-01-02"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t.Format(time.RFC3339)
+		}
+	}
+	return nil
+}
+
+// Trim removes leading and trailing whitespace.
+func Trim(s string) string { return strings.TrimSpace(s) }
+
+// Unescape decodes HTML character references.
+func Unescape(s string) string { return stdhtml.UnescapeString(s) }
+
+// StripHTML returns the text nodes of s with whitespace cleaned.
+func StripHTML(s string) string {
+	z := xhtml.NewTokenizer(strings.NewReader(s))
+	var b strings.Builder
+	for {
+		switch z.Next() {
+		case xhtml.ErrorToken:
+			return Clean(b.String())
+		case xhtml.TextToken:
+			b.Write(z.Text())
+		}
+	}
 }
 
 // Clean strips non-space control characters, collapses every whitespace run

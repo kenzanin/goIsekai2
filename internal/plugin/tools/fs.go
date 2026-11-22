@@ -21,3 +21,8 @@ func Read(dir, name string) (string, error) {
 	b, err := os.ReadFile(filepath.Join(dir, rel))
 	return string(b), err
 }
+
+// ReadLib reads a file from the plugin's confined lib directory.
+func ReadLib(dir, name string) (string, error) {
+	return Read(dir, filepath.Join("lib", name))
+}

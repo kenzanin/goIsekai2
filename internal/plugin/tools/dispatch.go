@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -41,6 +42,11 @@ func argMap(args []any, i int) (map[string]any, error) {
 // Dispatch invokes one frozen host tool by name. Runtime bindings are thin
 // marshals over this single implementation.
 func (t *ToolSet) Dispatch(name string, args ...any) (any, error) {
+	canonical, fixed := resolveAlias(name)
+	if fixed != "" {
+		args = append([]any{fixed}, args...)
+	}
+	name = canonical
 	slog.Debug("host tool dispatch", "tool", name, "args", len(args), "plugin", t.PluginID)
 	switch name {
 	case "now":
@@ -58,6 +64,13 @@ func (t *ToolSet) Dispatch(name string, args ...any) (any, error) {
 			return nil, err
 		}
 		t.LogError(msg)
+		return nil, nil
+	case "log.debug":
+		msg, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		t.LogDebug(msg)
 		return nil, nil
 	case "http.fetch":
 		u, err := argString(args, 0)
@@ -124,6 +137,21 @@ func (t *ToolSet) Dispatch(name string, args ...any) (any, error) {
 			return nil, err
 		}
 		return Read(t.Dir, path)
+	case "fs.read_lib":
+		path, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		return ReadLib(t.Dir, path)
+	case "text.normalize_status":
+		s, err := argString(args, 0)
+		return NormalizeStatus(s), err
+	case "plugin.param":
+		key, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		return t.Params[key], nil
 	case "config.get":
 		key, err := argString(args, 0)
 		if err != nil {
@@ -161,6 +189,16 @@ func (t *ToolSet) Dispatch(name string, args ...any) (any, error) {
 			return nil, err
 		}
 		return b.ResolveReference(r).String(), nil
+	case "re2.gmatch":
+		p, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		s, err := argString(args, 1)
+		if err != nil {
+			return nil, err
+		}
+		return Gmatch(p, s)
 	case "re2.match", "re2.find", "re2.capture", "re2.replace", "re2.find_index":
 		p, err := argString(args, 0)
 		if err != nil {
@@ -245,11 +283,34 @@ func (t *ToolSet) Dispatch(name string, args ...any) (any, error) {
 			return nil, err
 		}
 		return Attr(doc, q, attr)
-	case "text.json_blob":
+	case "json.encode":
 		if len(args) == 0 {
-			return "", nil
+			return "null", nil
 		}
-		return JSONBlob(args[0]), nil
+		b, err := json.Marshal(args[0])
+		return string(b), err
+	case "json.decode":
+		s, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		var v any
+		err = json.Unmarshal([]byte(s), &v)
+		return v, err
+	case "text.json_blob":
+		s, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		marker, err := argString(args, 1)
+		if err != nil {
+			marker = ""
+		}
+		blob, ok := JSONBlobFrom(s, marker)
+		if !ok {
+			return nil, nil
+		}
+		return blob, nil
 	case "text.date_epoch":
 		s, err := argString(args, 0)
 		if err != nil {
@@ -259,6 +320,30 @@ func (t *ToolSet) Dispatch(name string, args ...any) (any, error) {
 	case "text.clean":
 		s, err := argString(args, 0)
 		return Clean(s), err
+	case "text.chapter_num":
+		s, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		return ChapterNum(s), nil
+	case "text.date_to_iso":
+		s, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		return DateToISO(s), nil
+	case "text.trim":
+		s, err := argString(args, 0)
+		return Trim(s), err
+	case "text.unescape":
+		s, err := argString(args, 0)
+		return Unescape(s), err
+	case "text.strip_html":
+		s, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		return StripHTML(s), nil
 	case "crypto.hash", "crypto.hmac":
 		algorithm, err := argString(args, 0)
 		if err != nil {
@@ -286,6 +371,48 @@ func (t *ToolSet) Dispatch(name string, args ...any) (any, error) {
 			return nil, err
 		}
 		return Sign(payload, key)
+	case "crypto.hmac_sha256_hex":
+		data, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		key, err := argString(args, 1)
+		if err != nil {
+			return nil, err
+		}
+		return HMAC("sha256", key, data)
+	case "crypto.vrf_sign":
+		path, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		params, ok := asStringMap(args[1])
+		if !ok {
+			return nil, fmt.Errorf("tools: vrf_sign params must be an object")
+		}
+		stages, ok := asAnySlice(args[2])
+		if !ok {
+			return nil, fmt.Errorf("tools: vrf_sign stages must be an array")
+		}
+		return VRFSign(path, params, stages)
+	case "crypto.aes_gcm_decrypt":
+		iv, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		ct, err := argString(args, 1)
+		if err != nil {
+			return nil, err
+		}
+		tag, err := argString(args, 2)
+		if err != nil {
+			return nil, err
+		}
+		key, err := argString(args, 3)
+		if err != nil {
+			return nil, err
+		}
+		return AESGCMDecrypt(iv, ct, tag, key)
 	case "crypto.b64enc":
 		s, err := argString(args, 0)
 		return Base64Encode(s), err

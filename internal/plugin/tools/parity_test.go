@@ -55,8 +55,8 @@ func TestDispatchCryptoHashParity(t *testing.T) {
 			t.Fatalf("crypto.hash %s: got %v, want %s", tc.alg, got, tc.want)
 		}
 	}
-	if _, err := ts("crypto.hash", "md5", "hello"); err == nil {
-		t.Fatal("crypto.hash md5: want unsupported-algorithm error, got nil")
+	if _, err := ts("crypto.hash", "bogus", "hello"); err == nil {
+		t.Fatal("crypto.hash bogus: want unsupported-algorithm error, got nil")
 	}
 }
 
