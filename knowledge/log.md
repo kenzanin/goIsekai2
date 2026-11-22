@@ -1,4 +1,6 @@
 ## 2026-11-22
+* **Update**: Linked `notes/modernc-wasm3-unavailable.md` to `decisions/dependency-stack.md` (Re-evaluates the earlier wasm3 rejection: no published modernc pure-Go module exists, so wazero stays.).
+* **Creation**: Documented concept `notes/modernc-wasm3-unavailable.md` (No published modernc.org/wasm3 module; keep wazero).
 * **Update**: Linked `decisions/saved-state-marker.md` to `conventions/api-first.md` (detail API exposes the saved flag).
 * **Update**: Linked `decisions/saved-state-marker.md` to `decisions/saved-manga-master-data.md` (saved marker on the master row).
 * **Creation**: Documented concept `decisions/saved-state-marker.md` (Explicit saved state on the saved_manga master row).
