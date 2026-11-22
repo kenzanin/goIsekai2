@@ -1,0 +1,13 @@
+{
+  "name": "MangaDex",
+  "id": "mangadex-enrichment",
+  "version": "1.0.0",
+  "website": "https://mangadex.org",
+  "runtime": "lua",
+  "capabilities": [
+    "enrichment"
+  ],
+  "api": 1,
+  "entry": "main.lua",
+  "logo": "logo.png"
+}
