@@ -32,7 +32,8 @@ type Manifest struct {
 
 // LoadManifest reads and validates the manifest file at path. Entry resolves
 // against the manifest's own folder. It rejects api != 1, a runtime outside
-// lua/js/wasm, and a missing entry file; every error names path.
+// lua/js/wasm, a declared id differing from the folder name, and a missing
+// entry file; every error names path.
 func LoadManifest(path string) (*Manifest, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -41,6 +42,9 @@ func LoadManifest(path string) (*Manifest, error) {
 	var m Manifest
 	if err := json.Unmarshal(raw, &m); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	if base := filepath.Base(filepath.Dir(path)); m.ID != "" && base != m.ID {
+		return nil, fmt.Errorf("%s: folder %q does not match manifest id %q", path, base, m.ID)
 	}
 	if m.API != 1 {
 		return nil, fmt.Errorf("%s: unsupported manifest api %d", path, m.API)

@@ -25,6 +25,7 @@ require (
 	github.com/bogdanfinn/tls-client v1.18.1 // indirect
 	github.com/bogdanfinn/utls v1.8.2-barnius // indirect
 	github.com/bogdanfinn/websocket v1.5.9-barnius // indirect
+	github.com/coder/websocket v1.8.15 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/ebitengine/purego v0.10.1 // indirect
 	github.com/gen2brain/webp v0.6.4 // indirect

@@ -1,0 +1,68 @@
+package components
+
+// Log renders the live log page: a scrolling line buffer fed by the daemon
+// WebSocket at /ws/log, with a connection status badge and reconnect.
+templ Log(active Page, pages []Page) {
+	@Base(active, pages) {
+		<div class="flex flex-wrap items-end justify-between gap-4">
+			<div>
+				<h1 class="font-mono text-2xl font-semibold tracking-tight text-zinc-50">Live log</h1>
+				<p class="mt-1 text-sm text-zinc-400">Daemon log stream over WebSocket. Newest lines at the bottom.</p>
+			</div>
+			<span
+				id="log-status"
+				class="inline-flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-400 ring-1 ring-inset ring-zinc-700"
+			>
+				<span id="log-status-dot" class="h-2 w-2 rounded-full bg-zinc-500"></span>
+				<span id="log-status-text">Connecting</span>
+			</span>
+		</div>
+		<pre
+			id="log-lines"
+			class="mt-8 h-[32rem] overflow-y-auto whitespace-pre-wrap rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 font-mono text-xs leading-relaxed text-zinc-300"
+		></pre>
+		<script>
+			(() => {
+				const pre = document.getElementById("log-lines");
+				const badge = document.getElementById("log-status");
+				const dot = document.getElementById("log-status-dot");
+				const text = document.getElementById("log-status-text");
+				const MAX_LINES = 200;
+
+				function setStatus(connected) {
+					if (connected) {
+						text.textContent = "Connected";
+						dot.className = "h-2 w-2 rounded-full bg-amber-400";
+						badge.className =
+							"inline-flex items-center gap-1.5 rounded-full bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-300 ring-1 ring-inset ring-amber-400/20";
+					} else {
+						text.textContent = "Disconnected";
+						dot.className = "h-2 w-2 rounded-full bg-red-400";
+						badge.className =
+							"inline-flex items-center gap-1.5 rounded-full bg-red-400/10 px-3 py-1 text-xs font-medium text-red-300 ring-1 ring-inset ring-red-400/20";
+					}
+				}
+
+				function connect() {
+					const proto = location.protocol === "https:" ? "wss:" : "ws:";
+					const ws = new WebSocket(proto + "//" + location.host + "/ws/log");
+					ws.onopen = () => setStatus(true);
+					ws.onmessage = (ev) => {
+						pre.appendChild(document.createTextNode(String(ev.data) + "\n"));
+						while (pre.childNodes.length > MAX_LINES) {
+							pre.removeChild(pre.firstChild);
+						}
+						pre.scrollTop = pre.scrollHeight;
+					};
+					ws.onclose = () => {
+						setStatus(false);
+						setTimeout(connect, 1000);
+					};
+					ws.onerror = () => ws.close();
+				}
+
+				connect();
+			})();
+		</script>
+	}
+}
