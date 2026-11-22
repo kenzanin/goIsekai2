@@ -92,3 +92,27 @@ func TestApplyCandidateResetAndRelated(t *testing.T) {
 		t.Fatalf("related = %v", related)
 	}
 }
+
+func TestMaterializeKeepsMasterRow(t *testing.T) {
+	ctx := context.Background()
+	st := testStore(t)
+	if err := st.UpsertSaved(ctx, &store.SavedManga{
+		Plugin: "p", Slug: "s", Name: "Old", Cover: "old", Pinned: 1, StatusFlags: store.StatusDim,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	svc := New(st, nil)
+	svc.materialize(ctx, "p", "s", map[string]any{
+		"title": "New", "cover_url": "new", "synopsis": "desc", "total_ch": float64(12),
+	})
+	row, err := st.GetSaved(ctx, "p", "s")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if row.Name != "New" || row.Cover != "new" || row.Synopsis != "desc" || row.TotalCh != 12 {
+		t.Fatalf("master row = %+v", row)
+	}
+	if row.Pinned != 1 || row.StatusFlags&store.StatusDim == 0 {
+		t.Fatal("materialize clobbered user state")
+	}
+}

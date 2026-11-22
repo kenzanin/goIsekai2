@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -69,6 +70,9 @@ func (s *Service) fetch(ctx context.Context, pluginID, method, slug string) (map
 					PluginID: pluginID, QueryHash: cacheHash(pluginID, method, slug),
 					Payload: string(raw), FetchedAt: time.Now().Unix(), TTL: 86400,
 				})
+				if method == "detail" {
+					s.materialize(ctx, pluginID, slug, data)
+				}
 				return data, nil
 			}
 			err = parseErr
@@ -214,6 +218,52 @@ func (s *Service) Detail(ctx context.Context, pluginID, slug string) (map[string
 		return nil, fmt.Errorf("%w: %s/%s: %v", ErrUnknownTitle, pluginID, slug, err)
 	}
 	return data, nil
+}
+
+// materialize keeps saved_manga as the single master row for title metadata.
+func (s *Service) materialize(ctx context.Context, pluginID, slug string, data map[string]any) {
+	row, err := s.store.GetSaved(ctx, pluginID, slug)
+	if err != nil {
+		row = &store.SavedManga{Plugin: pluginID, Slug: slug, AddedAt: time.Now().Unix()}
+	}
+	get := func(keys ...string) string {
+		for _, key := range keys {
+			if v, ok := data[key].(string); ok && v != "" {
+				return v
+			}
+		}
+		return ""
+	}
+	if v := get("name", "title"); v != "" {
+		row.Name = v
+	}
+	if v := get("cover", "cover_url"); v != "" {
+		row.Cover = v
+	}
+	if v := get("status"); v != "" {
+		row.Status = v
+	}
+	if v := get("synopsis"); v != "" {
+		row.Synopsis = v
+	}
+	if v := get("alt_titles"); v != "" {
+		row.AltTitles = v
+	}
+	if v := get("authors", "author"); v != "" {
+		row.Authors = v
+	}
+	if v := get("artists", "artist"); v != "" {
+		row.Artists = v
+	}
+	if v := get("tags"); v != "" {
+		row.Tags = v
+	}
+	if n, ok := data["total_ch"].(float64); ok && int(n) > row.TotalCh {
+		row.TotalCh = int(n)
+	}
+	if err := s.store.UpsertSaved(ctx, row); err != nil {
+		slog.Debug("detail materialize failed", "plugin", pluginID, "slug", slug, "error", err)
+	}
 }
 
 // Refresh resolves detail and chapters, then stores both only when both pass

@@ -406,14 +406,13 @@ func (s *Server) renderSearch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	hits := make([]components.SearchHit, 0)
-	if query != "" && s.store != nil {
-		found, err := s.store.SearchTitles(r.Context(), query)
-		if err == nil {
-			for _, hit := range found {
-				if onlyPlugin == "" || hit.Plugin == onlyPlugin {
-					hits = append(hits, components.SearchHit{Plugin: hit.Plugin, Slug: hit.Slug, Name: hit.Name})
-				}
-			}
+	if query != "" {
+		scope := onlyPlugin
+		if scope == "" && len(plugins) > 0 {
+			scope = plugins[0].ID
+		}
+		if scope != "" {
+			hits = s.pluginHits(r.Context(), scope, query)
 		}
 	}
 	active := components.Page{Path: "/search", Title: "Search"}
@@ -425,6 +424,42 @@ func (s *Server) renderSearch(w http.ResponseWriter, r *http.Request) {
 	if err := components.Search(active, pages, plugins, hits, query).Render(r.Context(), w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+type searchItem struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Name     string `json:"name"`
+	CoverURL string `json:"cover_url"`
+	Cover    string `json:"cover"`
+}
+
+// pluginHits projects a plugin search envelope into UI hits, same data as the API.
+func (s *Server) pluginHits(ctx context.Context, pluginID, query string) []components.SearchHit {
+	params, _ := json.Marshal(map[string]any{"query": query, "page": 1})
+	out, err := s.host.Call(ctx, pluginID, "search", params)
+	if err != nil {
+		slog.Debug("search projection failed", "plugin", pluginID, "error", err)
+		return nil
+	}
+	var env struct {
+		OK   bool `json:"ok"`
+		Data struct {
+			Items []searchItem `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(out, &env); err != nil || !env.OK {
+		return nil
+	}
+	hits := make([]components.SearchHit, 0, len(env.Data.Items))
+	for _, item := range env.Data.Items {
+		name := item.Title
+		if name == "" {
+			name = item.Name
+		}
+		hits = append(hits, components.SearchHit{Plugin: pluginID, Slug: item.ID, Name: name})
+	}
+	return hits
 }
 
 func (s *Server) apiSearch(w http.ResponseWriter, r *http.Request) {
