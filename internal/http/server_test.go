@@ -380,8 +380,10 @@ func TestReaderPagesAndPositionRoutes(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/pages/p/s/2", nil))
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "/cache/img?") || !strings.Contains(rec.Body.String(), "url=one") {
-		t.Fatalf("pages = %d %s", rec.Code, rec.Body.String())
+	body := rec.Body.String()
+	if rec.Code != http.StatusOK || !strings.Contains(body, "/cache/img?") || !strings.Contains(body, "url=one") ||
+		!strings.Contains(body, "ch=2") || !strings.Contains(body, "page=1") {
+		t.Fatalf("pages = %d %s", rec.Code, body)
 	}
 	rec = httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/pages/p/s/9", nil))
@@ -415,7 +417,8 @@ func TestReaderPagesAndPositionRoutes(t *testing.T) {
 
 	page := httptest.NewRecorder()
 	s.Handler().ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/read/p/s?ch=2", nil))
-	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), `data-mode="`) {
+	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), `data-mode="`) ||
+		!strings.Contains(page.Body.String(), "ch=2") || !strings.Contains(page.Body.String(), "page=1") {
 		t.Fatalf("reader page = %d %s", page.Code, page.Body.String())
 	}
 

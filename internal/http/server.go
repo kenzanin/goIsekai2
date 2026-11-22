@@ -262,10 +262,18 @@ func imageSrc(pluginID, slug, raw string, cover bool) string {
 		"&url=" + url.QueryEscape(raw)
 }
 
-func proxiedPages(pluginID, slug string, urls []string) []string {
+// proxiedPages rewrites remote page URLs through the host image cache, keeping
+// the chapter placement needed to lay each image out in the on-disk cache tree.
+func proxiedPages(pluginID, slug, chapter, chapterID string, urls []string) []string {
 	out := make([]string, len(urls))
 	for i, raw := range urls {
-		out[i] = imageSrc(pluginID, slug, raw, false)
+		if raw == "" {
+			continue
+		}
+		out[i] = imageSrc(pluginID, slug, raw, false) +
+			"&ch=" + url.QueryEscape(chapter) +
+			"&ch_id=" + url.QueryEscape(chapterID) +
+			"&page=" + strconv.Itoa(i+1)
 	}
 	return out
 }
@@ -552,7 +560,7 @@ func (s *Server) renderRead(w http.ResponseWriter, r *http.Request) {
 		chapter.Number = v
 	}
 	if urls, ok := result["pages"].([]string); ok {
-		result["pages"] = proxiedPages(pluginID, slug, urls)
+		result["pages"] = proxiedPages(pluginID, slug, strconv.FormatFloat(number, 'f', -1, 64), r.FormValue("ch_id"), urls)
 		for i, u := range result["pages"].([]string) {
 			chapter.Pages = append(chapter.Pages, components.ReaderPage{URL: u, Index: i})
 		}
@@ -611,7 +619,7 @@ func (s *Server) getPages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if urls, ok := result["pages"].([]string); ok {
-		result["pages"] = proxiedPages(chi.URLParam(r, "plugin"), chi.URLParam(r, "slug"), urls)
+		result["pages"] = proxiedPages(chi.URLParam(r, "plugin"), chi.URLParam(r, "slug"), chi.URLParam(r, "ch"), r.FormValue("ch_id"), urls)
 	}
 	writeJSON(w, http.StatusOK, result)
 }
