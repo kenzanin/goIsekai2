@@ -1,9 +1,9 @@
 ---
 type: decision
-title: "Dependency stack: pure Go only (modernc sqlite, tls-client, gopher-lua, quickjs, wazero)"
-description: "No-cgo constraint with CGO_ENABLED=0 as build gate; chosen modernc.org/sqlite v1.62.0, bogdanfinn/tls-client v1.18.1, yuin/gopher-lua v1.1.2, modernc.org/quickjs v0.27.0 (V1 evidence supersedes goja) and tetratelabs/wazero v1.12.0; rejection of buke/quickjs-go, wasm3 and the purego native-lib route."
+title: "Dependency stack: pure Go only (modernc sqlite, tls-client, modernc lua, quickjs, wazero)"
+description: "No-cgo constraint with CGO_ENABLED=0 as build gate; chosen modernc.org/sqlite v1.62.0, bogdanfinn/tls-client v1.18.1, modernc.org/lua v0.1.0 (Lua 5.5.1), modernc.org/quickjs v0.27.0 and tetratelabs/wazero v1.12.0; rejection of gopher-lua, buke/quickjs-go, wasm3 and the purego native-lib route."
 tags: [decision, dependencies, no-cgo, sqlite, tls, lua, js, quickjs, wasm]
-generated: { by: agent/cli, at: "2026-11-21T12:19:11Z" }
+generated: { by: agent/mcp, at: "2026-11-22T14:48:08Z" }
 status: stable
 ---
 
@@ -19,7 +19,7 @@ class of problems and keeps cross-compilation trivial.
 |---|---|---|
 | SQLite | `modernc.org/sqlite` v1.62.0 | pure Go (BSD-3), active (2026-11), used through `database/sql`; no cgo |
 | HTTP client | `bogdanfinn/tls-client` v1.18.1 | pure Go via `bogdanfinn/utls` (BSD-3), active, provides curl-impersonate-class TLS fingerprints; stdlib cannot match site fingerprints |
-| Lua | `github.com/yuin/gopher-lua` v1.1.2 | pure Go (MIT), active, Lua 5.1 |
+| Lua | `modernc.org/lua` v0.1.0 | pure Go (BSD-3, PUC-Rio Lua 5.5.1 translated by ccgo), official Lua test suite passes, no cgo |
 | JS | `modernc.org/quickjs` v0.27.0 | pure Go (transpiled C QuickJS on `modernc.org/libc`), ES2023, host funcs, job pump, timeout/interrupt; V1 builds with `CGO_ENABLED=0`; supersedes goja, see the revision section |
 | WASM | `github.com/tetratelabs/wazero` v1.12.0 | pure Go (Apache-2.0), compiler + interpreter, WASI preview1, active |
 
@@ -69,7 +69,7 @@ CGO_ENABLED=0 go build -o /tmp/gk-server ./cmd/goisekai    # exit 0, links inter
 | `SetEvalTimeout(d)`, `Interrupt()` | per-call timeout and kill for a runaway plugin |
 | `SetMemoryLimit`, `SetMaxStackSize`, `Close()` | sandbox bounds and clean teardown |
 
-Lua stays gopher-lua (5.1). wazero stays for wasm plugins; it is no longer needed as a QuickJS transport.
+Lua moved to `modernc.org/lua` on 2026-11-22 (see `decisions/lua-runtime`). wazero stays for wasm plugins; it is no longer needed as a QuickJS transport.
 
 goja remains the fallback only if `modernc.org/quickjs` ever fails a gate (it pulls `modernc.org/libc`,
 which is the same family already used by `modernc.org/sqlite`, so the dependency cost is shared).
@@ -103,11 +103,20 @@ quickjs-ng ships `qjs-wasi-reactor.c` but does not wire it into its Makefile, so
 `wasi-sdk`-pinned build step plus a checked-in `.wasm` artifact. Not needed now that `modernc.org/quickjs`
 exists; keep the note only as a fallback if the transpiled engine is ever abandoned upstream.
 
+## Revision 2026-11-22: Lua runtime moved to modernc.org/lua
+
+The Lua slot is now `modernc.org/lua` v0.1.0 (Lua 5.5.1, pure Go, BSD-3). It replaces
+`github.com/yuin/gopher-lua` v1.1.2 so plugins can use Lua 5.5 syntax. Verified by direct probe:
+`_VERSION = Lua 5.5`, 5.5 `<const>` locals execute, sandbox globals can be removed, and host bindings
+work through `NewTable` + `Value.Set`. The full rationale and porting contract live in
+`decisions/lua-runtime`. wazero remains the WASM runtime: no published pure-Go wasm3 module exists
+(see `notes/modernc-wasm3-unavailable`).
+
 ## Consequences
 
 1. Driver choice means `database/sql` with one connection; see `architecture/concurrency-ownership`.
-2. gopher-lua is Lua 5.1, not LuaJIT: `ffi` and `bit` are unavailable. A plugin using them must fail with a
-   clear error, not silently misbehave.
+2. modernc.org/lua is Lua 5.5.1, not LuaJIT: `ffi` and `bit` are still unavailable. A plugin using them must
+   fail with a clear error, not silently misbehave.
 3. wazero is only the wasm plugin runtime; the QuickJS engine is the transpiled `modernc.org/quickjs`, so
    there is no `.wasm` build step in the release pipeline.
 4. Any new dependency must prove `CGO_ENABLED=0` compatibility before its first import.

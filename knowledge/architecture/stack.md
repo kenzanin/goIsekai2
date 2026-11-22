@@ -20,7 +20,7 @@ table that answers "library or hand-written?" without reading five concepts.
 | ORM | `gorm.io/gorm` | v1.31.2 | `decisions/store-access` |
 | SQLite GORM driver | `github.com/glebarez/sqlite` | v1.11.0 (pure Go) | `decisions/store-access` |
 | HTTP client (scraping) | `bogdanfinn/tls-client` | v1.18.1 | `decisions/dependency-stack` |
-| Lua | `yuin/gopher-lua` | v1.1.2 | `decisions/dependency-stack` |
+| Lua | `modernc.org/lua` | v0.1.0 (Lua 5.5.1) | `decisions/lua-runtime` |
 | JS | `modernc.org/quickjs` | v0.27.0 | `decisions/dependency-stack` |
 | WASM | `tetratelabs/wazero` | v1.12.0 | `decisions/dependency-stack` |
 | Router / framework | `go-chi/chi/v5` | v5.5.0 | `decisions/http-framework` |
@@ -90,7 +90,8 @@ alternative that was rejected. A hand-written piece is allowed only when its row
 not fit.
 
 # Related Concepts
-- [Dependency stack: pure Go only (modernc sqlite, tls-client, gopher-lua, quickjs, wazero)](../decisions/dependency-stack.md): stack page is the review index over the per-area dependency decisions
+- [Dependency stack: pure Go only (modernc sqlite, tls-client, modernc lua, quickjs, wazero)](../decisions/dependency-stack.md): stack page is the review index over the per-area dependency decisions
+- [Lua runtime: modernc.org/lua v0.1.0 for Lua 5.5.1 plugins](../decisions/lua-runtime.md): replaces gopher-lua; documents the porting contract and probe evidence
 - [Image transcode without libvips: gen2brain WASM-transpiled webp/avif/jxl, pure-Go resize](../decisions/image-pipeline.md): image codecs are listed as library rows on the stack page
 - [Adopt gookit/event behind a single-actor bus; separate stream plane](../decisions/event-dispatch.md): event bus and stream hub rows point at the dispatch decision
 - [chi + coder/websocket for HTTP and WebSocket](../decisions/http-framework.md): router and WebSocket transport rows

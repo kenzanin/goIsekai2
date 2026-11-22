@@ -4,149 +4,81 @@ import (
 	"encoding/json"
 	"fmt"
 
-	lua "github.com/yuin/gopher-lua"
+	"modernc.org/lua"
 
 	"goisekai2/internal/plugin/tools"
 )
 
-// bindLua registers the global host table on a fresh state: host.call as the
-// generic JSON envelope over the tool set plus typed wrappers for now, log
-// and storage.
-func bindLua(L *lua.LState, ts *tools.ToolSet) {
-	host := L.NewTable()
-	L.SetGlobal("host", host)
-	L.SetField(host, "call", L.NewFunction(func(L *lua.LState) int {
-		name := L.CheckString(1)
+// bindLua registers the host table and the JSON bridge on a fresh VM. Typed
+// wrappers are added by luaHostHelper after these Go-backed functions exist.
+func bindLua(m *lua.VM, ts *tools.ToolSet) error {
+	host, err := m.NewTable()
+	if err != nil {
+		return err
+	}
+	if err := m.SetGlobal("host", host); err != nil {
+		return err
+	}
+	if err := host.Set("call", func(name, argsJSON string) string {
 		var args []any
-		if err := json.Unmarshal([]byte(L.CheckString(2)), &args); err != nil {
-			L.Push(lua.LString(hostResultJSON(false, nil, err)))
-			return 1
+		if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+			return hostResultJSON(false, nil, err)
+		}
+		if ts == nil {
+			return hostResultJSON(false, nil, fmt.Errorf("host tools unavailable"))
 		}
 		v, err := ts.Dispatch(name, args...)
-		L.Push(lua.LString(hostResultJSON(err == nil, v, err)))
-		return 1
-	}))
-	L.SetField(host, "now", L.NewFunction(func(L *lua.LState) int {
-		L.Push(lua.LNumber(ts.Now()))
-		return 1
-	}))
-	log := L.NewTable()
-	L.SetField(log, "info", L.NewFunction(func(L *lua.LState) int {
-		ts.LogInfo(L.CheckString(1))
-		return 0
-	}))
-	L.SetField(log, "error", L.NewFunction(func(L *lua.LState) int {
-		ts.LogError(L.CheckString(1))
-		return 0
-	}))
-	L.SetField(host, "log", log)
-	storage := L.NewTable()
-	L.SetField(storage, "get", L.NewFunction(func(L *lua.LState) int {
-		v, err := ts.StorageGet(L.CheckString(1))
-		if err != nil {
-			L.Push(lua.LNil)
-			L.Push(lua.LString(err.Error()))
-			return 2
-		}
-		L.Push(lua.LString(v))
-		return 1
-	}))
-	L.SetField(storage, "set", L.NewFunction(func(L *lua.LState) int {
-		if err := ts.StorageSet(L.CheckString(1), L.CheckString(2)); err != nil {
-			L.RaiseError("host.storage.set: %v", err)
-		}
-		return 0
-	}))
-	L.SetField(host, "storage", storage)
-	text := L.NewTable()
-	L.SetField(text, "normalize_status", L.NewFunction(func(L *lua.LState) int {
-		L.Push(lua.LString(tools.NormalizeStatus(L.CheckString(1))))
-		return 1
-	}))
-	L.SetField(text, "clean", L.NewFunction(func(L *lua.LState) int {
-		L.Push(lua.LString(tools.Clean(L.CheckString(1))))
-		return 1
-	}))
-	L.SetField(text, "strip_html", L.NewFunction(func(L *lua.LState) int {
-		L.Push(lua.LString(tools.Clean(L.CheckString(1))))
-		return 1
-	}))
-	L.SetField(host, "text", text)
-	plugin := L.NewTable()
-	L.SetField(plugin, "param", L.NewFunction(func(L *lua.LState) int {
-		if v, ok := ts.Params[L.CheckString(1)]; ok {
-			L.Push(goToLua(L, v))
-		} else {
-			L.Push(lua.LNil)
-		}
-		return 1
-	}))
-	L.SetField(host, "plugin", plugin)
-	L.SetField(host, "url_encode", L.NewFunction(func(L *lua.LState) int {
-		L.Push(lua.LString(tools.URLEncode(L.CheckString(1))))
-		return 1
-	}))
-	L.SetField(host, "url_decode", L.NewFunction(func(L *lua.LState) int {
-		v, err := tools.URLDecode(L.CheckString(1))
-		if err != nil {
-			L.RaiseError("host.url_decode: %v", err)
-		}
-		L.Push(lua.LString(v))
-		return 1
-	}))
-	httpTable := L.NewTable()
-	for _, name := range []string{"fetch", "fetch_body", "get_json", "post_json"} {
-		tool := name
-		L.SetField(httpTable, name, L.NewFunction(func(L *lua.LState) int {
-			args := []any{L.CheckString(1)}
-			if L.GetTop() >= 2 && L.CheckAny(2) != lua.LNil {
-				args = append(args, luaValue(L.CheckAny(2)))
-			}
-			v, err := ts.Dispatch("http."+tool, args...)
-			if err != nil {
-				L.Push(lua.LNil)
-				L.Push(lua.LString(err.Error()))
-				return 2
-			}
-			L.Push(goToLua(L, v))
-			L.Push(lua.LNil)
-			return 2
-		}))
+		return hostResultJSON(err == nil, v, err)
+	}); err != nil {
+		return err
 	}
-	L.SetField(host, "http", httpTable)
+
+	params, err := m.NewTable()
+	if err != nil {
+		return err
+	}
+	if err := params.Set("param", func(key string) any {
+		if ts == nil {
+			return nil
+		}
+		return ts.Params[key]
+	}); err != nil {
+		return err
+	}
+	if err := host.Set("plugin", params); err != nil {
+		return err
+	}
+
+	textTable, err := m.NewTable()
+	if err != nil {
+		return err
+	}
+	if err := textTable.Set("normalize_status", func(s string) string { return tools.NormalizeStatus(s) }); err != nil {
+		return err
+	}
+	if err := host.Set("text", textTable); err != nil {
+		return err
+	}
+
+	js, err := m.NewTable()
+	if err != nil {
+		return err
+	}
+	if err := js.Set("decode", func(s string) (any, error) {
+		var v any
+		if err := json.Unmarshal([]byte(s), &v); err != nil {
+			return nil, err
+		}
+		return v, nil
+	}); err != nil {
+		return err
+	}
+	return m.SetGlobal("json", js)
 }
 
-func goToLua(L *lua.LState, v any) lua.LValue {
-	switch x := v.(type) {
-	case string:
-		return lua.LString(x)
-	case float64:
-		return lua.LNumber(x)
-	case int:
-		return lua.LNumber(x)
-	case bool:
-		return lua.LBool(x)
-	case map[string]any:
-		t := L.NewTable()
-		for k, v := range x {
-			L.SetField(t, k, goToLua(L, v))
-		}
-		return t
-	case []any:
-		t := L.NewTable()
-		for _, v := range x {
-			t.Append(goToLua(L, v))
-		}
-		return t
-	default:
-		return lua.LString(fmt.Sprint(x))
-	}
-}
-
-// hostResult is the JSON envelope returned by host.call.
 type hostResult struct {
 	Ok    bool   `json:"ok"`
-	Data  any    `json:"data"`
+	Data  any    `json:"data,omitempty"`
 	Error string `json:"error,omitempty"`
 }
 
