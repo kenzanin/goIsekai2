@@ -131,6 +131,28 @@ for _, name in ipairs(fetchTools) do
   end
 end
 
+io = {
+  read = function(name) return call("fs.read", name) end,
+  lines = function(name)
+    local body, err = call("fs.read", name)
+    if body == nil then return nil, err end
+    local pos = 1
+    return function()
+      if pos > #body then return nil end
+      local nl = string.find(body, "\n", pos, true)
+      local line
+      if nl then
+        line = string.sub(body, pos, nl - 1)
+        pos = nl + 1
+      else
+        line = string.sub(body, pos)
+        pos = #body + 1
+      end
+      return line
+    end
+  end,
+}
+
 local re2_call = function(pattern, subject) return call("re2.match", pattern, subject) end
 host.re2 = setmetatable({
   match = function(p, s) return call("re2.match", p, s) end,

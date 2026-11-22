@@ -102,6 +102,21 @@ const jsHostBridge = `var host = (function(){
       attr: function(doc, q, a){ return rpc("html.attr", [doc, q, a]); },
       xpath: function(expr, doc){ return rpc("html.xpath", [expr, doc]); }
     },
+    io: {
+      read: function(name){ return rpc("fs.read", [name]); },
+      lines: function(name){
+        var body = rpc("fs.read", [name]);
+        var pos = 0;
+        return function(){
+          if (pos >= body.length) return undefined;
+          var nl = body.indexOf("\n", pos);
+          if (nl < 0) { var rest = body.slice(pos); pos = body.length; return rest; }
+          var line = body.slice(pos, nl);
+          pos = nl + 1;
+          return line;
+        };
+      }
+    },
     url_encode: function(s){ return rpc("url_encode", [s]); },
     url_decode: function(s){ return rpc("url_decode", [s]); },
     fs: {

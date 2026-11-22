@@ -31,8 +31,8 @@ Lane gate: `make build && make test && go vet ./...`.
 
 ## 4. Lane 4 — confined io shim
 
-- [ ] 4.1 Implement read-only `io.read`/`io.lines` in Lua and JS, confined to the plugin directory via the `fs.read` helper — verify in-dir reads match `fs.read` output.
-- [ ] 4.2 Typed path error for `..` escapes, absolute paths and outside-dir reads — verify escape fixtures fail without opening files outside the plugin dir.
+- [x] 4.1 Implement read-only `io.read`/`io.lines` in Lua and JS, confined to the plugin directory via the `fs.read` helper — verify in-dir reads match `fs.read` output.
+- [x] 4.2 Typed path error for `..` escapes, absolute paths and outside-dir reads — verify escape fixtures fail without opening files outside the plugin dir.
 
 Lane gate: lane 3 gate plus the io fixtures.
 
