@@ -12,7 +12,7 @@ event bus, never the filesystem outside its own folder.
 
 | Runtime | Implementation | Known limits that must fail loudly |
 |---|---|---|
-| `lua` | `gopher-lua` (Lua 5.1) | no LuaJIT `ffi`/`bit`; requiring them returns a clear "unsupported module" error |
+| `lua` | `modernc.org/lua` (Lua 5.5.1, pure Go) | no LuaJIT `ffi`/`bit`; requiring them returns a clear "unsupported module" error |
 | `js` | `quickjs` (modernc.org/quickjs) | ES2023 engine, pure Go; the host contract is still synchronous, so a plugin returning a `Promise` is an error, never a silent empty result |
 | `wasm` | `wazero` (WASI preview1) | imports are flat `env.<group>_<fn>`; the module must export `handle` |
 
@@ -71,9 +71,12 @@ never renamed. Calling a method the plugin does not implement SHALL return
 ### Requirement: Runtime parity and explicit limits
 
 The host SHALL expose one internal runtime interface (`Call(ctx, envelope) -> response`) implemented
-by `lua`, `js` and `wasm`, so no runtime is reachable through a code path the others do not share. A
-runtime that needs cgo, or a module the runtime does not provide, SHALL fail with an explicit error
-naming the plugin rather than misbehave silently.
+by `lua`, `js` and `wasm`, so no runtime is reachable through a code path the others do not share. The
+`lua` runtime SHALL be a pure-Go Lua 5.5 implementation (`modernc.org/lua`); a runtime that needs cgo,
+or a module the runtime does not provide, SHALL fail with an explicit error naming the plugin rather than
+misbehave silently. Lua plugins SHALL keep using the frozen JSON envelope and the same `host.*` tools as
+the other runtimes, and a plugin-local `require("<module>")` SHALL resolve only `<module>.lua` inside the
+plugin's own folder.
 
 #### Scenario: JS plugin answers a call
 - **WHEN** a registered `js` plugin defines `handle` and is called
@@ -83,9 +86,13 @@ naming the plugin rather than misbehave silently.
 - **WHEN** a registered `wasm` module exports `handle`
 - **THEN** the envelope JSON is passed in and the module's response is returned unchanged in shape
 
+#### Scenario: Lua 5.5 syntax executes
+- **WHEN** a registered Lua plugin uses Lua 5.5 syntax such as `<const>` locals in `handle`
+- **THEN** the plugin compiles, executes and returns the same envelope shape as a Lua 5.1-era plugin
+
 #### Scenario: LuaJIT-only module
-- **WHEN** a Lua plugin calls `require("ffi")` or uses `bit`
-- **THEN** the call fails with an "unsupported module (Lua 5.1 runtime)" error naming the plugin, and the host process is unaffected
+- **WHEN** a Lua plugin calls `require("ffi")`, `require("bit")` or `require("../outside")`
+- **THEN** the call fails with an explicit unsupported-module or module-not-found error naming the plugin, and the host process is unaffected
 
 #### Scenario: Broken runtime entry
 - **WHEN** a `js` or `wasm` entry fails to parse, compile or instantiate

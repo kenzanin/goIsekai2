@@ -18,6 +18,7 @@ is a cross-cutting foundation change against the `config` capability, tracked as
 | 1a | UI stack (config page port + foundation) | `add-ui-stack` | config | archived |
 | 2 | store | `add-store` | config | archived |
 | 3 | plugin-host | `add-plugin-host` | store | archived |
+| 3a | Lua 5.5 runtime (modernc.org/lua) | `add-lua55` | plugin-host | archived |
 | 4 | host-tools | `add-host-tools` | plugin-host | archived |
 | 5 | library | `add-library` | host-tools, store | archived |
 | 6 | reader | `add-reader` | library | archived |
