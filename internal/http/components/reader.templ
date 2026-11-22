@@ -56,7 +56,7 @@ const readerState = `{
 		this.save(); // nudge the prefetch worker immediately on open
 		this.$watch('mode', () => { this.$nextTick(() => this.scrollToPage()); this.save(); });
 		this.$watch('direction', () => this.save());
-		this.$watch('zoom', () => this.save());
+		this.$watch('zoom', () => { this.$refs.stage.scrollTop = 0; this.save(); });
 		window.addEventListener('popstate', (ev) => this.onPop(ev));
 	},
 	get total() { return this.pages.length; },
@@ -292,7 +292,7 @@ templ Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter,
 					</div>
 				</template>
 				<template x-if="!isWebtoon && total > 0">
-					<div class="flex h-full items-center justify-center gap-1 p-2" x-bind:class="{ 'flex-col': mode === 'spread-v', 'flex-row-reverse': mode === 'spread-h' && direction === 'rtl' }">
+					<div class="flex h-full justify-center gap-1 p-2" x-bind:class="{ 'items-center': zoom === 'fit', 'items-start': zoom !== 'fit', 'flex-col': mode === 'spread-v', 'flex-row-reverse': mode === 'spread-h' && direction === 'rtl' }">
 						<template x-for="i in currentUnit" x-bind:key="chId + '-' + i">
 							<img x-bind:src="pages[i]" x-bind:alt="'Page ' + (i + 1)" x-bind:class="stageImgClass" class="min-w-0"/>
 						</template>
