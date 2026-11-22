@@ -7,7 +7,7 @@ generated: { by: agent/mcp, at: "2026-11-22T05:35:24Z" }
 status: stable
 ---
 
-Authoritative execution order for the 11 V2 capabilities. All 11 specs already exist in
+Authoritative execution order for the 11 baseline-derived V2 capabilities plus 2 V2-only additions. All specs already exist in
 `openspec/specs/`; each capability is then implemented as one OpenSpec change, in this order.
 A change is archived before the next one starts. The UI stack (templ + Tailwind + Alpine + htmx)
 is a cross-cutting foundation change against the `config` capability, tracked as row 1a.
@@ -28,3 +28,5 @@ is a cross-cutting foundation change against the `config` capability, tracked as
 | 9 | updates | `add-updates` | store, plugin-host | archived |
 | 10 | browser | `add-browser` | plugin-host | archived |
 | 11 | sites | `add-sites` | plugin-host, host-tools | archived |
+| 12 | observability (V2-only) | `add-behavior-specs` | sites | archived |
+| 13 | ui-shell (V2-only) | `add-behavior-specs` | sites | archived |

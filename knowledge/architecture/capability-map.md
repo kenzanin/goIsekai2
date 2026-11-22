@@ -1,7 +1,7 @@
 ---
 type: architecture
-title: "Capability map: 25 baseline specs collapsed into 11 V2 capabilities with a porting order"
-description: "Maps the 25 cppIsekai capability specs onto 11 V2 capabilities (config, store, plugin-host, host-tools, library, reader, image-cache, detail, updates, browser, sites), with the V2 change per capability, porting rules and the dependency-ordered porting sequence."
+title: "Capability map: 25 baseline specs plus 2 V2-only capabilities with a porting order"
+description: "Maps the 25 cppIsekai capability specs onto 11 V2 capabilities and records 2 V2-only additions (observability, ui-shell), with the V2 change per capability, porting rules and the dependency-ordered porting sequence."
 tags: [architecture, openspec, capabilities, porting, plan]
 generated: { by: agent/cli, at: "2026-11-21T12:19:59Z" }
 status: stable
@@ -16,7 +16,9 @@ through different runtimes (`lua-runtime`, `js-runtime`, `wasm-runtime`). Portin
 requirements and preserve a document history that only makes sense in the C++ repo.
 
 V2 maps them onto 11 capabilities, one file each, written fresh: requirement text and testable scenarios ported,
-prose and archive annotations dropped, and the V2 decision applied where it differs.
+prose and archive annotations dropped, and the V2 decision applied where it differs. Two further capabilities,
+`observability` and `ui-shell`, are V2-only additions for the log stream, About/Log pages, gated debug traces
+and the pinned shared-shell navigation order.
 
 ## Mapping
 
@@ -24,7 +26,7 @@ prose and archive annotations dropped, and the V2 decision applied where it diff
 |---|---|---|
 | `config` | `cli-config`, `settings-page` | env prefix `GOISEKAI_*`, provenance reporting, immutable snapshot, restart-only knobs declared as such |
 | `store` | `chapter-store`, `library-save` (write side), `search-cache` (`api_cache`) | `schema_version` table, FSM state columns, `jobs` table, single connection with a non-nesting Tx helper |
-| `plugin-host` | `plugin-system`, `plugins-page`, `lua-runtime`, `js-runtime`, `wasm-runtime` | one runtime interface, `qmuntal/stateless` lifecycle (disabled/enabled(idle/busy)/failed), quickjs + wazero + gopher-lua |
+| `plugin-host` | `plugin-system`, `plugins-page`, `lua-runtime`, `js-runtime`, `wasm-runtime` | one runtime interface, `qmuntal/stateless` lifecycle (disabled/enabled(idle/busy)/failed), quickjs + wazero + modernc Lua 5.5 |
 | `host-tools` | `host-tools`, `plugin-host-tools` | same tool names and envelopes; the tool table is explicit, plugins never see the event bus or the DB |
 | `library` | `library-save`, `search-page`, `search-cache` (read side) | unchanged surface; covers the save/remove/pin/status flows |
 | `reader` | `reader-page`, `reader-fullscreen`, `chapter-list-controls` | unchanged window math (limit 10, strictly-after), prefetch as a direct call |
@@ -33,6 +35,8 @@ prose and archive annotations dropped, and the V2 decision applied where it diff
 | `updates` | `auto-update` | durable `jobs` rows replace `update_attempts` bookkeeping; retry/backoff is an FSM |
 | `browser` | `browser-host` | supervisor owns only the child it spawned; adopted external backends survive shutdown |
 | `sites` | `mangadex-plugin` | the reference plugin, kept as the parity fixture for the plugin ABI |
+| `observability` | — (V2-only) | `/about`, `/log`, `/ws/log` snapshot replay and drop-oldest fan-out, level-gated debug traces |
+| `ui-shell` | — (V2-only) | canonical primary/utility nav order shared by every SSR page |
 
 `cache-layout-v3` semantics win over `cache-layout` wherever they disagree; where the baseline spec and the
 baseline code disagree, the **code** wins and the divergence is recorded (`architecture/cache-layout` documents the
