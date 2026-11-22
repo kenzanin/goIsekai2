@@ -1,4 +1,8 @@
 ## 2026-11-22
+* **Update**: Linked `decisions/saved-manga-master-data.md` to `architecture/data-flows.md` (Materialization order for detail and chapter flows).
+* **Update**: Linked `decisions/saved-manga-master-data.md` to `conventions/api-first.md` (Detail API projects the saved_manga master row).
+* **Update**: Linked `decisions/saved-manga-master-data.md` to `architecture/overview.md` (Master-data rule for the store layer).
+* **Creation**: Documented concept `decisions/saved-manga-master-data.md` (saved_manga is the single master for manga data).
 * **Update**: Linked `conventions/api-first.md` to `decisions/ui-stack.md` (SSR components remain projections over the API surface).
 * **Update**: Linked `conventions/api-first.md` to `architecture/overview.md` (API-first extends the layer and import rules).
 * **Creation**: Documented concept `conventions/api-first.md` (API-first: JSON surface is the contract, SSR is a thin client).
