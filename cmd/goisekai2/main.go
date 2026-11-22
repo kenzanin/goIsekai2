@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	imagecache "goisekai2/internal/cache"
 	"goisekai2/internal/config"
 	"goisekai2/internal/events"
 	httpserver "goisekai2/internal/http"
@@ -134,6 +135,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	lib := library.New(st, bus)
 	rd := reader.New(st, host)
 	srv := httpserver.New(reg, cli.ConfigPath, bus, host, lib, rd, st)
+	cacheRoot := filepath.Join(dataDir, "cache")
+	pool := imagecache.NewPool(cacheRoot, snap.Int("cache.cache_max_mb")<<20)
+	_ = pool.Rebuild()
+	srv.SetCache(imagecache.NewStore(cacheRoot, snap.String("cache.image_format"),
+		int(snap.Int("cache.cover_max_px")), pool))
 
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", snap.Int(config.KnobServerPort)))
 	if err != nil {

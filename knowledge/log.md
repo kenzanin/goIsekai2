@@ -1,4 +1,10 @@
 ## 2026-11-22
+* **Update**: Updated concept `notes/webp-self-registers-image-decoder.md`.
+* **Update**: Updated concept `notes/cache-cover-cgo-gate.md`.
+* **Update**: Linked `notes/webp-self-registers-image-decoder.md` to `architecture/cache-layout.md` (Decoder-registration behaviour the cache transcode and any webp re-decode rely on.).
+* **Update**: Linked `notes/cache-cover-cgo-gate.md` to `decisions/image-pipeline.md` (Test-gate evidence that the decided cgo-free webp transcode really builds and runs.).
+* **Creation**: Documented concept `notes/webp-self-registers-image-decoder.md` (gen2brain/webp registers its decoder with image on import).
+* **Creation**: Documented concept `notes/cache-cover-cgo-gate.md` (Cover transcode gate passes CGO_ENABLED=0 (default and nodynamic variants)).
 * **Update**: Updated concept `process/porting-order.md`.
 * **Update**: Linked `notes/reader-page-ordering.md` to `architecture/data-flows.md` (Ordering decision realized by internal/reader/service.go Pages/Window.).
 * **Update**: Linked `notes/gorm-chain-sql-boundary.md` to `conventions/sql-boundary.md` (The reader relies on gorm chains via store.DB(), which this convention permits outside internal/store/sql.).
