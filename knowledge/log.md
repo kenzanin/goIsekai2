@@ -1,4 +1,5 @@
 ## 2026-11-22
+* **Update**: Updated concept `process/porting-order.md`.
 * **Update**: Linked `notes/reader-page-ordering.md` to `architecture/data-flows.md` (Ordering decision realized by internal/reader/service.go Pages/Window.).
 * **Update**: Linked `notes/gorm-chain-sql-boundary.md` to `conventions/sql-boundary.md` (The reader relies on gorm chains via store.DB(), which this convention permits outside internal/store/sql.).
 * **Update**: Linked `notes/reader-pages-payload-contract.md` to `notes/plugin-envelope-v1.md` (Pages payload and fallback behaviour build on the plugin host ABI recorded in notes/plugin-envelope-v1.).
