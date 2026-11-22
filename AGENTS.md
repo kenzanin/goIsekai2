@@ -122,11 +122,9 @@ code lands. Planned packages under `internal/`:
   error plus a counter (never a panic), and every model change updates the graph golden test.
 - SQL rule: raw SQL lives only in the `internal/store/sql` module (one package, many files allowed);
   `make lint` runs `scripts/sql-boundary-check`. See `conventions/sql-boundary`.
-- KIT lanes run in their own herdr tab: always `./scripts/kit-worker ...` (it creates the tab, waits for the
-  exit sentinel, prints the tail); never call `kit` directly. Every lane also carries the OKF duty: the
-  wrapper appends an instruction to record verified findings as okf concepts, so a lane leaves evidence
-  behind. Full rule: `.opencode/skills/kit-worker/SKILL.md`.
+- KIT lanes: `./scripts/kit-worker ...` in herdr tab, waits sentinel; never `kit` directly. OKF duty included. Full: `.opencode/skills/kit-worker/SKILL.md`.
 - PI lanes use `./scripts/pi-worker --sid=<id> --timeout=<ms> "<prompt>"`; sessions persist and resume.
+- API-first: JSON endpoints lead; SSR only projects API/service data. See `conventions/api-first`.
 - Language rule: all produced work is English -- source, comments, tests, docs, specs, knowledge,
   commit messages, worker briefs and worker reports. Only chat replies to the user may be Indonesian.
   Full rule: `knowledge/conventions/language.md`.

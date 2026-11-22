@@ -1,4 +1,7 @@
 ## 2026-11-22
+* **Update**: Linked `conventions/api-first.md` to `decisions/ui-stack.md` (SSR components remain projections over the API surface).
+* **Update**: Linked `conventions/api-first.md` to `architecture/overview.md` (API-first extends the layer and import rules).
+* **Creation**: Documented concept `conventions/api-first.md` (API-first: JSON surface is the contract, SSR is a thin client).
 * **Update**: Linked `notes/manifest-id-optional.md` to `decisions/site-corpus-scope.md` (Manifest id validation evidence for the site corpus tranche).
 * **Update**: Linked `decisions/site-corpus-scope.md` to `architecture/capability-map.md` (Site corpus tranche follows the mapped capability order).
 * **Creation**: Documented concept `notes/manifest-id-optional.md` (Manifest id is optional; folder is the fallback identity).
