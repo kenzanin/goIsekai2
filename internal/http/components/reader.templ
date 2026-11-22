@@ -37,8 +37,8 @@ const readerState = `{
 	chId: '',
 	pages: [],
 	chapters: [],
-	prev: null,
-	next: null,
+	prevRef: null,
+	nextRef: null,
 	pageIdx: 0,
 	saveT: null,
 	init() {
@@ -49,8 +49,8 @@ const readerState = `{
 		this.chId = b.chId;
 		this.pages = b.pages || [];
 		this.chapters = b.chapters || [];
-		this.prev = b.prev;
-		this.next = b.next;
+		this.prevRef = b.prev;
+		this.nextRef = b.next;
 		this.pageIdx = Math.min(Math.max((b.position || 1) - 1, 0), Math.max(this.total - 1, 0));
 		this.$nextTick(() => this.scrollToPage());
 		this.save(); // nudge the prefetch worker immediately on open
@@ -123,14 +123,14 @@ const readerState = `{
 		if (this.isWebtoon) { this.scrollScreen(1); return; }
 		const u = this.units, i = this.unitIdx;
 		if (i < u.length - 1) { this.setPage(u[i + 1][0]); return; }
-		if (this.next && this.next.id) { this.switchTo(this.next, 'first', true); return; }
+		if (this.nextRef && this.nextRef.id) { this.switchTo(this.nextRef, 'first', true); return; }
 		this.done = true;
 	},
 	prev() {
 		if (this.isWebtoon) { this.scrollScreen(-1); return; }
 		const u = this.units, i = this.unitIdx;
 		if (i > 0) { this.setPage(u[i - 1][0]); return; }
-		if (this.prev && this.prev.id) this.switchTo(this.prev, 'last', true);
+		if (this.prevRef && this.prevRef.id) this.switchTo(this.prevRef, 'last', true);
 	},
 	tapLeft() { this.direction === 'rtl' ? this.next() : this.prev(); },
 	tapRight() { this.direction === 'rtl' ? this.prev() : this.next(); },
@@ -187,8 +187,8 @@ const readerState = `{
 		this.ch = d.chapter;
 		this.chId = id;
 		this.pages = d.pages || [];
-		this.prev = d.prev_ch_id ? { ch: d.prev_ch, id: d.prev_ch_id } : null;
-		this.next = d.next_ch_id ? { ch: d.next_ch, id: d.next_ch_id } : null;
+		this.prevRef = d.prev_ch_id ? { ch: d.prev_ch, id: d.prev_ch_id } : null;
+		this.nextRef = d.next_ch_id ? { ch: d.next_ch, id: d.next_ch_id } : null;
 		this.pageIdx = where === 'last' ? Math.max(this.total - 1, 0) : 0;
 		this.done = false;
 		this.$refs.stage.scrollTop = 0;
@@ -318,8 +318,8 @@ templ Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter,
 							<span class="truncate text-sm font-semibold text-zinc-100">{ mangaName }</span>
 						</div>
 						<nav aria-label="Chapter and page" class="flex flex-wrap items-center justify-center gap-1">
-							<button type="button" x-on:click="switchTo(prev, 'last', true)" x-bind:disabled="!prev" class="rounded-md border border-zinc-700 px-2 py-1 font-mono text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100 disabled:opacity-40">
-								‹ <span x-text="prev ? 'ch ' + prev.ch : '—'"></span>
+							<button type="button" x-on:click="switchTo(prevRef, 'last', true)" x-bind:disabled="!prevRef" class="rounded-md border border-zinc-700 px-2 py-1 font-mono text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100 disabled:opacity-40">
+								‹ <span x-text="prevRef ? 'ch ' + prevRef.ch : '—'"></span>
 							</button>
 							<select aria-label="Chapter" x-on:change="chapterFromSelect($event)" class="max-w-56 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 font-mono text-xs text-zinc-100 focus:border-amber-400 focus:outline-none">
 								<template x-for="c in chapters" x-bind:key="c.id">
@@ -331,8 +331,8 @@ templ Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter,
 									<option x-bind:value="i" x-bind:selected="i === pageIdx + 1" x-text="'p ' + i"></option>
 								</template>
 							</select>
-							<button type="button" x-on:click="switchTo(next, 'first', true)" x-bind:disabled="!next" class="rounded-md border border-zinc-700 px-2 py-1 font-mono text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100 disabled:opacity-40">
-								<span x-text="next ? 'ch ' + next.ch : '—'"></span> ›
+							<button type="button" x-on:click="switchTo(nextRef, 'first', true)" x-bind:disabled="!nextRef" class="rounded-md border border-zinc-700 px-2 py-1 font-mono text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100 disabled:opacity-40">
+								<span x-text="nextRef ? 'ch ' + nextRef.ch : '—'"></span> ›
 							</button>
 						</nav>
 					</div>

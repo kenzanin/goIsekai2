@@ -419,7 +419,8 @@ func TestReaderPagesAndPositionRoutes(t *testing.T) {
 	s.Handler().ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/read/p/s?ch=2", nil))
 	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), `data-mode="`) ||
 		!strings.Contains(page.Body.String(), "ch=2") || !strings.Contains(page.Body.String(), "page=1") ||
-		!strings.Contains(page.Body.String(), `aria-label="Chapter"`) || !strings.Contains(page.Body.String(), `aria-label="Page"`) {
+		!strings.Contains(page.Body.String(), `aria-label="Chapter"`) || !strings.Contains(page.Body.String(), `aria-label="Page"`) ||
+		!strings.Contains(page.Body.String(), "prevRef") || !strings.Contains(page.Body.String(), "nextRef") {
 		t.Fatalf("reader page = %d %s", page.Code, page.Body.String())
 	}
 
