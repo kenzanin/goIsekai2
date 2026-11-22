@@ -13,6 +13,7 @@ import (
 
 	"goisekai2/internal/plugin"
 	"goisekai2/internal/store"
+	"goisekai2/internal/updates"
 )
 
 // ErrUnknownTitle reports a slug the host cannot resolve.
@@ -23,11 +24,12 @@ type Service struct {
 	store      *store.Store
 	host       *plugin.Host
 	enrichment []*EnrichmentSource
+	attempt    func(context.Context, *store.Store, string, string, bool, string, int64)
 }
 
 // New creates a detail service.
 func New(st *store.Store, host *plugin.Host) *Service {
-	return &Service{store: st, host: host}
+	return &Service{store: st, host: host, attempt: updates.StampAttempt}
 }
 
 // SetEnrichment attaches the separately loaded enrichment registry.
@@ -219,12 +221,12 @@ func (s *Service) Detail(ctx context.Context, pluginID, slug string) (map[string
 func (s *Service) Refresh(ctx context.Context, pluginID, slug string) error {
 	detailData, err := s.fetch(ctx, pluginID, "detail", slug)
 	if err != nil {
-		s.stamp(ctx, pluginID, slug, "error")
+		s.stamp(ctx, pluginID, slug, false, err.Error())
 		return fmt.Errorf("detail: %w", err)
 	}
 	chapterData, err := s.fetch(ctx, pluginID, "chapters", slug)
 	if err != nil {
-		s.stamp(ctx, pluginID, slug, "error")
+		s.stamp(ctx, pluginID, slug, false, err.Error())
 		return fmt.Errorf("chapters: %w", err)
 	}
 	for method, data := range map[string]map[string]any{"detail": detailData, "chapters": chapterData} {
@@ -233,16 +235,14 @@ func (s *Service) Refresh(ctx context.Context, pluginID, slug string) error {
 			PluginID: pluginID, QueryHash: cacheHash(pluginID, method, slug),
 			Payload: string(raw), FetchedAt: time.Now().Unix(), TTL: 86400,
 		}); err != nil {
-			s.stamp(ctx, pluginID, slug, "error")
+			s.stamp(ctx, pluginID, slug, false, err.Error())
 			return err
 		}
 	}
-	s.stamp(ctx, pluginID, slug, "ok")
+	s.stamp(ctx, pluginID, slug, true, "")
 	return nil
 }
 
-func (s *Service) stamp(ctx context.Context, pluginID, slug, status string) {
-	_ = s.store.PutUpdateAttempt(ctx, &store.UpdateAttempt{
-		Plugin: pluginID, Slug: slug, Outcome: status, LastAttemptAt: time.Now().Unix(),
-	})
+func (s *Service) stamp(ctx context.Context, pluginID, slug string, ok bool, errText string) {
+	s.attempt(ctx, s.store, pluginID, slug, ok, errText, time.Now().Unix())
 }
