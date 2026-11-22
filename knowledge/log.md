@@ -1,4 +1,9 @@
 ## 2026-11-22
+* **Update**: Linked `decisions/lua-runtime.md` to `notes/modernc-wasm3-unavailable.md` (Contrasts the available modernc Lua module with the unavailable modernc wasm3 module.).
+* **Update**: Linked `decisions/lua-runtime.md` to `architecture/stack.md` (Runtime change reflected in the stack review.).
+* **Update**: Linked `decisions/lua-runtime.md` to `decisions/dependency-stack.md` (Updates the Lua slot in the frozen dependency stack.).
+* **Creation**: Documented concept `decisions/lua-runtime.md` (Lua runtime: modernc.org/lua v0.1.0 for Lua 5.5.1 plugins).
+* **Update**: Updated concept `decisions/dependency-stack.md`.
 * **Update**: Linked `notes/modernc-wasm3-unavailable.md` to `decisions/dependency-stack.md` (Re-evaluates the earlier wasm3 rejection: no published modernc pure-Go module exists, so wazero stays.).
 * **Creation**: Documented concept `notes/modernc-wasm3-unavailable.md` (No published modernc.org/wasm3 module; keep wazero).
 * **Update**: Linked `decisions/saved-state-marker.md` to `conventions/api-first.md` (detail API exposes the saved flag).
