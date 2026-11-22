@@ -26,9 +26,10 @@ const InsertFTSRow = `INSERT INTO library_fts (plugin, slug, name, alt_titles, s
 const DeleteFTSRow = `DELETE FROM library_fts WHERE plugin = ? AND slug = ?`
 
 // SearchFTS ranks prefix matches by BM25 score.
-const SearchFTS = `SELECT plugin, slug, name FROM library_fts
-	WHERE library_fts MATCH ? ORDER BY bm25(library_fts) LIMIT 20`
+const SearchFTS = `SELECT saved_manga.plugin, saved_manga.slug, saved_manga.name FROM library_fts
+	JOIN saved_manga ON saved_manga.plugin = library_fts.plugin AND saved_manga.slug = library_fts.slug
+	WHERE library_fts MATCH ? AND saved_manga.added_at > 0 ORDER BY bm25(library_fts) LIMIT 20`
 
 // SearchLike is the fallback when FTS5 is unavailable.
 const SearchLike = `SELECT plugin, slug, name FROM saved_manga
-	WHERE name LIKE ? OR alt_titles LIKE ? OR synopsis LIKE ? LIMIT 20`
+	WHERE (name LIKE ? OR alt_titles LIKE ? OR synopsis LIKE ?) AND added_at > 0 LIMIT 20`

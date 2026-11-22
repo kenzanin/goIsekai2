@@ -61,6 +61,7 @@ func envelope(raw []byte) (map[string]any, error) {
 		return nil, fmt.Errorf("plugin envelope: missing data")
 	}
 	data["cached"] = false
+	data["saved"] = false
 	return data, nil
 }
 
@@ -218,7 +219,8 @@ func (s *Service) Detail(ctx context.Context, pluginID, slug string) (map[string
 			"plugin": row.Plugin, "slug": row.Slug, "name": row.Name, "cover": row.Cover,
 			"status": row.Status, "synopsis": row.Synopsis, "alt_titles": row.AltTitles,
 			"authors": row.Authors, "artists": row.Artists, "tags": row.Tags,
-			"cached": true, "enrichment": map[string]any{}, "chosen_cover": row.Cover,
+			"cached": true, "saved": row.AddedAt > 0,
+			"enrichment": map[string]any{}, "chosen_cover": row.Cover,
 		}
 		if meta, err := s.store.GetTitleMeta(ctx, pluginID, slug); err == nil {
 			out["enrichment"] = meta.Fetched
@@ -236,7 +238,7 @@ func (s *Service) Detail(ctx context.Context, pluginID, slug string) (map[string
 func (s *Service) materialize(ctx context.Context, pluginID, slug string, data map[string]any) {
 	row, err := s.store.GetSaved(ctx, pluginID, slug)
 	if err != nil {
-		row = &store.SavedManga{Plugin: pluginID, Slug: slug, AddedAt: time.Now().Unix()}
+		row = &store.SavedManga{Plugin: pluginID, Slug: slug, AddedAt: 0}
 	}
 	get := func(keys ...string) string {
 		for _, key := range keys {

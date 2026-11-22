@@ -266,6 +266,7 @@ func (s *Server) renderDetail(w http.ResponseWriter, r *http.Request) {
 		Plugin: pluginID, Slug: slug, Name: str("name"), Cover: str("cover"),
 		Status: str("status"), Synopsis: str("synopsis"),
 		ChosenCover: str("chosen_cover"), Cached: data["cached"] == true,
+		Saved: data["saved"] == true,
 	}
 	if authors, ok := data["authors"].([]string); ok {
 		row.Authors = authors

@@ -29,6 +29,7 @@ type DetailRow struct {
 	Tags        []string
 	ChosenCover string
 	Cached      bool
+	Saved       bool
 }
 
 // Candidate is one enrichment match offered to the user. Selected marks the
@@ -83,7 +84,7 @@ func Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, can
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(detailOr(row.Name, "Untitled"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 46, Col: 110}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 47, Col: 110}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -96,7 +97,7 @@ func Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, can
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(detailOr(row.Plugin, "no plugin"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 48, Col: 113}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 49, Col: 113}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -119,7 +120,7 @@ func Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, can
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL("/api/refresh/" + row.Plugin + "/" + row.Slug)).ResolveURL(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 55, Col: 94}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 56, Col: 94}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 			if templ_7745c5c3_Err != nil {
@@ -132,7 +133,7 @@ func Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, can
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL("/api/refresh/" + row.Plugin + "/" + row.Slug + "/force")).ResolveURL(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 61, Col: 105}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 62, Col: 105}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 			if templ_7745c5c3_Err != nil {
@@ -145,7 +146,7 @@ func Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, can
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL("/api/detail/" + row.Plugin + "/" + row.Slug + "/reset")).ResolveURL(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 67, Col: 104}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 68, Col: 104}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 			if templ_7745c5c3_Err != nil {
@@ -166,7 +167,7 @@ func Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, can
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(detailOr(row.Status, "Unknown"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 80, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 81, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -184,7 +185,7 @@ func Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, can
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(strings.Join(row.Authors, ", "))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 85, Col: 66}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 86, Col: 66}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
@@ -217,7 +218,7 @@ func Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, can
 					var templ_7745c5c3_Var10 string
 					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(t)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 96, Col: 98}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 97, Col: 98}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 					if templ_7745c5c3_Err != nil {
@@ -245,7 +246,7 @@ func Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, can
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(detailOr(row.Synopsis, "No synopsis yet."))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 106, Col: 97}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 107, Col: 97}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
@@ -346,7 +347,7 @@ func detailCover(row DetailRow) templ.Component {
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templruntime.NewAttributeExpression(detailCoverURL(row)).ResolveURL(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 150, Col: 33}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 151, Col: 33}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
 			if templ_7745c5c3_Err != nil {
@@ -359,7 +360,7 @@ func detailCover(row DetailRow) templ.Component {
 			var templ_7745c5c3_Var14 string
 			templ_7745c5c3_Var14, templ_7745c5c3_Err = templruntime.NewAttributeExpression(detailOr(row.Name, "Manga") + " cover").Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 150, Col: 80}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 151, Col: 80}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 			if templ_7745c5c3_Err != nil {
@@ -377,7 +378,7 @@ func detailCover(row DetailRow) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(pluginInitial(detailOr(row.Name, "?")))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 153, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 154, Col: 44}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {
@@ -423,7 +424,7 @@ func detailChapterRow(row DetailRow, ch ChapterRow) templ.Component {
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL("/read/" + row.Plugin + "/" + row.Slug + "?ch=" + chLabel(ch.Number) + "&ch_id=" + ch.ID)).ResolveURL(ctx)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 164, Col: 115}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 165, Col: 115}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 		if templ_7745c5c3_Err != nil {
@@ -436,7 +437,7 @@ func detailChapterRow(row DetailRow, ch ChapterRow) templ.Component {
 		var templ_7745c5c3_Var18 string
 		templ_7745c5c3_Var18, templ_7745c5c3_Err = templruntime.NewAttributeExpression("Read chapter " + chLabel(ch.Number)).Resolve(ctx)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 164, Col: 167}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 165, Col: 167}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
 		if templ_7745c5c3_Err != nil {
@@ -449,7 +450,7 @@ func detailChapterRow(row DetailRow, ch ChapterRow) templ.Component {
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(chLabel(ch.Number))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 166, Col: 81}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 167, Col: 81}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
@@ -467,7 +468,7 @@ func detailChapterRow(row DetailRow, ch ChapterRow) templ.Component {
 			var templ_7745c5c3_Var20 string
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(ch.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 168, Col: 71}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 169, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
@@ -485,7 +486,7 @@ func detailChapterRow(row DetailRow, ch ChapterRow) templ.Component {
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(chLabel(ch.Number))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 170, Col: 89}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 171, Col: 89}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {
@@ -508,7 +509,7 @@ func detailChapterRow(row DetailRow, ch ChapterRow) templ.Component {
 			var templ_7745c5c3_Var22 string
 			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(ch.Pages))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 174, Col: 157}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 175, Col: 157}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 			if templ_7745c5c3_Err != nil {
@@ -526,7 +527,7 @@ func detailChapterRow(row DetailRow, ch ChapterRow) templ.Component {
 		var templ_7745c5c3_Var23 string
 		templ_7745c5c3_Var23, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL("/cbz/" + row.Plugin + "/" + row.Slug + "?ch=" + chLabel(ch.Number) + "&ch_id=" + ch.ID)).ResolveURL(ctx)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 176, Col: 114}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 177, Col: 114}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var23)
 		if templ_7745c5c3_Err != nil {
@@ -539,7 +540,7 @@ func detailChapterRow(row DetailRow, ch ChapterRow) templ.Component {
 		var templ_7745c5c3_Var24 string
 		templ_7745c5c3_Var24, templ_7745c5c3_Err = templruntime.NewAttributeExpression("Download chapter " + chLabel(ch.Number) + " as cbz").Resolve(ctx)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 176, Col: 182}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 177, Col: 182}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
 		if templ_7745c5c3_Err != nil {
@@ -621,7 +622,7 @@ func candidateCard(row DetailRow, c Candidate) templ.Component {
 			var templ_7745c5c3_Var28 string
 			templ_7745c5c3_Var28, templ_7745c5c3_Err = templruntime.NewAttributeExpression(c.Cover).ResolveURL(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 190, Col: 23}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 191, Col: 23}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var28)
 			if templ_7745c5c3_Err != nil {
@@ -634,7 +635,7 @@ func candidateCard(row DetailRow, c Candidate) templ.Component {
 			var templ_7745c5c3_Var29 string
 			templ_7745c5c3_Var29, templ_7745c5c3_Err = templruntime.NewAttributeExpression(detailOr(c.Name, "Candidate") + " cover").Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 190, Col: 72}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 191, Col: 72}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var29)
 			if templ_7745c5c3_Err != nil {
@@ -657,7 +658,7 @@ func candidateCard(row DetailRow, c Candidate) templ.Component {
 		var templ_7745c5c3_Var30 string
 		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(detailOr(c.Name, "Untitled candidate"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 197, Col: 102}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 198, Col: 102}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 		if templ_7745c5c3_Err != nil {
@@ -680,7 +681,7 @@ func candidateCard(row DetailRow, c Candidate) templ.Component {
 		var templ_7745c5c3_Var31 string
 		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(detailOr(c.Synopsis, "No synopsis reported."))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 202, Col: 118}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 203, Col: 118}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 		if templ_7745c5c3_Err != nil {
@@ -693,7 +694,7 @@ func candidateCard(row DetailRow, c Candidate) templ.Component {
 		var templ_7745c5c3_Var32 string
 		templ_7745c5c3_Var32, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL("/api/detail/" + row.Plugin + "/" + row.Slug + "/apply")).ResolveURL(ctx)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 205, Col: 101}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 206, Col: 101}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var32)
 		if templ_7745c5c3_Err != nil {
@@ -706,7 +707,7 @@ func candidateCard(row DetailRow, c Candidate) templ.Component {
 		var templ_7745c5c3_Var33 string
 		templ_7745c5c3_Var33, templ_7745c5c3_Err = templruntime.NewAttributeExpression(c.ID).Resolve(ctx)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 206, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 207, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var33)
 		if templ_7745c5c3_Err != nil {
@@ -719,7 +720,7 @@ func candidateCard(row DetailRow, c Candidate) templ.Component {
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templruntime.NewAttributeExpression("Apply candidate " + detailOr(c.Name, c.ID)).Resolve(ctx)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 207, Col: 81}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/detail.templ`, Line: 208, Col: 81}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var34)
 		if templ_7745c5c3_Err != nil {

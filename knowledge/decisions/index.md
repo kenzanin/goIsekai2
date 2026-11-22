@@ -14,3 +14,4 @@
 * [UI stack: templ + Tailwind + Alpine + htmx](ui-stack.md) - goIsekai V2 SSR UI uses typed templ components, compiled Tailwind CSS, and locally vendored Alpine/htmx; generated assets are committed and embedded.
 * [First site corpus tranche and parity tracking](site-corpus-scope.md) - Port seven baseline plugin folders first and record every other baseline folder as an omission with a reason rather than silently dropping it.
 * [saved_manga is the single master for manga data](saved-manga-master-data.md) - All manga metadata lives in saved_manga; satellite tables are keyed by (plugin, slug) and never own competing title data. Detail API materializes it.
+* [Explicit saved state on the saved_manga master row](saved-state-marker.md) - added_at is the saved marker: >0 means in library, 0 means materialized but unsaved. Viewing a title never saves it.

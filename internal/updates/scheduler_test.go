@@ -83,9 +83,9 @@ func TestCandidateFilters(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows := []store.SavedManga{
-		{Plugin: "p", Slug: "ok", Name: "ok", ReadCh: 1},
-		{Plugin: "p", Slug: "read", Name: "read", ReadCh: 2},
-		{Plugin: "q", Slug: "off", Name: "off", ReadCh: 0},
+		{Plugin: "p", Slug: "ok", Name: "ok", ReadCh: 1, AddedAt: 1},
+		{Plugin: "p", Slug: "read", Name: "read", ReadCh: 2, AddedAt: 1},
+		{Plugin: "q", Slug: "off", Name: "off", ReadCh: 0, AddedAt: 1},
 	}
 	for _, row := range rows {
 		if err := st.UpsertSaved(ctx, &row); err != nil {

@@ -84,7 +84,11 @@ func TestRemoveAndBitToggles(t *testing.T) {
 	if err := svc.Remove(ctx, "p", "s"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Get(ctx, "p", "s"); err == nil {
-		t.Fatal("row still present")
+	if row, err := svc.Get(ctx, "p", "s"); err != nil || row.AddedAt != 0 {
+		t.Fatalf("unsaved master row = %+v, %v", row, err)
+	}
+	rows, err := svc.List(ctx)
+	if err != nil || len(rows) != 0 {
+		t.Fatalf("library = %d rows, %v", len(rows), err)
 	}
 }

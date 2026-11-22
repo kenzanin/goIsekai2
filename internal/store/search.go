@@ -91,7 +91,7 @@ func (u *dsU) union(a, b int) {
 // values stored on disk and writes every group in one transaction.
 func (s *Store) RecomputeDupGroups(ctx context.Context) error {
 	var all []SavedManga
-	if err := s.db.WithContext(ctx).Find(&all).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("added_at > 0").Find(&all).Error; err != nil {
 		return err
 	}
 	u := &dsU{parent: make(map[int]int, len(all))}

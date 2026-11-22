@@ -1,4 +1,7 @@
 ## 2026-11-22
+* **Update**: Linked `decisions/saved-state-marker.md` to `conventions/api-first.md` (detail API exposes the saved flag).
+* **Update**: Linked `decisions/saved-state-marker.md` to `decisions/saved-manga-master-data.md` (saved marker on the master row).
+* **Creation**: Documented concept `decisions/saved-state-marker.md` (Explicit saved state on the saved_manga master row).
 * **Update**: Linked `decisions/saved-manga-master-data.md` to `architecture/data-flows.md` (Materialization order for detail and chapter flows).
 * **Update**: Linked `decisions/saved-manga-master-data.md` to `conventions/api-first.md` (Detail API projects the saved_manga master row).
 * **Update**: Linked `decisions/saved-manga-master-data.md` to `architecture/overview.md` (Master-data rule for the store layer).

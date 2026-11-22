@@ -68,7 +68,7 @@ func TestMaintenanceIsolatedFailures(t *testing.T) {
 	if err := st.PutCached(ctx, &store.ApiCache{PluginID: "p", QueryHash: "new", Payload: "y", FetchedAt: now.Unix(), TTL: 100}); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.UpsertSaved(ctx, &store.SavedManga{Plugin: "p", Slug: "s", Name: "Alpha", DupGroup: 7}); err != nil {
+	if err := st.UpsertSaved(ctx, &store.SavedManga{Plugin: "p", Slug: "s", Name: "Alpha", DupGroup: 7, AddedAt: 1}); err != nil {
 		t.Fatal(err)
 	}
 	// A directory where the snapshot file belongs makes the backup step fail.

@@ -107,7 +107,7 @@ func TestDedupGroupsAndBackup(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 	for _, slug := range []string{"a", "b", "c"} {
-		m := &SavedManga{Plugin: "p", Slug: slug, Name: "Same Name", Synopsis: "shared plot words", Authors: `["author"]`}
+		m := &SavedManga{Plugin: "p", Slug: slug, Name: "Same Name", Synopsis: "shared plot words", Authors: `["author"]`, AddedAt: 1}
 		if err := s.UpsertSaved(ctx, m); err != nil {
 			t.Fatal(err)
 		}
@@ -173,7 +173,7 @@ func TestPositionsAndMetadataRoundTrip(t *testing.T) {
 func TestLikeFallbackWhenFTSUnavailable(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
-	if err := s.UpsertSaved(ctx, &SavedManga{Plugin: "p", Slug: "s", Name: "Fallback Title", Synopsis: "needle"}); err != nil {
+	if err := s.UpsertSaved(ctx, &SavedManga{Plugin: "p", Slug: "s", Name: "Fallback Title", Synopsis: "needle", AddedAt: 1}); err != nil {
 		t.Fatal(err)
 	}
 	fallback := &Store{db: s.DB(), ftsOK: false}

@@ -19,7 +19,7 @@ func UpdateCandidates(db *gorm.DB, now int64, limit int) ([]UpdateCandidate, err
 	err := db.Table("saved_manga").
 		Select("saved_manga.plugin, saved_manga.slug").
 		Joins("JOIN plugin ON plugin.plugin_id = saved_manga.plugin AND plugin.enabled = 1").
-		Where("saved_manga.read_ch <= 1").
+		Where("saved_manga.read_ch <= 1 AND saved_manga.added_at > 0").
 		Where(`NOT EXISTS (
 			SELECT 1 FROM update_attempts
 			WHERE update_attempts.plugin = saved_manga.plugin

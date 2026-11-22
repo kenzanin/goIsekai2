@@ -4,6 +4,7 @@ package library
 import (
 	"context"
 	"errors"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -33,7 +34,10 @@ func (s *Service) Save(ctx context.Context, plugin, slug, name, cover string) er
 	if err = s.store.Tx(ctx, func(txCtx context.Context, tx *gorm.DB) error {
 		var existing store.SavedManga
 		found := tx.WithContext(txCtx).Where("plugin = ? AND slug = ?", plugin, slug).First(&existing).Error == nil
-		row := store.SavedManga{Plugin: plugin, Slug: slug, Name: name, Cover: cover}
+		row := store.SavedManga{Plugin: plugin, Slug: slug, Name: name, Cover: cover, AddedAt: time.Now().Unix()}
+		if found && existing.AddedAt > 0 {
+			row.AddedAt = existing.AddedAt
+		}
 		if found && existing.Name != "" && (name == "" || name == slug) {
 			row.Name = existing.Name
 			row.Status = existing.Status
@@ -55,7 +59,12 @@ func (s *Service) Save(ctx context.Context, plugin, slug, name, cover string) er
 // Remove deletes one saved manga and publishes after the commit.
 func (s *Service) Remove(ctx context.Context, plugin, slug string) error {
 	if err := s.store.Tx(ctx, func(txCtx context.Context, tx *gorm.DB) error {
-		return tx.WithContext(txCtx).Where("plugin = ? AND slug = ?", plugin, slug).Delete(&store.SavedManga{}).Error
+		var row store.SavedManga
+		if err := tx.WithContext(txCtx).Where("plugin = ? AND slug = ?", plugin, slug).First(&row).Error; err != nil {
+			return err
+		}
+		row.AddedAt = 0
+		return tx.WithContext(txCtx).Save(&row).Error
 	}); err != nil {
 		return err
 	}
@@ -78,7 +87,7 @@ func (s *Service) Get(ctx context.Context, plugin, slug string) (*store.SavedMan
 // List returns every saved entry ordered by added_at descending.
 func (s *Service) List(ctx context.Context) ([]store.SavedManga, error) {
 	var rows []store.SavedManga
-	err := s.store.DB().WithContext(ctx).Order("added_at DESC").Find(&rows).Error
+	err := s.store.DB().WithContext(ctx).Where("added_at > 0").Order("added_at DESC").Find(&rows).Error
 	return rows, err
 }
 
