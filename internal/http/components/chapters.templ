@@ -4,33 +4,109 @@ import "strconv"
 
 // ChapterRow is one chapter entry on the manga detail page. ID is the exact
 // plugin chapter id used for reader links and flag toggles; Read and Skip
-// mirror chapters.flags bit0 and bit1; Pages carries the stored page count
-// so the row badge needs no extra request.
+// mirror chapters.flags bit0 and bit1; Pages is the stored page count and
+// Progress is the highest page reached for that chapter.
 type ChapterRow struct {
-	Plugin string
-	Slug   string
+	Plugin   string
+	Slug     string
+	ID       string
+	Number   float64
+	Title    string
+	Read     bool
+	Skip     bool
+	Pages    int
+	Progress int
+}
+
+// ChapterOption is the minimal chapter identity needed by readers and bulk
+// actions: exact id, display number and optional title.
+type ChapterOption struct {
 	ID     string
 	Number float64
 	Title  string
-	Read   bool
-	Skip   bool
-	Pages  int
 }
+
+// chapterOwner returns the plugin and slug shared by every row on the page.
+func chapterOwner(rows []ChapterRow) (string, string) {
+	if len(rows) == 0 {
+		return "", ""
+	}
+	return rows[0].Plugin, rows[0].Slug
+}
+
+// rowPlugin and rowSlug expose chapterOwner to templ attribute expressions.
+func rowPlugin(rows []ChapterRow) string {
+	plugin, _ := chapterOwner(rows)
+	return plugin
+}
+
+func rowSlug(rows []ChapterRow) string {
+	_, slug := chapterOwner(rows)
+	return slug
+}
+
+// chapterBoot serialises the full ordered chapter list for client-side range
+// resolution without repeating all ids in every row's markup.
+func chapterBoot(chapters []ChapterOption) []map[string]any {
+	out := make([]map[string]any, 0, len(chapters))
+	for _, c := range chapters {
+		out = append(out, map[string]any{"id": c.ID, "number": c.Number, "title": c.Title})
+	}
+	return out
+}
+
+// chapterBulk owns the three bulk flag actions. It posts one form-encoded
+// request with repeated ch_id values, then reloads so counters and checks
+// reflect the new state.
+const chapterBulk = `{
+	all() { return JSON.parse(document.getElementById('chapter-boot').textContent); },
+	post(ids, set, clear) {
+		const body = new URLSearchParams();
+		body.set('plugin', this.$el.dataset.plugin);
+		body.set('slug', this.$el.dataset.slug);
+		body.set('set', String(set));
+		body.set('clear', String(clear));
+		ids.forEach((id) => body.append('ch_id', id));
+		return fetch('/chapter/flags', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: body.toString(),
+		}).then((res) => { if (res.ok) location.reload(); });
+	},
+	markAll() {
+		if (confirm('Mark all chapters as read?')) this.post(this.all().map((c) => c.id), 1, 0);
+	},
+	clearAll() {
+		if (confirm('Clear read status for all chapters? Progress labels stay.')) this.post(this.all().map((c) => c.id), 0, 1);
+	},
+	markPrev(number) {
+		const list = this.all().filter((c) => c.number <= number);
+		if (!confirm('Mark chapters ' + (list.length ? list[0].number : number) + '-' + number + ' as read?')) return;
+		this.post(list.map((c) => c.id), 1, 0);
+	}
+}`
 
 // Chapters renders the manga detail chapter list: one row per chapter with a
 // read check, a skip eye toggle posting to /chapter/flags through htmx and a
 // page-count badge, plus a fixed-size pager with prev/next ?page= links and a
 // page/total indicator that hides when the list fits on one page.
-templ Chapters(active Page, pages []Page, mangaName string, rows []ChapterRow, page, totalPages int) {
+templ Chapters(active Page, pages []Page, mangaName string, rows []ChapterRow, page, totalPages int, chapters []ChapterOption) {
 	@Base(active, pages) {
-		<div class="space-y-6">
+		<div x-data={ chapterBulk } data-plugin={ rowPlugin(rows) } data-slug={ rowSlug(rows) } class="space-y-6">
+			@templ.JSONScript("chapter-boot", chapterBoot(chapters))
 			<div class="flex flex-wrap items-end justify-between gap-4">
 				<div>
 					<h1 class="font-mono text-2xl font-semibold tracking-tight text-zinc-50">{ mangaName }</h1>
 					<p class="mt-1 text-sm text-zinc-400">Chapters known for this title.</p>
 				</div>
 				if len(rows) > 0 {
-					<p class="font-mono text-xs uppercase tracking-widest text-zinc-500">{ strconv.Itoa(len(rows)) } listed</p>
+					<div class="flex flex-col items-end gap-2">
+						<p class="font-mono text-xs uppercase tracking-widest text-zinc-500">{ strconv.Itoa(len(rows)) } listed</p>
+						<div class="flex flex-wrap gap-2">
+							<button type="button" x-on:click="markAll()" class="rounded-md border border-zinc-700 px-2.5 py-1 text-xs font-medium text-zinc-300 transition hover:border-amber-400 hover:text-amber-200">Mark all read</button>
+							<button type="button" x-on:click="clearAll()" class="rounded-md border border-zinc-700 px-2.5 py-1 text-xs font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100">Clear read status</button>
+						</div>
+					</div>
 				}
 			</div>
 			if len(rows) == 0 {
@@ -88,9 +164,11 @@ templ chapterRow(r ChapterRow) {
 				<span class="truncate text-sm font-medium text-zinc-400 transition group-hover:text-amber-300">Chapter { chLabel(r.Number) }</span>
 			}
 		</a>
+		<span aria-label="Read progress" class="shrink-0 font-mono text-[10px] text-zinc-500">{ strconv.Itoa(r.Progress) }/{ strconv.Itoa(r.Pages) }</span>
 		if r.Pages > 0 {
 			<span aria-label="Page count" class="shrink-0 rounded bg-zinc-800/70 px-1.5 py-0.5 font-mono text-[10px] leading-4 text-zinc-400">{ strconv.Itoa(r.Pages) }p</span>
 		}
+		<button type="button" x-on:click={ "markPrev(" + chLabel(r.Number) + ")" } aria-label="Mark previous chapters read" title="Mark previous chapters read" class="shrink-0 rounded-md border border-zinc-700 px-2 py-1 text-[11px] font-medium text-zinc-400 transition hover:border-amber-400 hover:text-amber-200">Mark prev</button>
 		<form hx-post="/chapter/flags" hx-swap="none" x-data={ "{ on: " + strconv.FormatBool(r.Skip) + " }" } x-on:submit="on = !on" class="shrink-0">
 			<input type="hidden" name="plugin" value={ r.Plugin }/>
 			<input type="hidden" name="slug" value={ r.Slug }/>

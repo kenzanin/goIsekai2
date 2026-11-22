@@ -596,13 +596,19 @@ func (s *Server) renderRead(w http.ResponseWriter, r *http.Request) {
 			name = row.Name
 		}
 	}
+	allChapters := make([]components.ChapterOption, 0)
+	if stored, err := s.reader.Chapters(r.Context(), pluginID, slug); err == nil {
+		for _, row := range stored {
+			allChapters = append(allChapters, components.ChapterOption{ID: row.ChapterID, Number: row.Number, Title: row.Title})
+		}
+	}
 	active := components.Page{Path: "/read", Title: "Reader"}
 	pages := make([]components.Page, 0, len(s.Pages()))
 	for _, p := range s.Pages() {
 		pages = append(pages, components.Page{Path: p.Path, Title: p.Title})
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := components.Reader(active, pages, name, chapter, mode, direction, page).Render(r.Context(), w); err != nil {
+	if err := components.Reader(active, pages, name, chapter, mode, direction, page, allChapters).Render(r.Context(), w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -644,6 +650,9 @@ func (s *Server) postReaderPosition(w http.ResponseWriter, r *http.Request) {
 	}
 	next, _ := fields["next_ch_id"].(string)
 	prev, _ := fields["prev_ch_id"].(string)
+	if chapterID, ok := fields["chapter_id"].(string); ok && chapterID != "" && next == "" && prev == "" {
+		next, prev = s.reader.NeighbourIDs(r.Context(), plugin, slug, chapterID)
+	}
 	if next != "" || prev != "" {
 		go s.reader.Prefetch(context.Background(), plugin, slug, next, prev)
 	}
@@ -655,11 +664,12 @@ func (s *Server) postReaderPosition(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) postChapterFlags(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Plugin    string `json:"plugin"`
-		Slug      string `json:"slug"`
-		ChapterID string `json:"chapter_id"`
-		Set       int    `json:"set"`
-		Clear     int    `json:"clear"`
+		Plugin     string   `json:"plugin"`
+		Slug       string   `json:"slug"`
+		ChapterID  string   `json:"chapter_id"`
+		ChapterIDs []string `json:"chapter_ids"`
+		Set        int      `json:"set"`
+		Clear      int      `json:"clear"`
 	}
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
 		if err := r.ParseForm(); err != nil {
@@ -667,11 +677,16 @@ func (s *Server) postChapterFlags(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		body.Plugin, body.Slug = r.FormValue("plugin"), r.FormValue("slug")
-		body.ChapterID = r.FormValue("ch_id")
-		if body.ChapterID == "" {
-			body.ChapterID = r.FormValue("chapter_id")
+		body.ChapterIDs = r.Form["ch_id"]
+		if len(body.ChapterIDs) == 0 {
+			body.ChapterIDs = r.Form["chapter_id"]
 		}
-		if r.FormValue("flag") == "skip" {
+		if len(body.ChapterIDs) > 0 {
+			body.ChapterID = body.ChapterIDs[0]
+		}
+		body.Set, _ = strconv.Atoi(r.FormValue("set"))
+		body.Clear, _ = strconv.Atoi(r.FormValue("clear"))
+		if r.FormValue("flag") == "skip" && len(body.ChapterIDs) == 1 {
 			var chapter store.Chapter
 			if err := s.store.DB().WithContext(r.Context()).
 				Where("plugin = ? AND slug = ? AND chapter_id = ?", body.Plugin, body.Slug, body.ChapterID).First(&chapter).Error; err == nil {
@@ -690,9 +705,19 @@ func (s *Server) postChapterFlags(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "error": "store unavailable"})
 		return
 	}
-	if err := s.store.SetChapterFlags(r.Context(), body.Plugin, body.Slug, body.ChapterID, body.Set, body.Clear); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+	ids := body.ChapterIDs
+	if len(ids) == 0 && body.ChapterID != "" {
+		ids = []string{body.ChapterID}
+	}
+	if len(ids) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "missing chapter id"})
 		return
+	}
+	for _, id := range ids {
+		if err := s.store.SetChapterFlags(r.Context(), body.Plugin, body.Slug, id, body.Set, body.Clear); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
@@ -716,6 +741,11 @@ func (s *Server) listChapters(w http.ResponseWriter, r *http.Request) {
 			slog.Debug("chapter fallback failed", "error", err)
 		}
 	}
+	ids := make([]string, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.ChapterID)
+	}
+	progress, _ := s.store.ReadProgresses(r.Context(), chi.URLParam(r, "plugin"), chi.URLParam(r, "slug"), ids)
 	out := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
 		var count int64
@@ -724,7 +754,7 @@ func (s *Server) listChapters(w http.ResponseWriter, r *http.Request) {
 		out = append(out, map[string]any{
 			"id": row.ChapterID, "number": row.Number, "title": row.Title,
 			"read": row.Flags&store.ChapterRead != 0, "skip": row.Flags&store.ChapterSkip != 0,
-			"pages": count,
+			"pages": count, "read_pages": progress[row.ChapterID],
 		})
 	}
 	writeJSON(w, http.StatusOK, out)
@@ -742,6 +772,10 @@ func (s *Server) renderChapters(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	allChapters := make([]components.ChapterOption, 0, len(stored))
+	for _, row := range stored {
+		allChapters = append(allChapters, components.ChapterOption{ID: row.ChapterID, Number: row.Number, Title: row.Title})
+	}
 	total := (len(stored) + 19) / 20
 	if total == 0 {
 		total = 1
@@ -757,6 +791,11 @@ func (s *Server) renderChapters(w http.ResponseWriter, r *http.Request) {
 	if end > len(stored) {
 		end = len(stored)
 	}
+	ids := make([]string, 0, end-start)
+	for _, row := range stored[start:end] {
+		ids = append(ids, row.ChapterID)
+	}
+	progress, _ := s.store.ReadProgresses(r.Context(), pluginID, slug, ids)
 	rows := make([]components.ChapterRow, 0, end-start)
 	for _, row := range stored[start:end] {
 		var count int64
@@ -766,6 +805,7 @@ func (s *Server) renderChapters(w http.ResponseWriter, r *http.Request) {
 			Plugin: pluginID, Slug: slug, ID: row.ChapterID, Number: row.Number,
 			Title: row.Title, Read: row.Flags&store.ChapterRead != 0,
 			Skip: row.Flags&store.ChapterSkip != 0, Pages: int(count),
+			Progress: progress[row.ChapterID],
 		})
 	}
 	pages := make([]components.Page, 0, len(s.Pages()))
@@ -773,7 +813,7 @@ func (s *Server) renderChapters(w http.ResponseWriter, r *http.Request) {
 		pages = append(pages, components.Page{Path: p.Path, Title: p.Title})
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := components.Chapters(components.Page{Path: "/chapters", Title: "Chapters"}, pages, slug, rows, page, total).Render(r.Context(), w); err != nil {
+	if err := components.Chapters(components.Page{Path: "/chapters", Title: "Chapters"}, pages, slug, rows, page, total, allChapters).Render(r.Context(), w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

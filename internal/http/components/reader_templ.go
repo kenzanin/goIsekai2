@@ -45,6 +45,7 @@ const readerState = `{
 	ch: 0,
 	chId: '',
 	pages: [],
+	chapters: [],
 	prev: null,
 	next: null,
 	pageIdx: 0,
@@ -56,10 +57,12 @@ const readerState = `{
 		this.ch = b.chapter;
 		this.chId = b.chId;
 		this.pages = b.pages || [];
+		this.chapters = b.chapters || [];
 		this.prev = b.prev;
 		this.next = b.next;
 		this.pageIdx = Math.min(Math.max((b.position || 1) - 1, 0), Math.max(this.total - 1, 0));
 		this.$nextTick(() => this.scrollToPage());
+		this.save(); // nudge the prefetch worker immediately on open
 		this.$watch('mode', () => { this.$nextTick(() => this.scrollToPage()); this.save(); });
 		this.$watch('direction', () => this.save());
 		this.$watch('zoom', () => this.save());
@@ -120,6 +123,11 @@ const readerState = `{
 		if (!isNaN(v)) this.setPage(v - 1);
 		ev.target.value = this.pageIdx + 1;
 	},
+	chapterFromSelect(ev) {
+		const opt = ev.target.selectedOptions[0];
+		if (!opt) return;
+		this.switchTo({ ch: parseFloat(opt.dataset.ch || '0'), id: opt.value }, 'first', true);
+	},
 	next() {
 		if (this.isWebtoon) { this.scrollScreen(1); return; }
 		const u = this.units, i = this.unitIdx;
@@ -156,6 +164,8 @@ const readerState = `{
 		}
 	},
 	onKey(ev) {
+		const tag = ev.target && ev.target.tagName;
+		if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
 		if (ev.key === 'Escape') {
 			if (this.done) { this.done = false; return; }
 			if (this.overlay) { this.overlay = false; return; }
@@ -221,10 +231,14 @@ const readerState = `{
 // readerBootstrap returns the initial client state for JSONScript: the
 // chapter, its ordered page URLs, exact neighbour ids, persisted mode and
 // direction, and the resume page.
-func readerBootstrap(mangaName string, chapter ReaderChapter, mode, direction string, positionPage int) map[string]any {
+func readerBootstrap(mangaName string, chapter ReaderChapter, mode, direction string, positionPage int, chapters []ChapterOption) map[string]any {
 	urls := make([]string, len(chapter.Pages))
 	for i, p := range chapter.Pages {
 		urls[i] = p.URL
+	}
+	options := make([]map[string]any, 0, len(chapters))
+	for _, c := range chapters {
+		options = append(options, map[string]any{"id": c.ID, "number": c.Number, "title": c.Title})
 	}
 	return map[string]any{
 		"manga":     mangaName,
@@ -236,6 +250,7 @@ func readerBootstrap(mangaName string, chapter ReaderChapter, mode, direction st
 		"position":  positionPage,
 		"prev":      readerNeighbour(chapter.PrevNumber, chapter.PrevID),
 		"next":      readerNeighbour(chapter.NextNumber, chapter.NextID),
+		"chapters":  options,
 	}
 }
 
@@ -261,7 +276,7 @@ func chLabel(n float64) string {
 // while the overlay is hidden, and client-side in-place chapter switching.
 // ponytail: webtoon resume scroll lands early while lazy images still have no
 // height; revisit with explicit aspect ratios when the pages API carries them.
-func Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter, mode, direction string, positionPage int) templ.Component {
+func Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter, mode, direction string, positionPage int, chapters []ChapterOption) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -297,7 +312,7 @@ func Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter, 
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templruntime.NewAttributeExpression(readerState).Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/reader.templ`, Line: 258, Col: 23}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/reader.templ`, Line: 273, Col: 23}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 			if templ_7745c5c3_Err != nil {
@@ -310,7 +325,7 @@ func Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter, 
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templruntime.NewAttributeExpression(mode).Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/reader.templ`, Line: 259, Col: 19}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/reader.templ`, Line: 274, Col: 19}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 			if templ_7745c5c3_Err != nil {
@@ -323,7 +338,7 @@ func Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter, 
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templruntime.NewAttributeExpression(direction).Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/reader.templ`, Line: 260, Col: 29}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/reader.templ`, Line: 275, Col: 29}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 			if templ_7745c5c3_Err != nil {
@@ -333,24 +348,24 @@ func Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter, 
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templ.JSONScript("reader-boot", readerBootstrap(mangaName, chapter, mode, direction, positionPage)).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = templ.JSONScript("reader-boot", readerBootstrap(mangaName, chapter, mode, direction, positionPage, chapters)).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<!-- reading surface --><div x-ref=\"stage\" x-on:scroll.passive=\"onScroll\" class=\"relative min-h-0 flex-1 overflow-y-auto overscroll-contain\"><template x-if=\"total === 0\"><p class=\"flex h-full items-center justify-center text-sm text-zinc-500\">No pages available for this chapter.</p></template><template x-if=\"isWebtoon && total > 0\"><div x-bind:class=\"wrapClass\" class=\"flex flex-col items-center\"><template x-for=\"(u, i) in pages\" x-bind:key=\"chId + '-' + i\"><img x-bind:src=\"u\" x-bind:data-page=\"i\" x-bind:alt=\"'Page ' + (i + 1)\" loading=\"lazy\" x-bind:class=\"stripImgClass\"></template></div></template><template x-if=\"!isWebtoon && total > 0\"><div class=\"flex h-full items-center justify-center gap-1 p-2\" x-bind:class=\"{ 'flex-col': mode === 'spread-v', 'flex-row-reverse': mode === 'spread-h' && direction === 'rtl' }\"><template x-for=\"i in currentUnit\" x-bind:key=\"chId + '-' + i\"><img x-bind:src=\"pages[i]\" x-bind:alt=\"'Page ' + (i + 1)\" x-bind:class=\"stageImgClass\" class=\"min-w-0\"></template></div></template></div><!-- tap zones: left/centre/right thirds --><div class=\"pointer-events-none fixed inset-0 z-10 grid grid-cols-3\" aria-hidden=\"false\"><button type=\"button\" x-on:click=\"tapLeft\" aria-label=\"Previous page\" class=\"pointer-events-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400\"></button> <button type=\"button\" x-on:click=\"overlay = !overlay\" aria-label=\"Toggle reader menu\" class=\"pointer-events-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400\"></button> <button type=\"button\" x-on:click=\"tapRight\" aria-label=\"Next page\" class=\"pointer-events-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400\"></button></div><!-- persistent position indicator while the nav is hidden --><div x-show=\"!overlay\" class=\"pointer-events-none fixed bottom-3 right-3 z-20 rounded-full border border-zinc-800 bg-zinc-900/80 px-3 py-1 font-mono text-xs text-zinc-300 backdrop-blur\"><span x-text=\"'ch ' + ch\"></span> · <span x-text=\"(pageIdx + 1) + ' / ' + total\"></span></div><!-- overlay --><div x-show=\"overlay\" x-cloak class=\"pointer-events-none fixed inset-0 z-30 flex flex-col justify-between\"><div class=\"pointer-events-auto border-b border-zinc-800 bg-zinc-950/90 backdrop-blur\"><div class=\"flex h-14 items-center gap-3 px-4\"><a x-bind:href=\"exitHref\" class=\"rounded-md px-2 py-1.5 text-sm font-medium text-zinc-300 transition hover:bg-zinc-800 hover:text-zinc-100\">← Detail</a><div class=\"min-w-0 flex-1 truncate text-center\"><span class=\"truncate text-sm font-semibold text-zinc-100\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<!-- reading surface --><div x-ref=\"stage\" x-on:scroll.passive=\"onScroll\" class=\"relative min-h-0 flex-1 overflow-y-auto overscroll-contain\"><template x-if=\"total === 0\"><p class=\"flex h-full items-center justify-center text-sm text-zinc-500\">No pages available for this chapter.</p></template><template x-if=\"isWebtoon && total > 0\"><div x-bind:class=\"wrapClass\" class=\"flex flex-col items-center\"><template x-for=\"(u, i) in pages\" x-bind:key=\"chId + '-' + i\"><img x-bind:src=\"u\" x-bind:data-page=\"i\" x-bind:alt=\"'Page ' + (i + 1)\" loading=\"lazy\" x-bind:class=\"stripImgClass\"></template></div></template><template x-if=\"!isWebtoon && total > 0\"><div class=\"flex h-full items-center justify-center gap-1 p-2\" x-bind:class=\"{ 'flex-col': mode === 'spread-v', 'flex-row-reverse': mode === 'spread-h' && direction === 'rtl' }\"><template x-for=\"i in currentUnit\" x-bind:key=\"chId + '-' + i\"><img x-bind:src=\"pages[i]\" x-bind:alt=\"'Page ' + (i + 1)\" x-bind:class=\"stageImgClass\" class=\"min-w-0\"></template></div></template></div><!-- tap zones: left/centre/right thirds --><div class=\"pointer-events-none fixed inset-0 z-10 grid grid-cols-3\" aria-hidden=\"false\"><button type=\"button\" x-on:click=\"tapLeft\" aria-label=\"Previous page\" class=\"pointer-events-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400\"></button> <button type=\"button\" x-on:click=\"overlay = !overlay\" aria-label=\"Toggle reader menu\" class=\"pointer-events-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400\"></button> <button type=\"button\" x-on:click=\"tapRight\" aria-label=\"Next page\" class=\"pointer-events-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400\"></button></div><!-- persistent position indicator while the nav is hidden --><div x-show=\"!overlay\" class=\"pointer-events-none fixed bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full bg-zinc-950/60 px-3 py-1 font-mono text-xs text-zinc-500\"><span x-text=\"'p ' + (pageIdx + 1) + ' / ' + total\"></span></div><!-- overlay --><div x-show=\"overlay\" x-cloak class=\"pointer-events-none fixed inset-0 z-30 flex flex-col justify-between\"><div class=\"pointer-events-auto border-b border-zinc-800 bg-zinc-950/90 backdrop-blur\"><div class=\"flex h-14 items-center gap-3 px-4\"><a x-bind:href=\"exitHref\" class=\"rounded-md px-2 py-1.5 text-sm font-medium text-zinc-300 transition hover:bg-zinc-800 hover:text-zinc-100\">← Detail</a><div class=\"min-w-0 flex-1 truncate text-center\"><span class=\"truncate text-sm font-semibold text-zinc-100\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(mangaName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/reader.templ`, Line: 303, Col: 77}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/reader.templ`, Line: 318, Col: 77}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</span></div><nav aria-label=\"Chapter\" class=\"flex items-center gap-1\"><button type=\"button\" x-on:click=\"switchTo(prev, 'last', true)\" x-bind:disabled=\"!prev\" class=\"rounded-md border border-zinc-700 px-2 py-1 font-mono text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100 disabled:opacity-40\">‹ <span x-text=\"prev ? 'ch ' + prev.ch : '—'\"></span></button> <span class=\"rounded-md bg-amber-400/10 px-2.5 py-1 font-mono text-xs font-semibold text-amber-300\">ch <span x-text=\"ch\"></span></span> <button type=\"button\" x-on:click=\"switchTo(next, 'first', true)\" x-bind:disabled=\"!next\" class=\"rounded-md border border-zinc-700 px-2 py-1 font-mono text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100 disabled:opacity-40\"><span x-text=\"next ? 'ch ' + next.ch : '—'\"></span> ›</button></nav></div><div class=\"flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-zinc-800/60 px-4 py-2\"><label class=\"flex items-center gap-2 text-xs text-zinc-400\">Mode <select x-model=\"mode\" aria-label=\"Reading mode\" class=\"rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-amber-400 focus:outline-none\"><option value=\"webtoon\">Webtoon</option> <option value=\"paged\">Paged</option> <option value=\"spread-h\">Spread →</option> <option value=\"spread-v\">Spread ↓</option></select></label> <label class=\"flex items-center gap-2 text-xs text-zinc-400\">Direction <select x-model=\"direction\" aria-label=\"Reading direction\" class=\"rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-amber-400 focus:outline-none\"><option value=\"ltr\">Left to right</option> <option value=\"rtl\">Right to left</option></select></label> <label class=\"flex items-center gap-2 text-xs text-zinc-400\">Zoom <select x-model=\"zoom\" aria-label=\"Zoom\" class=\"rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-amber-400 focus:outline-none\"><option value=\"fit\">Fit screen</option> <option value=\"width\">Fit width</option> <option value=\"original\">Original</option></select></label></div></div><div class=\"pointer-events-auto border-t border-zinc-800 bg-zinc-950/90 backdrop-blur\"><div class=\"flex h-14 items-center justify-center gap-3 px-4\"><button type=\"button\" x-on:click=\"prev\" aria-label=\"Previous page\" class=\"rounded-md border border-zinc-700 px-2.5 py-1 text-sm text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100\">‹</button> <label class=\"flex items-center gap-2 font-mono text-xs text-zinc-400\"><input type=\"number\" min=\"1\" x-bind:max=\"total\" x-bind:value=\"pageIdx + 1\" x-on:change=\"jumpTo\" aria-label=\"Jump to page\" class=\"w-16 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-center text-xs text-zinc-100 focus:border-amber-400 focus:outline-none\"> <span>/ <span x-text=\"total\"></span></span></label> <button type=\"button\" x-on:click=\"next\" aria-label=\"Next page\" class=\"rounded-md border border-zinc-700 px-2.5 py-1 text-sm text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100\">›</button></div><p class=\"flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-zinc-800/60 px-4 pb-2 pt-1.5 text-[11px] text-zinc-500\"><span><kbd class=\"rounded border border-zinc-700 bg-zinc-900 px-1 font-mono\">←</kbd> <kbd class=\"rounded border border-zinc-700 bg-zinc-900 px-1 font-mono\">→</kbd> turn page</span> <span><kbd class=\"rounded border border-zinc-700 bg-zinc-900 px-1 font-mono\">PgUp</kbd>/<kbd class=\"rounded border border-zinc-700 bg-zinc-900 px-1 font-mono\">PgDn</kbd> page</span> <span><kbd class=\"rounded border border-zinc-700 bg-zinc-900 px-1 font-mono\">Esc</kbd> close / detail</span> <span>tap centre to hide</span></p></div></div><!-- done overlay: last page of the last chapter --><div x-show=\"done\" x-cloak class=\"fixed inset-0 z-40 flex items-center justify-center bg-zinc-950/90 backdrop-blur\"><div class=\"rounded-xl border border-zinc-800 bg-zinc-900 px-8 py-6 text-center\"><p class=\"font-mono text-sm font-semibold text-amber-300\">All caught up</p><p class=\"mt-1 text-sm text-zinc-400\">This is the last page of the last chapter.</p><div class=\"mt-4 flex items-center justify-center gap-2\"><button type=\"button\" x-on:click=\"done = false\" class=\"rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100\">Stay</button> <a x-bind:href=\"exitHref\" class=\"rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-300\">Back to detail</a></div></div></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</span></div><nav aria-label=\"Chapter and page\" class=\"flex flex-wrap items-center justify-center gap-1\"><button type=\"button\" x-on:click=\"switchTo(prev, 'last', true)\" x-bind:disabled=\"!prev\" class=\"rounded-md border border-zinc-700 px-2 py-1 font-mono text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100 disabled:opacity-40\">‹ <span x-text=\"prev ? 'ch ' + prev.ch : '—'\"></span></button> <select aria-label=\"Chapter\" x-on:change=\"chapterFromSelect($event)\" class=\"max-w-56 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 font-mono text-xs text-zinc-100 focus:border-amber-400 focus:outline-none\"><template x-for=\"c in chapters\" x-bind:key=\"c.id\"><option x-bind:value=\"c.id\" x-bind:data-ch=\"c.number\" x-bind:selected=\"c.id === chId\" x-text=\"'ch ' + c.number + (c.title ? ' · ' + c.title : '')\"></option></template></select> <select aria-label=\"Page\" x-on:change=\"setPage(parseInt($event.target.value, 10) - 1)\" class=\"rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 font-mono text-xs text-zinc-100 focus:border-amber-400 focus:outline-none\"><template x-for=\"i in total\" x-bind:key=\"i\"><option x-bind:value=\"i\" x-bind:selected=\"i === pageIdx + 1\" x-text=\"'p ' + i\"></option></template></select> <button type=\"button\" x-on:click=\"switchTo(next, 'first', true)\" x-bind:disabled=\"!next\" class=\"rounded-md border border-zinc-700 px-2 py-1 font-mono text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100 disabled:opacity-40\"><span x-text=\"next ? 'ch ' + next.ch : '—'\"></span> ›</button></nav></div><div class=\"flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-zinc-800/60 px-4 py-2\"><label class=\"flex items-center gap-2 text-xs text-zinc-400\">Mode <select x-model=\"mode\" aria-label=\"Reading mode\" class=\"rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-amber-400 focus:outline-none\"><option value=\"webtoon\">Webtoon</option> <option value=\"paged\">Paged</option> <option value=\"spread-h\">Spread →</option> <option value=\"spread-v\">Spread ↓</option></select></label> <label class=\"flex items-center gap-2 text-xs text-zinc-400\">Direction <select x-model=\"direction\" aria-label=\"Reading direction\" class=\"rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-amber-400 focus:outline-none\"><option value=\"ltr\">Left to right</option> <option value=\"rtl\">Right to left</option></select></label> <label class=\"flex items-center gap-2 text-xs text-zinc-400\">Zoom <select x-model=\"zoom\" aria-label=\"Zoom\" class=\"rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-amber-400 focus:outline-none\"><option value=\"fit\">Fit screen</option> <option value=\"width\">Fit width</option> <option value=\"original\">Original</option></select></label></div></div><div class=\"pointer-events-auto border-t border-zinc-800 bg-zinc-950/90 backdrop-blur\"><div class=\"flex h-14 items-center justify-center gap-3 px-4\"><button type=\"button\" x-on:click=\"prev\" aria-label=\"Previous page\" class=\"rounded-md border border-zinc-700 px-2.5 py-1 text-sm text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100\">‹</button><template x-if=\"total <= 24\"><div class=\"flex max-w-3xl flex-wrap items-center justify-center gap-1\"><template x-for=\"i in total\" x-bind:key=\"i\"><button type=\"button\" x-on:click=\"setPage(i - 1)\" x-bind:class=\"pageIdx === i - 1 ? 'bg-amber-400 font-semibold text-zinc-900' : 'border border-zinc-700 text-zinc-300 hover:border-zinc-500'\" class=\"min-w-7 rounded px-1.5 py-1 font-mono text-xs transition\" x-text=\"i\"></button></template></div></template><template x-if=\"total > 24\"><label class=\"flex items-center gap-2 font-mono text-xs text-zinc-400\"><input type=\"number\" min=\"1\" x-bind:max=\"total\" x-bind:value=\"pageIdx + 1\" x-on:change=\"jumpTo\" aria-label=\"Jump to page\" class=\"w-16 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-center text-xs text-zinc-100 focus:border-amber-400 focus:outline-none\"> <span>/ <span x-text=\"total\"></span></span></label></template><button type=\"button\" x-on:click=\"next\" aria-label=\"Next page\" class=\"rounded-md border border-zinc-700 px-2.5 py-1 text-sm text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100\">›</button></div><p class=\"flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-zinc-800/60 px-4 pb-2 pt-1.5 text-[11px] text-zinc-500\"><span><kbd class=\"rounded border border-zinc-700 bg-zinc-900 px-1 font-mono\">←</kbd> <kbd class=\"rounded border border-zinc-700 bg-zinc-900 px-1 font-mono\">→</kbd> turn page</span> <span><kbd class=\"rounded border border-zinc-700 bg-zinc-900 px-1 font-mono\">PgUp</kbd>/<kbd class=\"rounded border border-zinc-700 bg-zinc-900 px-1 font-mono\">PgDn</kbd> page</span> <span><kbd class=\"rounded border border-zinc-700 bg-zinc-900 px-1 font-mono\">Esc</kbd> close / detail</span> <span>tap centre to hide</span></p></div></div><!-- done overlay: last page of the last chapter --><div x-show=\"done\" x-cloak class=\"fixed inset-0 z-40 flex items-center justify-center bg-zinc-950/90 backdrop-blur\"><div class=\"rounded-xl border border-zinc-800 bg-zinc-900 px-8 py-6 text-center\"><p class=\"font-mono text-sm font-semibold text-amber-300\">All caught up</p><p class=\"mt-1 text-sm text-zinc-400\">This is the last page of the last chapter.</p><div class=\"mt-4 flex items-center justify-center gap-2\"><button type=\"button\" x-on:click=\"done = false\" class=\"rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100\">Stay</button> <a x-bind:href=\"exitHref\" class=\"rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-300\">Back to detail</a></div></div></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -125,7 +125,43 @@ func (s *Service) PutPosition(ctx context.Context, plugin, slug string, fields m
 		}
 	}
 	pos.UpdatedAt = time.Now().Unix()
-	return s.Store.PutPosition(ctx, pos)
+	if err := s.Store.PutPosition(ctx, pos); err != nil {
+		return err
+	}
+	if pos.ChapterID == "" || pos.Page <= 0 {
+		return nil
+	}
+	if err := s.Store.PutReadProgress(ctx, plugin, slug, pos.ChapterID, pos.Page); err != nil {
+		return err
+	}
+	var pageCount int64
+	if err := s.Store.DB().WithContext(ctx).Model(&store.ChapterPage{}).
+		Where("plugin = ? AND slug = ? AND chapter_id = ?", plugin, slug, pos.ChapterID).
+		Count(&pageCount).Error; err == nil && pageCount > 0 && pos.Page >= int(pageCount) {
+		return s.Store.MarkChapterRead(ctx, plugin, slug, pos.ChapterID)
+	}
+	return nil
+}
+
+// NeighbourIDs returns the exact ids of the next and previous chapter stops.
+// Chapter labels may repeat, so identity comes from the ordered chapter list.
+func (s *Service) NeighbourIDs(ctx context.Context, plugin, slug, chapterID string) (string, string) {
+	chs, err := s.chapters(ctx, plugin, slug)
+	if err != nil {
+		return "", ""
+	}
+	i := locate(chs, 0, chapterID)
+	if i < 0 {
+		return "", ""
+	}
+	next, prev := "", ""
+	if i+1 < len(chs) {
+		next = chs[i+1].ChapterID
+	}
+	if i > 0 {
+		prev = chs[i-1].ChapterID
+	}
+	return next, prev
 }
 
 // Prefetch refreshes the page list of the next and then the previous chapter
@@ -141,6 +177,11 @@ func (s *Service) Prefetch(ctx context.Context, plugin, slug, next, prev string)
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// Chapters returns the full ordered chapter list for the reader's chapter picker.
+func (s *Service) Chapters(ctx context.Context, plugin, slug string) ([]store.Chapter, error) {
+	return s.chapters(ctx, plugin, slug)
 }
 
 func (s *Service) chapters(ctx context.Context, plugin, slug string) ([]store.Chapter, error) {
