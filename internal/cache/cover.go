@@ -58,3 +58,17 @@ func WriteRatio(path string, ratio float64) error {
 	}
 	return os.WriteFile(path+".json", b, 0o644)
 }
+
+// ReadRatio returns the ratio stored in the image's JSON sidecar, or 0 when
+// the sidecar is absent or malformed.
+func ReadRatio(path string) float64 {
+	b, err := os.ReadFile(path + ".json")
+	if err != nil {
+		return 0
+	}
+	var s sidecar
+	if json.Unmarshal(b, &s) != nil {
+		return 0
+	}
+	return s.Ratio
+}

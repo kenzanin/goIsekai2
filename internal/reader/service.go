@@ -58,6 +58,7 @@ func (s *Service) Pages(ctx context.Context, plugin, slug string, number float64
 // Window returns up to limit page URLs strictly after the stored position,
 // walking forward through the number-ordered chapter list and skipping
 // chapters with no stored pages. Only the store is consulted.
+// Window skips chapters flagged as skipped.
 func (s *Service) Window(ctx context.Context, plugin, slug string, pos store.ReaderPosition, limit int) []string {
 	chs, err := s.chapters(ctx, plugin, slug)
 	if err != nil {
@@ -69,6 +70,9 @@ func (s *Service) Window(ctx context.Context, plugin, slug string, pos store.Rea
 	}
 	var out []string
 	for i := at; i < len(chs) && len(out) < limit; i++ {
+		if chs[i].Flags&store.ChapterSkip != 0 {
+			continue
+		}
 		urls := s.storedPages(ctx, plugin, slug, chs[i].ChapterID)
 		begin := 0
 		if i == at {

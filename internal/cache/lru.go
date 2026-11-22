@@ -101,7 +101,4 @@ func (p *Pool) Evict() error {
 	return nil
 }
 
-func sidecarPath(path string) string {
-	ext := filepath.Ext(path)
-	return path[:len(path)-len(ext)] + ".json"
-}
+func sidecarPath(path string) string { return path + ".json" }

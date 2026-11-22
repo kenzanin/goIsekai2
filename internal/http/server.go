@@ -18,6 +18,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	imagecache "goisekai2/internal/cache"
 	"goisekai2/internal/config"
 	"goisekai2/internal/events"
 	"goisekai2/internal/http/components"
@@ -45,6 +46,7 @@ type Server struct {
 	reg        *config.Registry
 	iniPath    string
 	httpServer *http.Server
+	cacheStore *imagecache.Store
 	bus        *events.Bus
 	host       *plugin.Host
 	lib        *library.Service
@@ -72,6 +74,9 @@ func New(reg *config.Registry, iniPath string, bus *events.Bus, host *plugin.Hos
 	return s
 }
 
+// SetCache attaches the image cache store used by /cache/img.
+func (s *Server) SetCache(c *imagecache.Store) { s.cacheStore = c }
+
 // Pages returns the implemented pages in navigation order.
 func (s *Server) Pages() []Page {
 	out := append([]Page(nil), pages...)
@@ -91,6 +96,7 @@ func (s *Server) Handler() http.Handler {
 	}
 	r.Get("/config", s.getConfig)
 	r.Post("/config", s.postConfig)
+	r.Get("/cache/img", s.getCacheImage)
 	r.Get("/", s.renderLibrary)
 	r.Get("/library", s.renderLibrary)
 	r.Get("/search", s.renderSearch)
@@ -149,6 +155,74 @@ func (s *Server) libraryRows(ctx context.Context) []components.LibraryRow {
 		})
 	}
 	return out
+}
+
+func (s *Server) getCacheImage(w http.ResponseWriter, r *http.Request) {
+	if s.cacheStore == nil {
+		http.NotFound(w, r)
+		return
+	}
+	pluginID, slug, rawURL := r.FormValue("plugin"), r.FormValue("slug"), r.FormValue("url")
+	if pluginID == "" || slug == "" || rawURL == "" {
+		http.Error(w, "missing placement context", http.StatusBadRequest)
+		return
+	}
+	root := s.cacheStore.Root
+	isCover := r.FormValue("cover") == "1"
+	var base string
+	if isCover {
+		base = strings.TrimSuffix(imagecache.CoverPath(root, pluginID, imagecache.Hash(rawURL), "bin"), ".bin")
+	} else {
+		ch := r.FormValue("ch")
+		page, err := strconv.Atoi(r.FormValue("page"))
+		if ch == "" || err != nil || page < 1 {
+			http.Error(w, "missing placement context", http.StatusBadRequest)
+			return
+		}
+		number, _ := strconv.ParseFloat(ch, 64)
+		base = strings.TrimSuffix(imagecache.PagePath(root, pluginID, slug, number, r.FormValue("ch_id"), page, "bin"), ".bin")
+	}
+	matches, _ := filepath.Glob(base + ".*")
+	if len(matches) == 0 || strings.HasSuffix(matches[0], ".json") {
+		body, err := s.cacheStore.GetOrFetch(r.Context(), imagecache.Hash(rawURL), rawURL)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		path, _, err := s.cacheStore.Put(base+".bin", body, isCover)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		matches = []string{path}
+	}
+	path := matches[0]
+	body, err := os.ReadFile(path)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	s.cacheStore.Pool.Touch(path)
+	w.Header().Set("Content-Type", contentTypeFor(path))
+	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	if ratio := imagecache.Ratio(path); ratio > 0 {
+		w.Header().Set("X-Image-Ratio", strconv.FormatFloat(ratio, 'f', -1, 64))
+	}
+	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+	_, _ = w.Write(body)
+}
+
+func contentTypeFor(path string) string {
+	switch strings.TrimPrefix(filepath.Ext(path), ".") {
+	case "webp":
+		return "image/webp"
+	case "avif":
+		return "image/avif"
+	case "jxl":
+		return "image/jxl"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 func (s *Server) renderLibrary(w http.ResponseWriter, r *http.Request) {
@@ -299,6 +373,9 @@ func (s *Server) postReaderPosition(w http.ResponseWriter, r *http.Request) {
 	if next != "" || prev != "" {
 		go s.reader.Prefetch(context.Background(), plugin, slug, next, prev)
 	}
+	if s.cacheStore != nil && s.store != nil {
+		go s.prefetchWindow(context.Background(), plugin, slug)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -417,6 +494,25 @@ func (s *Server) renderChapters(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := components.Chapters(components.Page{Path: "/chapters", Title: "Chapters"}, pages, slug, rows, page, total).Render(r.Context(), w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (s *Server) prefetchWindow(ctx context.Context, plugin, slug string) {
+	pos, err := s.store.GetPosition(ctx, plugin, slug)
+	if err != nil {
+		return
+	}
+	for _, raw := range s.reader.Window(ctx, plugin, slug, *pos, 10) {
+		key := imagecache.Hash(raw)
+		if s.cacheStore.Exists(key) {
+			continue
+		}
+		body, err := s.cacheStore.GetOrFetch(ctx, key, raw)
+		if err != nil {
+			continue
+		}
+		path := imagecache.APIPath(s.cacheStore.Root, plugin, "prefetch", key)
+		_, _, _ = s.cacheStore.Put(path, body, false)
 	}
 }
 

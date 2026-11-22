@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/png"
 	"log/slog"
 	"net"
 	"net/http"
@@ -14,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	imagecache "goisekai2/internal/cache"
 	"goisekai2/internal/config"
 	"goisekai2/internal/events"
 	"goisekai2/internal/library"
@@ -421,5 +425,47 @@ func TestReaderPagesAndPositionRoutes(t *testing.T) {
 	s.Handler().ServeHTTP(list, httptest.NewRequest(http.MethodGet, "/chapters/p/s", nil))
 	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `/read/p/s?ch=`) {
 		t.Fatalf("chapter page = %d %s", list.Code, list.Body.String())
+	}
+}
+
+func TestCacheImageRoute(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
+	for x := 0; x < 4; x++ {
+		for y := 0; y < 4; y++ {
+			img.Set(x, y, color.RGBA{R: uint8(x * 40), G: uint8(y * 40), B: 128, A: 255})
+		}
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		_, _ = w.Write(buf.Bytes())
+	}))
+	defer upstream.Close()
+
+	root := t.TempDir()
+	pool := imagecache.NewPool(root, 1<<20)
+	s := New(config.Knobs(), testIni(t), nil, nil, nil, nil, nil)
+	s.SetCache(imagecache.NewStore(root, "webp", 800, pool))
+
+	bad := httptest.NewRecorder()
+	s.Handler().ServeHTTP(bad, httptest.NewRequest(http.MethodGet, "/cache/img?url=x", nil))
+	if bad.Code != http.StatusBadRequest {
+		t.Fatalf("missing context = %d", bad.Code)
+	}
+
+	target := "/cache/img?plugin=p&slug=s&ch=1&ch_id=abcd&page=1&url=" + upstream.URL + "/a.png"
+	for i := 0; i < 2; i++ {
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, target, nil))
+		if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "image/webp" {
+			t.Fatalf("hit %d = %d %s", i, rec.Code, rec.Header().Get("Content-Type"))
+		}
+	}
+	if calls != 1 {
+		t.Fatalf("upstream calls = %d, want 1", calls)
 	}
 }
