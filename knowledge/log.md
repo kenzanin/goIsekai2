@@ -1,4 +1,7 @@
 ## 2026-11-22
+* **Update**: Linked `decisions/confined-io-shim.md` to `architecture/overview.md` (Records the plugin filesystem authority boundary.).
+* **Update**: Linked `decisions/confined-io-shim.md` to `notes/plugin-tools-fs-read.md` (io shim reuses the same confinement as fs.Read.).
+* **Creation**: Documented concept `decisions/confined-io-shim.md` (Plugin io shim is read-only and confined to the plugin directory).
 * **Update**: Linked `notes/lua-plugin-tool-gaps.md` to `decisions/lua-runtime.md` (E2E evidence and out-of-scope gaps observed during the Lua 5.5 port.).
 * **Creation**: Documented concept `notes/lua-plugin-tool-gaps.md` (Mangafire and mangahub need host tools the runtime never provided).
 * **Update**: Linked `decisions/lua-runtime.md` to `notes/modernc-wasm3-unavailable.md` (Contrasts the available modernc Lua module with the unavailable modernc wasm3 module.).

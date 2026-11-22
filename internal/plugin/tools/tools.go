@@ -36,6 +36,9 @@ func (t *ToolSet) LogInfo(msg string) { t.log(slog.LevelInfo, msg) }
 // LogError records one error-level line attributed to the plugin.
 func (t *ToolSet) LogError(msg string) { t.log(slog.LevelError, msg) }
 
+// LogDebug records one debug-level line attributed to the plugin.
+func (t *ToolSet) LogDebug(msg string) { t.log(slog.LevelDebug, msg) }
+
 // StorageSet upserts a persistent value scoped to the plugin id.
 func (t *ToolSet) StorageSet(key, value string) error {
 	return t.Store.PutPluginState(context.Background(), t.PluginID, key, value)

@@ -74,3 +74,12 @@ func FindIndex(pattern, text string) ([]int, error) {
 	}
 	return re.FindStringIndex(text), nil
 }
+
+// Gmatch returns every match with its capture groups, in text order.
+func Gmatch(pattern, text string) ([][]string, error) {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, err
+	}
+	return re.FindAllStringSubmatch(text, -1), nil
+}

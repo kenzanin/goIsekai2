@@ -5,11 +5,11 @@
 
 ## 1. Lane 1 — dispatcher truth and alias registry
 
-- [ ] 1.1 Add a data-driven alias registry (name → canonical entry) to `internal/plugin/tools` and route every binding through dispatcher resolution — verify a table test resolves each alias to the same implementation as its target.
-- [ ] 1.2 Move `text.normalize_status` and `plugin.param` behind dispatcher entries and delete the binding-local copies in Lua/JS — verify identical results for the same inputs before and after.
-- [ ] 1.3 Add canonical entries `text.chapter_num`, `text.date_to_iso`, `text.trim`, `text.unescape`, `text.strip_html` and `re2.gmatch` with cppIsekai semantics — verify table tests against cppIsekai fixtures (unicode, empty, malformed input).
-- [ ] 1.4 Add `fs.read_lib` with `fs.read` confinement — verify escape attempts fail typed and a library file inside the plugin dir reads.
-- [ ] 1.5 Add `log.debug` over the shared log sink and delete the Lua `log.debug → log.info` remap — verify a Lua fixture emits a debug-level line.
+- [x] 1.1 Add a data-driven alias registry (name → canonical entry) to `internal/plugin/tools` and route every binding through dispatcher resolution — verify a table test resolves each alias to the same implementation as its target.
+- [x] 1.2 Add dispatcher entries for `text.normalize_status` and `plugin.param`; lane 3 removes binding-local copies — verify identical results for the same inputs before and after.
+- [x] 1.3 Add canonical entries `text.chapter_num`, `text.date_to_iso`, `text.trim`, `text.unescape`, `text.strip_html` and `re2.gmatch` with cppIsekai semantics — verify table tests against cppIsekai fixtures (unicode, empty, malformed input).
+- [x] 1.4 Add `fs.read_lib` with `fs.read` confinement — verify escape attempts fail typed and a library file inside the plugin dir reads.
+- [x] 1.5 Add `log.debug` over the shared log sink; lane 3 removes the Lua `log.debug → log.info` remap — verify a Lua fixture emits a debug-level line.
 
 Lane gate: `go vet ./... && gofmt -l internal && CGO_ENABLED=0 go build ./... && go test ./internal/plugin/...`.
 
