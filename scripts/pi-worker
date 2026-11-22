@@ -98,6 +98,10 @@ printf '%s\n' "$out"
 herdr pane report-agent "$pane" --source pi-worker --agent pi --state idle >/dev/null 2>&1 || true
 
 rc="$(printf '%s' "$out" | grep -o '__PI_EXIT=[0-9]*' | tail -1 | cut -d= -f2)"
+if printf '%s' "$out" | grep -q '"stopReason":"error"'; then
+  echo "pi-worker: model errored; resume with --sid=$sid" >&2
+  rc=1
+fi
 if [ -z "$rc" ]; then
   echo "pi-worker: lane did not report completion within ${timeout_ms}ms; inspect tab $tab, resume with --sid=$sid" >&2
   exit 1
