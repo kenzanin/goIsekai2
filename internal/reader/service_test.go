@@ -99,6 +99,43 @@ func TestPagesFallsBackToStoredPages(t *testing.T) {
 	}
 }
 
+func TestPutPositionTracksProgressAndReadBit(t *testing.T) {
+	ctx := context.Background()
+	svc := newTestService(t)
+	seedChapters(t, svc.Store)
+	if err := svc.Store.ReplacePages(ctx, "p", "s", "24a", []store.ChapterPage{{URL: "u1"}, {URL: "u2"}}); err != nil {
+		t.Fatal(err)
+	}
+	fields := map[string]any{"chapter_id": "24a", "chapter": float64(24), "page": float64(1)}
+	if err := svc.PutPosition(ctx, "p", "s", fields); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := svc.Store.ReadProgress(ctx, "p", "s", "24a"); got != 1 {
+		t.Fatalf("progress = %d, want 1", got)
+	}
+	fields["page"] = float64(2)
+	if err := svc.PutPosition(ctx, "p", "s", fields); err != nil {
+		t.Fatal(err)
+	}
+	var chapter store.Chapter
+	if err := svc.Store.DB().Where("plugin = ? AND slug = ? AND chapter_id = ?", "p", "s", "24a").First(&chapter).Error; err != nil {
+		t.Fatal(err)
+	}
+	if chapter.Flags&store.ChapterRead == 0 {
+		t.Fatalf("read bit not set: flags = %d", chapter.Flags)
+	}
+}
+
+func TestNeighbourIDs(t *testing.T) {
+	ctx := context.Background()
+	svc := newTestService(t)
+	seedChapters(t, svc.Store)
+	next, prev := svc.NeighbourIDs(ctx, "p", "s", "24a")
+	if next != "24b" || prev != "10" {
+		t.Fatalf("neighbours = (%q, %q), want (24b, 10)", next, prev)
+	}
+}
+
 func TestPutPositionPreservesAbsentFields(t *testing.T) {
 	ctx := context.Background()
 	svc := newTestService(t)

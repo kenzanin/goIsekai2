@@ -391,7 +391,7 @@ func TestReaderPagesAndPositionRoutes(t *testing.T) {
 		t.Fatalf("unknown chapter = %d", rec.Code)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/reader/position", strings.NewReader(`{"plugin":"p","slug":"s","chapter":2,"page":1}`))
+	req := httptest.NewRequest(http.MethodPost, "/reader/position", strings.NewReader(`{"plugin":"p","slug":"s","chapter":2,"chapter_id":"b","page":1}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
@@ -418,20 +418,64 @@ func TestReaderPagesAndPositionRoutes(t *testing.T) {
 	page := httptest.NewRecorder()
 	s.Handler().ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/read/p/s?ch=2", nil))
 	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), `data-mode="`) ||
-		!strings.Contains(page.Body.String(), "ch=2") || !strings.Contains(page.Body.String(), "page=1") {
+		!strings.Contains(page.Body.String(), "ch=2") || !strings.Contains(page.Body.String(), "page=1") ||
+		!strings.Contains(page.Body.String(), `aria-label="Chapter"`) || !strings.Contains(page.Body.String(), `aria-label="Page"`) {
 		t.Fatalf("reader page = %d %s", page.Code, page.Body.String())
 	}
 
 	chapters := httptest.NewRecorder()
 	s.Handler().ServeHTTP(chapters, httptest.NewRequest(http.MethodGet, "/api/chapters/p/s", nil))
-	if chapters.Code != http.StatusOK || !strings.Contains(chapters.Body.String(), `"pages":2`) {
+	if chapters.Code != http.StatusOK || !strings.Contains(chapters.Body.String(), `"pages":2`) ||
+		!strings.Contains(chapters.Body.String(), `"read_pages":1`) {
 		t.Fatalf("chapters = %d %s", chapters.Code, chapters.Body.String())
 	}
 
 	list := httptest.NewRecorder()
 	s.Handler().ServeHTTP(list, httptest.NewRequest(http.MethodGet, "/chapters/p/s", nil))
-	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `/read/p/s?ch=`) {
+	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `/read/p/s?ch=`) ||
+		!strings.Contains(list.Body.String(), "Mark all read") || !strings.Contains(list.Body.String(), "Read progress") ||
+		!strings.Contains(list.Body.String(), "chapter-boot") {
 		t.Fatalf("chapter page = %d %s", list.Code, list.Body.String())
+	}
+}
+
+func TestChapterFlagsBulkForm(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "lib.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	ctx := context.Background()
+	if err := st.UpsertChapters(ctx, "p", "s", []store.Chapter{
+		{ChapterID: "a", Number: 1}, {ChapterID: "b", Number: 2}, {ChapterID: "c", Number: 3},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	path := testIni(t)
+	s := New(config.Knobs(), path, nil, nil, nil, nil, st)
+	body := "plugin=p&slug=s&ch_id=a&ch_id=b&set=1"
+	req := httptest.NewRequest(http.MethodPost, "/chapter/flags", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("flags = %d %s", rec.Code, rec.Body.String())
+	}
+	for _, id := range []string{"a", "b"} {
+		var chapter store.Chapter
+		if err := st.DB().Where("plugin = ? AND slug = ? AND chapter_id = ?", "p", "s", id).First(&chapter).Error; err != nil {
+			t.Fatal(err)
+		}
+		if chapter.Flags&store.ChapterRead == 0 {
+			t.Errorf("%s read bit not set: %d", id, chapter.Flags)
+		}
+	}
+	var last store.Chapter
+	if err := st.DB().Where("plugin = ? AND slug = ? AND chapter_id = ?", "p", "s", "c").First(&last).Error; err != nil {
+		t.Fatal(err)
+	}
+	if last.Flags&store.ChapterRead != 0 {
+		t.Errorf("c unexpectedly marked read: %d", last.Flags)
 	}
 }
 
