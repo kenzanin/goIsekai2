@@ -22,15 +22,21 @@ graph TD
   CLI[cmd/goisekai2] --> HTTP[internal/http]
   CLI --> HOST[internal/plugin]
   CLI --> STORE[internal/store]
+  CLI --> BUS[internal/events]
+  CLI --> STREAM[internal/stream]
   HTTP --> LIB[internal/library]
   HTTP --> READER[internal/reader]
   HTTP --> CACHE[internal/cache]
+  HTTP --> STREAM
+  BUS --> STREAM
   LIB --> STORE
+  LIB --> BUS
   READER --> HOST
   HOST --> TOOLS[internal/plugin/tools]
   HOST --> BROWSER[internal/browser]
   BROWSER --> ROD[go-rod/rod]
   CACHE --> STORE
+  STREAM --> WS[GET /ws/log]
 ```
 
 Every layer has one owner: the store is the only SQL speaker, the event bus has one actor, the
