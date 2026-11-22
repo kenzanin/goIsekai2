@@ -117,6 +117,14 @@ host.html.select = function(doc, selector) return call("html.select", doc, selec
 host.html.attr = function(doc, selector, attr) return call("html.attr", doc, selector, attr) end
 host.html.xpath = function(expr, doc) return call("html.xpath", expr, doc) end
 
+host.crypto = {
+  vrf_sign = function(path, params, stages) return call("crypto.vrf_sign", path, params, stages) end,
+  sha256_hex = function(s) return call("crypto.sha256_hex", s) end,
+  md5_hex = function(s) return call("crypto.md5_hex", s) end,
+  hmac_sha256_hex = function(data, key) return call("crypto.hmac_sha256_hex", data, key) end,
+  aes_gcm_decrypt = function(iv, ct, tag, key) return call("crypto.aes_gcm_decrypt", iv, ct, tag, key) end,
+}
+
 host.browser = { call = function(tool, args) return call("browser.call", tool, args) end }
 
 host.url_encode = function(s) return call("url_encode", s) end
