@@ -120,6 +120,24 @@ func NewLuaRuntime(source string) (*LuaRuntime, error) {
 	return &LuaRuntime{source: source}, nil
 }
 
+// NewLuaRuntimeWithTools compiles source with tools bound, so top-level host
+// calls can resolve during validation.
+func NewLuaRuntimeWithTools(source string, ts *tools.ToolSet) (*LuaRuntime, error) {
+	L := lua.NewState()
+	defer L.Close()
+	configureLua(L)
+	if ts != nil {
+		bindLua(L, ts)
+	}
+	if err := L.DoString(source); err != nil {
+		return nil, fmt.Errorf("plugin: lua source: %w", err)
+	}
+	if L.GetGlobal("handle") == lua.LNil {
+		return nil, fmt.Errorf("plugin: lua: missing handle function")
+	}
+	return &LuaRuntime{source: source, Tools: ts}, nil
+}
+
 // Call invokes handle(requestJSON) with a fresh sandboxed state. The context
 // deadline cancels a runaway loop.
 func (r *LuaRuntime) Call(ctx context.Context, request []byte) ([]byte, error) {

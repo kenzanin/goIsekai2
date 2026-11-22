@@ -8,6 +8,25 @@ import (
 	"unicode"
 )
 
+// NormalizeStatus canonicalises an upstream status label for enrichment
+// candidates; unknown labels pass through unchanged.
+func NormalizeStatus(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "", "unknown":
+		return "unknown"
+	case "ongoing", "publishing":
+		return "ongoing"
+	case "hiatus", "on hold":
+		return "hiatus"
+	case "canceled", "cancelled":
+		return "canceled"
+	case "completed", "complete", "finished":
+		return "completed"
+	default:
+		return status
+	}
+}
+
 // URLEncode percent-encodes s for use in query strings and path segments.
 func URLEncode(s string) string { return url.QueryEscape(s) }
 

@@ -59,3 +59,36 @@ func TestDetailStaleFallbackAndRefreshStamp(t *testing.T) {
 		t.Fatalf("attempt = %+v, %v", attempt, err)
 	}
 }
+
+func TestApplyCandidateResetAndRelated(t *testing.T) {
+	ctx := context.Background()
+	st := testStore(t)
+	svc := New(st, nil)
+	if err := st.UpsertSaved(ctx, &store.SavedManga{Plugin: "p", Slug: "a", Name: "A", Tags: `["Action","Fantasy"]`}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.UpsertSaved(ctx, &store.SavedManga{Plugin: "p", Slug: "b", Name: "B", Tags: `["Action"]`}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.ApplyCandidate(ctx, "p", "a", map[string]any{"name": "Candidate", "cover": "new"}); err != nil {
+		t.Fatal(err)
+	}
+	meta, _ := st.GetTitleMeta(ctx, "p", "a")
+	if meta.Fetched == "" || meta.Chosen != "new" {
+		t.Fatalf("meta = %+v", meta)
+	}
+	if err := svc.ResetDetail(ctx, "p", "a"); err != nil || meta.Fetched == "" {
+		t.Fatalf("reset detail: %v", err)
+	}
+	meta, _ = st.GetTitleMeta(ctx, "p", "a")
+	if meta.Fetched != "" || meta.Chosen != "new" {
+		t.Fatalf("reset clobbered cover: %+v", meta)
+	}
+	if err := svc.ResetCover(ctx, "p", "a"); err != nil {
+		t.Fatal(err)
+	}
+	related := svc.Related(ctx, "p", "a")
+	if len(related) != 1 || related[0]["slug"] != "b" {
+		t.Fatalf("related = %v", related)
+	}
+}

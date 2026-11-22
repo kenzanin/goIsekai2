@@ -19,6 +19,7 @@ import (
 
 	imagecache "goisekai2/internal/cache"
 	"goisekai2/internal/config"
+	"goisekai2/internal/detail"
 	"goisekai2/internal/events"
 	"goisekai2/internal/library"
 	"goisekai2/internal/plugin"
@@ -425,6 +426,37 @@ func TestReaderPagesAndPositionRoutes(t *testing.T) {
 	s.Handler().ServeHTTP(list, httptest.NewRequest(http.MethodGet, "/chapters/p/s", nil))
 	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `/read/p/s?ch=`) {
 		t.Fatalf("chapter page = %d %s", list.Code, list.Body.String())
+	}
+}
+
+func TestDetailRoutes(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "lib.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := st.UpsertSaved(context.Background(), &store.SavedManga{
+		Plugin: "p", Slug: "s", Name: "Name", Cover: "cover",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	s := New(config.Knobs(), testIni(t), nil, nil, nil, nil, st)
+	s.SetDetail(detail.New(st, nil))
+
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/detail/p/s", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"cached":true`) {
+		t.Fatalf("detail = %d %s", rec.Code, rec.Body.String())
+	}
+	rec = httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/view/manga/p/s", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Name") {
+		t.Fatalf("page = %d %s", rec.Code, rec.Body.String())
+	}
+	rec = httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/refresh/p/s", nil))
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("refresh = %d %s", rec.Code, rec.Body.String())
 	}
 }
 

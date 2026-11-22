@@ -20,6 +20,7 @@ import (
 
 	imagecache "goisekai2/internal/cache"
 	"goisekai2/internal/config"
+	"goisekai2/internal/detail"
 	"goisekai2/internal/events"
 	"goisekai2/internal/http/components"
 	"goisekai2/internal/library"
@@ -47,6 +48,7 @@ type Server struct {
 	iniPath    string
 	httpServer *http.Server
 	cacheStore *imagecache.Store
+	detailSvc  *detail.Service
 	bus        *events.Bus
 	host       *plugin.Host
 	lib        *library.Service
@@ -77,6 +79,9 @@ func New(reg *config.Registry, iniPath string, bus *events.Bus, host *plugin.Hos
 // SetCache attaches the image cache store used by /cache/img.
 func (s *Server) SetCache(c *imagecache.Store) { s.cacheStore = c }
 
+// SetDetail attaches the detail resolver used by the detail routes.
+func (s *Server) SetDetail(d *detail.Service) { s.detailSvc = d }
+
 // Pages returns the implemented pages in navigation order.
 func (s *Server) Pages() []Page {
 	out := append([]Page(nil), pages...)
@@ -96,6 +101,12 @@ func (s *Server) Handler() http.Handler {
 	}
 	r.Get("/config", s.getConfig)
 	r.Post("/config", s.postConfig)
+	r.Get("/view/manga/{plugin}/{slug}", s.renderDetail)
+	r.Get("/api/detail/{plugin}/{slug}", s.getDetail)
+	r.Post("/api/refresh/{plugin}/{slug}", s.refreshDetail)
+	r.Post("/api/refresh/{plugin}/{slug}/force", s.refreshDetail)
+	r.Post("/api/detail/{plugin}/{slug}/reset", s.resetDetail)
+	r.Post("/api/detail/{plugin}/{slug}/apply", s.applyCandidate)
 	r.Get("/cache/img", s.getCacheImage)
 	r.Get("/", s.renderLibrary)
 	r.Get("/library", s.renderLibrary)
@@ -155,6 +166,129 @@ func (s *Server) libraryRows(ctx context.Context) []components.LibraryRow {
 		})
 	}
 	return out
+}
+
+func (s *Server) getDetail(w http.ResponseWriter, r *http.Request) {
+	if s.detailSvc == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "error": "detail unavailable"})
+		return
+	}
+	data, err := s.detailSvc.Detail(r.Context(), chi.URLParam(r, "plugin"), chi.URLParam(r, "slug"))
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]any{"ok": false, "error": "unknown title"})
+		return
+	}
+	writeJSON(w, http.StatusOK, data)
+}
+
+func (s *Server) refreshDetail(w http.ResponseWriter, r *http.Request) {
+	if s.detailSvc == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "error": "detail unavailable"})
+		return
+	}
+	if err := s.detailSvc.Refresh(r.Context(), chi.URLParam(r, "plugin"), chi.URLParam(r, "slug")); err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (s *Server) resetDetail(w http.ResponseWriter, r *http.Request) {
+	if s.detailSvc == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "error": "detail unavailable"})
+		return
+	}
+	pluginID, slug := chi.URLParam(r, "plugin"), chi.URLParam(r, "slug")
+	if err := s.detailSvc.ResetDetail(r.Context(), pluginID, slug); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if err := s.detailSvc.ResetCover(r.Context(), pluginID, slug); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (s *Server) applyCandidate(w http.ResponseWriter, r *http.Request) {
+	if s.detailSvc == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "error": "detail unavailable"})
+		return
+	}
+	id := r.FormValue("candidate")
+	for _, data := range s.detailSvc.Candidates(r.Context(), chi.URLParam(r, "slug"), "detail") {
+		if data["id"] == id {
+			if err := s.detailSvc.ApplyCandidate(r.Context(), chi.URLParam(r, "plugin"), chi.URLParam(r, "slug"), data); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+			return
+		}
+	}
+	writeJSON(w, http.StatusNotFound, map[string]any{"ok": false, "error": "unknown candidate"})
+}
+
+func (s *Server) renderDetail(w http.ResponseWriter, r *http.Request) {
+	if s.detailSvc == nil || s.store == nil {
+		http.NotFound(w, r)
+		return
+	}
+	pluginID, slug := chi.URLParam(r, "plugin"), chi.URLParam(r, "slug")
+	data, err := s.detailSvc.Detail(r.Context(), pluginID, slug)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	str := func(key string) string {
+		if v, ok := data[key].(string); ok {
+			return v
+		}
+		return ""
+	}
+	row := components.DetailRow{
+		Plugin: pluginID, Slug: slug, Name: str("name"), Cover: str("cover"),
+		Status: str("status"), Synopsis: str("synopsis"),
+		ChosenCover: str("chosen_cover"), Cached: data["cached"] == true,
+	}
+	if authors, ok := data["authors"].([]string); ok {
+		row.Authors = authors
+	}
+	if tags, ok := data["tags"].([]string); ok {
+		row.Tags = tags
+	}
+	chapters := make([]components.ChapterRow, 0)
+	var stored []store.Chapter
+	_ = s.store.DB().WithContext(r.Context()).Where("plugin = ? AND slug = ?", pluginID, slug).
+		Order("number, chapter_id").Find(&stored)
+	for _, ch := range stored {
+		chapters = append(chapters, components.ChapterRow{
+			Plugin: pluginID, Slug: slug, ID: ch.ChapterID, Number: ch.Number,
+			Title: ch.Title, Read: ch.Flags&store.ChapterRead != 0,
+			Skip: ch.Flags&store.ChapterSkip != 0,
+		})
+	}
+	candidates := make([]components.Candidate, 0)
+	for _, data := range s.detailSvc.Candidates(r.Context(), row.Name, "detail") {
+		field := func(key string) string {
+			if v, ok := data[key].(string); ok {
+				return v
+			}
+			return ""
+		}
+		candidates = append(candidates, components.Candidate{
+			ID: field("id"), Name: field("name"),
+			Cover: field("cover"), Synopsis: field("synopsis"),
+		})
+	}
+	pages := make([]components.Page, 0, len(s.Pages()))
+	for _, p := range s.Pages() {
+		pages = append(pages, components.Page{Path: p.Path, Title: p.Title})
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := components.Detail(components.Page{Path: "/view", Title: row.Name}, pages, row, chapters, candidates).Render(r.Context(), w); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (s *Server) getCacheImage(w http.ResponseWriter, r *http.Request) {

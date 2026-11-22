@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"goisekai2/internal/plugin"
@@ -19,14 +20,18 @@ var ErrUnknownTitle = errors.New("unknown title")
 
 // Service owns detail resolution, stale-serve and refresh.
 type Service struct {
-	store *store.Store
-	host  *plugin.Host
+	store      *store.Store
+	host       *plugin.Host
+	enrichment []*EnrichmentSource
 }
 
 // New creates a detail service.
 func New(st *store.Store, host *plugin.Host) *Service {
 	return &Service{store: st, host: host}
 }
+
+// SetEnrichment attaches the separately loaded enrichment registry.
+func (s *Service) SetEnrichment(sources []*EnrichmentSource) { s.enrichment = sources }
 
 func cacheHash(pluginID, method, slug string) string {
 	sum := sha256.Sum256([]byte(pluginID + "\x00" + method + "\x00" + slug))
@@ -77,6 +82,113 @@ func (s *Service) fetch(ctx context.Context, pluginID, method, slug string) (map
 		}
 	}
 	return nil, err
+}
+
+// ApplyCandidate stores a user-picked metadata candidate. Plugin fields are
+// never overwritten automatically.
+func (s *Service) ApplyCandidate(ctx context.Context, pluginID, slug string, candidate map[string]any) error {
+	meta, err := s.store.GetTitleMeta(ctx, pluginID, slug)
+	if err != nil {
+		meta = &store.TitleMeta{Plugin: pluginID, Slug: slug}
+	}
+	raw, err := json.Marshal(candidate)
+	if err != nil {
+		return err
+	}
+	meta.Fetched = string(raw)
+	if cover, ok := candidate["cover"].(string); ok && cover != "" {
+		meta.Chosen = cover
+	}
+	meta.FetchedAt = time.Now().Unix()
+	return s.store.PutTitleMeta(ctx, meta)
+}
+
+// ResetDetail clears stored enrichment metadata without touching the cover.
+func (s *Service) ResetDetail(ctx context.Context, pluginID, slug string) error {
+	meta, err := s.store.GetTitleMeta(ctx, pluginID, slug)
+	if err != nil {
+		return nil
+	}
+	meta.Fetched, meta.FetchedAt = "", 0
+	return s.store.PutTitleMeta(ctx, meta)
+}
+
+// ResetCover clears a user-chosen cover without touching metadata.
+func (s *Service) ResetCover(ctx context.Context, pluginID, slug string) error {
+	meta, err := s.store.GetTitleMeta(ctx, pluginID, slug)
+	if err != nil {
+		return nil
+	}
+	meta.Chosen = ""
+	return s.store.PutTitleMeta(ctx, meta)
+}
+
+// Related returns saved titles sharing at least one stored tag.
+func (s *Service) Related(ctx context.Context, pluginID, slug string) []map[string]any {
+	out := make([]map[string]any, 0)
+	var rows []store.SavedManga
+	if err := s.store.DB().WithContext(ctx).Find(&rows).Error; err != nil {
+		return out
+	}
+	wanted := tagSet(s.pluginTag(ctx, pluginID, slug))
+	if len(wanted) == 0 {
+		return out
+	}
+	for _, row := range rows {
+		if row.Plugin == pluginID && row.Slug == slug {
+			continue
+		}
+		if intersects(wanted, tagSet(row.Tags)) {
+			out = append(out, map[string]any{"plugin": row.Plugin, "slug": row.Slug, "name": row.Name})
+		}
+		if len(out) >= 10 {
+			break
+		}
+	}
+	return out
+}
+
+func (s *Service) pluginTag(ctx context.Context, pluginID, slug string) string {
+	row, err := s.store.GetSaved(ctx, pluginID, slug)
+	if err != nil {
+		return ""
+	}
+	return row.Tags
+}
+
+func tagSet(raw string) map[string]bool {
+	var tags []string
+	if err := json.Unmarshal([]byte(raw), &tags); err != nil {
+		tags = strings.Fields(raw)
+	}
+	out := make(map[string]bool, len(tags))
+	for _, tag := range tags {
+		out[strings.ToLower(strings.TrimSpace(tag))] = true
+	}
+	return out
+}
+
+func intersects(a, b map[string]bool) bool {
+	for key := range a {
+		if b[key] {
+			return true
+		}
+	}
+	return false
+}
+
+// Candidates asks each enrichment source for metadata candidates. Failures
+// are skipped so one dead source does not break the detail page.
+func (s *Service) Candidates(ctx context.Context, title, kind string) []map[string]any {
+	out := make([]map[string]any, 0)
+	for _, source := range s.enrichment {
+		data, err := source.Enrich(ctx, map[string]string{"title": title, "kind": kind})
+		if err != nil {
+			continue
+		}
+		out = append(out, data)
+	}
+	return out
 }
 
 // Detail returns a saved row without calling the plugin, or resolves through
