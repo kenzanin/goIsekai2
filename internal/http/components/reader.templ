@@ -95,6 +95,10 @@ const readerState = `{
 		const seg = location.pathname.split('/');
 		return { plugin: seg[2] || '', slug: seg[3] || '' };
 	},
+	get exitHref() { // the manga's detail page, derived from the /read route
+		const r = this.routeParts();
+		return '/view/manga/' + r.plugin + '/' + r.slug;
+	},
 	setPage(i) {
 		const n = Math.min(Math.max(i, 0), Math.max(this.total - 1, 0));
 		if (n === this.pageIdx) return;
@@ -146,7 +150,7 @@ const readerState = `{
 		if (ev.key === 'Escape') {
 			if (this.done) { this.done = false; return; }
 			if (this.overlay) { this.overlay = false; return; }
-			location.href = '/library';
+			location.href = this.exitHref;
 			return;
 		}
 		switch (ev.key) {
@@ -257,7 +261,7 @@ templ Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter,
 			x-bind:data-mode="mode"
 			x-bind:data-direction="direction"
 			x-on:keydown.window="onKey($event)"
-			class="fixed inset-0 z-50 flex flex-col overflow-hidden bg-zinc-950 text-zinc-200 select-none"
+			class="fixed inset-0 z-50 flex flex-col overflow-hidden bg-black text-zinc-200 select-none"
 		>
 			@templ.JSONScript("reader-boot", readerBootstrap(mangaName, chapter, mode, direction, positionPage))
 			<!-- reading surface -->
@@ -294,7 +298,7 @@ templ Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter,
 			<div x-show="overlay" x-cloak class="pointer-events-none fixed inset-0 z-30 flex flex-col justify-between">
 				<div class="pointer-events-auto border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
 					<div class="flex h-14 items-center gap-3 px-4">
-						<a href="/library" class="rounded-md px-2 py-1.5 text-sm font-medium text-zinc-300 transition hover:bg-zinc-800 hover:text-zinc-100">← Library</a>
+						<a x-bind:href="exitHref" class="rounded-md px-2 py-1.5 text-sm font-medium text-zinc-300 transition hover:bg-zinc-800 hover:text-zinc-100">← Detail</a>
 						<div class="min-w-0 flex-1 truncate text-center">
 							<span class="truncate text-sm font-semibold text-zinc-100">{ mangaName }</span>
 						</div>
@@ -347,7 +351,7 @@ templ Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter,
 					<p class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-zinc-800/60 px-4 pb-2 pt-1.5 text-[11px] text-zinc-500">
 						<span><kbd class="rounded border border-zinc-700 bg-zinc-900 px-1 font-mono">←</kbd> <kbd class="rounded border border-zinc-700 bg-zinc-900 px-1 font-mono">→</kbd> turn page</span>
 						<span><kbd class="rounded border border-zinc-700 bg-zinc-900 px-1 font-mono">PgUp</kbd>/<kbd class="rounded border border-zinc-700 bg-zinc-900 px-1 font-mono">PgDn</kbd> page</span>
-						<span><kbd class="rounded border border-zinc-700 bg-zinc-900 px-1 font-mono">Esc</kbd> close / library</span>
+						<span><kbd class="rounded border border-zinc-700 bg-zinc-900 px-1 font-mono">Esc</kbd> close / detail</span>
 						<span>tap centre to hide</span>
 					</p>
 				</div>
@@ -359,7 +363,7 @@ templ Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter,
 					<p class="mt-1 text-sm text-zinc-400">This is the last page of the last chapter.</p>
 					<div class="mt-4 flex items-center justify-center gap-2">
 						<button type="button" x-on:click="done = false" class="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100">Stay</button>
-						<a href="/library" class="rounded-md bg-amber-400 px-3 py-1.5 text-sm font-semibold text-zinc-950 transition hover:bg-amber-300">Back to library</a>
+						<a x-bind:href="exitHref" class="rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-300">Back to detail</a>
 					</div>
 				</div>
 			</div>

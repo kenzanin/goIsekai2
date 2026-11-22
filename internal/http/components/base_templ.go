@@ -17,8 +17,16 @@ type Page struct {
 	Title string
 }
 
+// utilityPaths marks the nav entries rendered right of the flexible spacer,
+// mirroring the cppIsekai header: primary pages left, Log and About right.
+var utilityPaths = map[string]bool{
+	"/log":   true,
+	"/about": true,
+}
+
 // Base renders the shared HTML shell: head, compiled stylesheet, vendored
-// scripts and the top navigation listing exactly the implemented pages.
+// scripts, the split top navigation, the page body, a fixed bottom-right
+// toast host and the client-side toast surface used by htmx error events.
 func Base(active Page, pages []Page) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -44,82 +52,37 @@ func Base(active Page, pages []Page) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(active.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 18, Col: 24}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 26, Col: 24}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " · goisekai2</title><link rel=\"stylesheet\" href=\"/assets/app.css\"><script defer src=\"/assets/vendor/htmx.min.js\"></script><script defer src=\"/assets/vendor/alpine.min.js\"></script></head><body class=\"min-h-full bg-zinc-950 font-sans text-zinc-200 antialiased\"><header class=\"border-b border-zinc-800 bg-zinc-900/60\"><div class=\"mx-auto flex h-14 max-w-4xl items-center gap-8 px-6\"><span class=\"font-mono text-sm font-semibold tracking-widest text-amber-400\">goisekai2</span><nav aria-label=\"Primary\" class=\"flex items-center gap-1\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " · goisekai2</title><style>\n\t\t\t\t[x-cloak] {\n\t\t\t\t\tdisplay: none !important;\n\t\t\t\t}\n\t\t\t</style><link rel=\"stylesheet\" href=\"/assets/app.css\"><script defer src=\"/assets/vendor/htmx.min.js\"></script><script defer src=\"/assets/vendor/alpine.min.js\"></script></head><body class=\"min-h-screen bg-zinc-950 text-zinc-100 antialiased\"><header class=\"flex h-12 items-center gap-1 border-b border-zinc-800 px-4\"><nav aria-label=\"Primary\" class=\"flex items-center gap-1\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, p := range pages {
-			if p.Path == active.Path {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<a href=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var3 string
-				templ_7745c5c3_Var3, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL(p.Path)).ResolveURL(ctx)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 30, Col: 39}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" aria-current=\"page\" class=\"rounded-md bg-amber-400/10 px-3 py-1.5 text-sm font-medium text-amber-300\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var4 string
-				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 30, Col: 153}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</a>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<a href=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var5 string
-				templ_7745c5c3_Var5, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL(p.Path)).ResolveURL(ctx)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 32, Col: 39}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" class=\"rounded-md px-3 py-1.5 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var6 string
-				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 32, Col: 172}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</a>")
+			if !utilityPaths[p.Path] {
+				templ_7745c5c3_Err = navLink(p, active).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</nav></div></header><main class=\"mx-auto max-w-4xl px-6 py-10\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</nav><span class=\"flex-1\"></span><nav aria-label=\"Secondary\" class=\"flex items-center gap-1\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		for _, p := range pages {
+			if utilityPaths[p.Path] {
+				templ_7745c5c3_Err = navLink(p, active).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</nav></header><main class=\"p-4\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -127,9 +90,95 @@ func Base(active Page, pages []Page) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</main></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</main><div id=\"toast-host\" class=\"fixed right-4 bottom-4 z-[60] flex flex-col items-end gap-2\"></div><script>\n\t\t\t\t(function () {\n\t\t\t\t\tconst host = document.getElementById(\"toast-host\");\n\t\t\t\t\tconst KINDS = {\n\t\t\t\t\t\tsuccess: \"bg-emerald-600 text-white\",\n\t\t\t\t\t\terror: \"bg-red-600 text-white\",\n\t\t\t\t\t\tinfo: \"bg-zinc-700 text-zinc-100\",\n\t\t\t\t\t};\n\t\t\t\t\twindow.toast = function (kind, msg) {\n\t\t\t\t\t\twhile (host.children.length >= 4) host.firstElementChild.remove();\n\t\t\t\t\t\tconst t = document.createElement(\"div\");\n\t\t\t\t\t\tt.className =\n\t\t\t\t\t\t\t\"max-w-xs cursor-pointer rounded px-3 py-2 text-sm shadow-lg \" +\n\t\t\t\t\t\t\t(KINDS[kind] || KINDS.info);\n\t\t\t\t\t\tt.textContent = msg;\n\t\t\t\t\t\tt.onclick = function () {\n\t\t\t\t\t\t\tt.remove();\n\t\t\t\t\t\t};\n\t\t\t\t\t\thost.appendChild(t);\n\t\t\t\t\t\tsetTimeout(\n\t\t\t\t\t\t\tfunction () {\n\t\t\t\t\t\t\t\tt.remove();\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\tkind === \"error\" ? 8000 : 5000,\n\t\t\t\t\t\t);\n\t\t\t\t\t};\n\t\t\t\t\tdocument.body.addEventListener(\"htmx:responseError\", function (ev) {\n\t\t\t\t\t\twindow.toast(\n\t\t\t\t\t\t\t\"error\",\n\t\t\t\t\t\t\t\"Request failed (\" +\n\t\t\t\t\t\t\t\t((ev.detail && ev.detail.xhr && ev.detail.xhr.status) ||\n\t\t\t\t\t\t\t\t\t\"network\") +\n\t\t\t\t\t\t\t\t\")\",\n\t\t\t\t\t\t);\n\t\t\t\t\t});\n\t\t\t\t})();\n\t\t\t</script></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// navLink renders one header entry; the active page gets the zinc-800
+// surface and aria-current.
+func navLink(p Page, active Page) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		ctx = templ.ClearChildren(ctx)
+		if p.Path == active.Path {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<a href=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var4 string
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL(p.Path)).ResolveURL(ctx)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 103, Col: 33}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" aria-current=\"page\" class=\"rounded px-3 py-1 transition-colors bg-zinc-800 text-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var5 string
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 104, Col: 12}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</a>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<a href=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var6 string
+			templ_7745c5c3_Var6, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL(p.Path)).ResolveURL(ctx)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 107, Col: 33}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" class=\"rounded px-3 py-1 transition-colors hover:bg-zinc-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var7 string
+			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 108, Col: 12}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</a>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
 		return nil
 	})

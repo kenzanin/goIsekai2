@@ -1,9 +1,6 @@
 package components
 
-import (
-	"strconv"
-	"strings"
-)
+import "strings"
 
 // PluginRow is one installed plugin rendered as a row on the plugins page.
 type PluginRow struct {
@@ -28,86 +25,134 @@ const pluginsFilterData = `{
 	}
 }`
 
-// Plugins renders the plugins page: one row per installed plugin with status,
-// capabilities and actions. Alpine filters rows client-side by name or
-// capability; htmx posts toggle/reload and swaps the per-row status region.
+// isEnrichmentPlugin reports whether the row declares the enrichment
+// capability — the same rule internal/detail applies when loading enrichment
+// sources. Those rows render under the Enrichment heading, the rest under
+// Manga plugins.
+func isEnrichmentPlugin(r PluginRow) bool {
+	for _, c := range r.Capabilities {
+		if strings.EqualFold(c, "enrichment") {
+			return true
+		}
+	}
+	return false
+}
+
+// pluginSection is one titled list on the plugins page.
+type pluginSection struct {
+	Title string
+	Rows  []PluginRow
+}
+
+// pluginSections splits rows into the enrichment and manga lists, mirroring
+// the detail loader's capability rule; empty sections are omitted.
+func pluginSections(rows []PluginRow) []pluginSection {
+	enrichment := make([]PluginRow, 0)
+	manga := make([]PluginRow, 0)
+	for _, r := range rows {
+		if isEnrichmentPlugin(r) {
+			enrichment = append(enrichment, r)
+		} else {
+			manga = append(manga, r)
+		}
+	}
+	out := make([]pluginSection, 0, 2)
+	if len(enrichment) > 0 {
+		out = append(out, pluginSection{Title: "Enrichment", Rows: enrichment})
+	}
+	if len(manga) > 0 {
+		out = append(out, pluginSection{Title: "Manga plugins", Rows: manga})
+	}
+	return out
+}
+
+// Plugins renders the plugins page: the filter input above two separate
+// lists — enrichment sources, then manga plugins. Each row carries logo or
+// initial, name, version, runtime, capability chips, the status region and
+// the toggle/reload actions. Alpine filters rows by name or capability; htmx
+// posts toggle/reload and swaps the per-row status region.
 templ Plugins(active Page, pages []Page, rows []PluginRow, pluginsDir string) {
 	@Base(active, pages) {
-		<div class="space-y-8">
-			<div class="flex flex-wrap items-end justify-between gap-4">
-				<div>
-					<h1 class="font-mono text-2xl font-semibold tracking-tight text-zinc-50">Plugins</h1>
-					<p class="mt-1 text-sm text-zinc-400">One plugin per site. Toggle or reload without restarting the daemon.</p>
-				</div>
-				if len(rows) > 0 {
-					<p class="font-mono text-xs uppercase tracking-widest text-zinc-500">{ strconv.Itoa(len(rows)) } installed</p>
+		if len(rows) == 0 {
+			@pluginsEmptyState(pluginsDir)
+		} else {
+			<div x-data={ pluginsFilterData } class="space-y-6">
+				<input
+					id="plugin-q"
+					type="search"
+					x-model.debounce.150ms="query"
+					placeholder="Filter by name or capability…"
+					aria-label="Filter plugins"
+					class="w-72 rounded border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 transition focus:border-transparent focus:ring-2 focus:ring-zinc-500 focus:outline-none"
+				/>
+				<p x-show="query.trim() !== ''" class="text-xs text-zinc-600">Filtering by name or capability — clear the field to show all plugins.</p>
+				for _, group := range pluginSections(rows) {
+					<section>
+						<h2 class="mb-2 text-lg font-semibold text-zinc-100">{ group.Title }</h2>
+						<ul role="list" class="space-y-2">
+							for _, r := range group.Rows {
+								@pluginRow(r)
+							}
+						</ul>
+					</section>
 				}
 			</div>
-			if len(rows) == 0 {
-				@pluginsEmptyState(pluginsDir)
-			} else {
-				<div x-data={ pluginsFilterData } class="space-y-4">
-					<input
-						type="search"
-						x-model.debounce.150ms="query"
-						placeholder="Filter by name or capability…"
-						aria-label="Filter plugins"
-						class="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 transition focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
-					/>
-					<ul role="list" class="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/40 divide-y divide-zinc-800/70">
-						for _, r := range rows {
-							@pluginRow(r)
-						}
-					</ul>
-					<p x-show="query.trim() !== ''" class="text-xs text-zinc-600">Filtering by name or capability — clear the field to show all plugins.</p>
-				</div>
-			}
-		</div>
+		}
 	}
 }
 
+// pluginRowClass dims disabled rows via opacity.
+func pluginRowClass(enabled bool) string {
+	if enabled {
+		return "flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3"
+	}
+	return "flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 opacity-50"
+}
+
 // pluginRow renders a single plugin: logo or initial, identity, capability
-// chips, title-count deep link, status region and toggle/reload actions.
+// chips, status region and the toggle/reload actions. Disabled rows dim.
 templ pluginRow(r PluginRow) {
 	<li
 		x-show="matches($el)"
 		data-name={ strings.ToLower(r.Name + " " + r.ID) }
 		data-caps={ strings.ToLower(strings.Join(r.Capabilities, " ")) }
-		class="grid gap-4 px-6 py-5 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-start sm:gap-6"
+		class={ pluginRowClass(r.Enabled) }
 	>
 		if r.HasLogo {
-			<img src={ "/plugins/" + r.ID + "/logo" } alt={ r.Name + " logo" } class="h-10 w-10 rounded-lg border border-zinc-800 object-cover"/>
+			<img src={ "/plugins/" + r.ID + "/logo" } alt={ r.Name + " logo" } loading="lazy" class="h-9 w-9 shrink-0 rounded bg-zinc-800 object-cover" onerror="this.style.visibility='hidden'"/>
 		} else {
-			<span aria-hidden="true" class="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/60 font-mono text-sm font-semibold text-amber-300">{ pluginInitial(r.Name) }</span>
+			<span aria-hidden="true" class="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-zinc-800 font-bold text-zinc-300">{ pluginInitial(r.Name) }</span>
 		}
-		<div class="min-w-0 space-y-2">
-			<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-				<h2 class="text-sm font-semibold text-zinc-50">{ r.Name }</h2>
-				<span class="font-mono text-xs text-zinc-500">v{ r.Version }</span>
-				<span class="rounded-full bg-sky-400/10 px-2 py-0.5 text-xs font-medium text-sky-300 ring-1 ring-inset ring-sky-400/20">{ r.Runtime }</span>
+		<div class="min-w-0">
+			<div class="flex flex-wrap items-center gap-2">
+				<a href={ templ.SafeURL("/library?plugin=" + r.ID) } class="font-medium text-zinc-100 transition hover:text-amber-300">{ r.Name }</a>
+				<span class="text-xs text-zinc-500">{ r.Version }</span>
+				if r.Runtime != "" {
+					<span class="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-400">{ r.Runtime }</span>
+				}
 			</div>
 			if len(r.Capabilities) > 0 {
-				<ul role="list" aria-label="Capabilities" class="flex flex-wrap gap-1.5">
+				<div class="mt-1 flex flex-wrap gap-1">
 					for _, c := range r.Capabilities {
-						<li class="rounded-md bg-zinc-800/70 px-1.5 py-0.5 font-mono text-xs text-zinc-400">{ c }</li>
+						<span class="rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[10px] text-zinc-400">{ c }</span>
 					}
-				</ul>
+				</div>
 			}
-			<div id={ "plugin-status-" + r.ID } role="status" aria-live="polite">
-				@PluginStatusFragment(r)
+			<div class="mt-1">
+				<div id={ "plugin-status-" + r.ID } role="status" aria-live="polite" class="inline-flex">
+					@PluginStatusFragment(r)
+				</div>
 			</div>
 		</div>
-		<div class="flex shrink-0 items-center gap-2 sm:flex-col sm:items-end">
-			<a href={ templ.SafeURL("/library?plugin=" + r.ID) } class="rounded-md px-3 py-1.5 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100">
-				{ strconv.Itoa(r.TitleCount) } titles
-			</a>
+		<span class="flex-1"></span>
+		<div class="flex shrink-0 items-center gap-2">
 			<button
 				type="button"
 				hx-post={ "/plugins/" + r.ID + "/toggle" }
 				hx-target={ "#plugin-status-" + r.ID }
 				hx-swap="innerHTML"
 				hx-disabled-elt="this"
-				class="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 disabled:opacity-40"
+				class="rounded bg-zinc-800 px-3 py-1 text-xs text-zinc-100 transition-colors hover:bg-zinc-700 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none disabled:opacity-40"
 			>
 				if r.Enabled {
 					Disable
@@ -117,13 +162,14 @@ templ pluginRow(r PluginRow) {
 			</button>
 			<button
 				type="button"
+				title="Rescan plugin dir"
 				hx-post={ "/plugins/" + r.ID + "/reload" }
 				hx-target={ "#plugin-status-" + r.ID }
 				hx-swap="innerHTML"
 				hx-disabled-elt="this"
-				class="rounded-md border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-sm font-medium text-amber-300 transition hover:bg-amber-400/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 disabled:opacity-40"
+				class="rounded bg-zinc-800 px-2 py-1 text-xs text-zinc-100 transition-colors hover:bg-zinc-700 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none disabled:opacity-40"
 			>
-				Reload
+				⟳
 			</button>
 		</div>
 	</li>
@@ -134,7 +180,7 @@ templ pluginRow(r PluginRow) {
 // when the plugin is in an error state.
 templ PluginStatusFragment(r PluginRow) {
 	<div class="flex flex-wrap items-center gap-2">
-		<span class={ "rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset", statusClasses(r.Status) }>
+		<span class={ "rounded px-2 py-0.5 text-xs font-medium ring-1 ring-inset", statusClasses(r.Status) }>
 			{ r.Status }
 		</span>
 		if r.Error != "" {
@@ -143,14 +189,14 @@ templ PluginStatusFragment(r PluginRow) {
 	</div>
 }
 
-// pluginsEmptyState replaces the table when no plugin is installed: it shows
+// pluginsEmptyState replaces both lists when no plugin is installed: it shows
 // the scanned directory and the folder layout the daemon expects.
 templ pluginsEmptyState(pluginsDir string) {
 	<div class="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 px-6 py-10 text-center">
-		<h2 class="font-mono text-sm font-semibold text-zinc-100">No plugins installed</h2>
+		<h2 class="text-sm font-semibold text-zinc-100">No plugins installed</h2>
 		<p class="mt-2 text-sm text-zinc-400">
 			Drop one folder per site into
-			<code class="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-xs text-amber-300">{ pluginsDir }</code>
+			<code class="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-xs text-zinc-300">{ pluginsDir }</code>
 			and reload the daemon.
 		</p>
 		<pre class="mx-auto mt-6 inline-block rounded-lg border border-zinc-800 bg-zinc-950 px-5 py-4 text-left font-mono text-xs leading-relaxed text-zinc-400">{ expectedLayout(pluginsDir) }</pre>

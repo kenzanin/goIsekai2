@@ -23,131 +23,243 @@ type LibraryRow struct {
 	Tags        []string
 }
 
-// libraryGridState is the Alpine component behind the grid: it reads the
-// ?plugin= deep link, filters cards by their data-plugin attribute, slices the
-// filtered list into pages of twelve and exposes the pager state.
+// statusFlagBits mirrors the cppIsekai status_flags bit layout; it drives the
+// filter chips and the corner badges through data-status-flags.
+var statusFlagBits = []struct {
+	Key  string
+	Bit  int
+	Name string
+}{
+	{"new", 1, "New"},
+	{"done", 2, "Done"},
+	{"ongoing", 4, "Ongoing"},
+	{"hiatus", 8, "Hiatus"},
+	{"canceled", 16, "Canceled"},
+	{"completed", 32, "Completed"},
+}
+
+// libraryGridState is the Alpine component behind the two-column library: the
+// aside counters and per-plugin nav, the header search input, status-flag
+// filter chips, name/dup sorting, responsive per-page slicing and the pager.
+// It reads the ?plugin= deep link and keeps every filter client-side.
 const libraryGridState = `{
-	per: 12,
+	per: 30,
 	page: 1,
+	q: '',
 	plugin: '',
+	dup: false,
+	sort: 'name',
+	sortDir: { name: 'asc' },
+	filterState: { new: 'off', done: 'off', ongoing: 'off', hiatus: 'off', canceled: 'off', completed: 'off' },
 	cards: [],
+	count: 0,
 	init() {
-		this.cards = Array.from(this.$refs.grid.querySelectorAll('[data-plugin]'));
-		const q = new URLSearchParams(location.search).get('plugin') || '';
-		if (q) this.plugin = q;
-		this.$watch('plugin', () => { this.page = 1; });
+		this.cards = Array.from(this.$refs.grid.querySelectorAll('li[data-plugin]'));
+		const p = new URLSearchParams(location.search).get('plugin') || '';
+		if (p) this.plugin = p;
+		const inp = document.getElementById('lib-q');
+		if (inp) inp.addEventListener('input', () => { this.q = inp.value; this.page = 1; this.apply(); });
+		window.addEventListener('resize', () => this.updatePer());
+		this.updatePer();
 	},
-	get filtered() {
-		if (!this.plugin) return this.cards;
-		const p = this.plugin;
-		return this.cards.filter(c => c.dataset.plugin === p);
+	updatePer() { // 6 cols x 5 rows; scales with the responsive grid
+		const cols = window.innerWidth >= 1024 ? 6 : window.innerWidth >= 768 ? 4 : 2;
+		this.per = cols * 5;
+		this.apply();
 	},
-	get shown() {
-		return new Set(this.filtered.slice((this.page - 1) * this.per, this.page * this.per));
+	get total() { return this.cards.length; },
+	flag(c) { return +c.dataset.statusFlags || 0; },
+	isDup(c) { return (+c.dataset.dup || 0) > 0; },
+	badge(c) { const f = this.flag(c); return { news: !!(f & 1), done: !!(f & 2) }; },
+	matches(c) {
+		if (this.plugin && c.dataset.plugin !== this.plugin) return false;
+		const q = this.q.trim().toLowerCase();
+		if (q && !(c.dataset.name || '').toLowerCase().includes(q)) return false;
+		if (this.dup && !this.isDup(c)) return false;
+		const f = this.flag(c);
+		const bit = { new: 1, done: 2, ongoing: 4, hiatus: 8, canceled: 16, completed: 32 };
+		for (const k in this.filterState) {
+			const on = (f & bit[k]) !== 0;
+			if (this.filterState[k] === 'show' && !on) return false;
+			if (this.filterState[k] === 'hide' && on) return false;
+		}
+		return true;
 	},
-	visible(el) {
-		return this.shown.has(el);
+	chipCls(k) {
+		const s = this.filterState[k] || 'off';
+		return s === 'show' ? 'border-zinc-100 bg-zinc-800 text-zinc-100'
+			: s === 'hide' ? 'border-zinc-700 bg-zinc-900 text-zinc-500'
+			: 'border-zinc-700 text-zinc-400 hover:bg-zinc-800';
 	},
-	get pageCount() {
-		return Math.max(1, Math.ceil(this.filtered.length / this.per));
+	chipTitle(k) {
+		const s = this.filterState[k] || 'off';
+		return s === 'show' ? 'show ' + k : s === 'hide' ? 'hide ' + k : k + ' off';
+	},
+	toggleBadge(k) { // 3-state per chip: off -> show -> hide -> off
+		const cur = this.filterState[k] || 'off';
+		this.filterState[k] = cur === 'off' ? 'show' : cur === 'show' ? 'hide' : 'off';
+		this.page = 1; this.apply();
+	},
+	toggleDup() { this.dup = !this.dup; this.page = 1; this.apply(); },
+	setPlugin(p) { this.plugin = this.plugin === p ? '' : p; this.page = 1; this.apply(); },
+	setSort(k) { // 2-state per key, matching the available sort data
+		if (this.sort === k) this.sortDir[k] = this.sortDir[k] === 'desc' ? 'asc' : 'desc';
+		else { this.sort = k; this.sortDir = {}; this.sortDir[k] = 'asc'; }
+		this.page = 1; this.apply();
+	},
+	scls(k) { return this.sort === k ? 'rounded bg-zinc-800 px-1 py-0.5 text-zinc-100' : 'px-1 py-0.5 text-zinc-500 hover:text-zinc-200'; },
+	sarrow(k) { return this.sort === k ? (this.sortDir[k] === 'desc' ? ' ↓' : ' ↑') : ''; },
+	cmp() {
+		const dir = (this.sortDir[this.sort] || 'asc') === 'desc' ? -1 : 1;
+		return (a, b) => {
+			if (this.sort === 'dup') {
+				const da = +a.dataset.dup || 0, db = +b.dataset.dup || 0;
+				if ((da > 0) !== (db > 0)) return da > 0 ? 1 : -1; // plain titles first
+				if (da > 0 && da !== db) return db - da; // bigger clusters first
+			}
+			return dir * String(a.dataset.name).localeCompare(String(b.dataset.name));
+		};
+	},
+	reset() {
+		this.q = ''; const i = document.getElementById('lib-q'); if (i) i.value = '';
+		this.plugin = ''; this.dup = false; this.sort = 'name'; this.sortDir = { name: 'asc' };
+		this.filterState = { new: 'off', done: 'off', ongoing: 'off', hiatus: 'off', canceled: 'off', completed: 'off' };
+		this.page = 1; this.apply();
+	},
+	get pageCount() { return Math.max(1, Math.ceil(this.count / this.per)); },
+	apply() {
+		const vis = this.cards.filter((c) => this.matches(c));
+		vis.sort(this.cmp());
+		this.count = vis.length;
+		const pages = Math.max(1, Math.ceil(vis.length / this.per));
+		if (this.page > pages) this.page = pages;
+		const start = (this.page - 1) * this.per;
+		const shown = new Set(vis.slice(start, start + this.per));
+		for (const c of this.cards) c.style.display = shown.has(c) ? '' : 'none';
 	}
 }`
 
-// Library renders the saved-library grid: one cover card per saved manga
-// linking to its reader page, a plugin filter seeded from the ?plugin= query
-// parameter, client-side pagination at twelve cards per page, and the empty
-// state when nothing is saved. Each card carries data-dup, data-status-flags
-// and data-status so client filters never need another request.
+// Library renders the saved library: a w-52 aside with the total and
+// duplicate counters plus the per-plugin nav, and a flex-1 column holding the
+// search input, filter chips, sort bar, the responsive cover grid and pager.
+// Filtering, sorting and paging stay client-side on the card data attributes.
 templ Library(active Page, pages []Page, rows []LibraryRow) {
 	@Base(active, pages) {
-		<div class="space-y-6">
-			<div class="flex flex-wrap items-end justify-between gap-4">
-				<div>
-					<h1 class="font-mono text-2xl font-semibold tracking-tight text-zinc-50">Library</h1>
-					<p class="mt-1 text-sm text-zinc-400">Manga saved from across every plugin.</p>
-				</div>
-				if len(rows) > 0 {
-					<p class="font-mono text-xs uppercase tracking-widest text-zinc-500">{ strconv.Itoa(len(rows)) } saved</p>
-				}
-			</div>
-			if len(rows) == 0 {
-				@libraryEmpty()
-			} else {
-				<div x-data={ libraryGridState } class="space-y-4">
-					<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-						<label class="flex items-center gap-2 text-sm text-zinc-400">
-							Plugin
-							<select x-model="plugin" aria-label="Filter by plugin" class="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none">
-								<option value="">All</option>
-								for _, p := range libraryPlugins(rows) {
-									<option value={ p }>{ p }</option>
-								}
-							</select>
-						</label>
-						<p x-show="plugin !== ''" class="text-xs text-zinc-500">
-							<span x-text="filtered.length"></span>
-							of { strconv.Itoa(len(rows)) } saved
-						</p>
+		if len(rows) == 0 {
+			@libraryEmpty()
+		} else {
+			<div x-data={ libraryGridState } class="flex gap-6">
+				<aside class="w-52 shrink-0 space-y-4">
+					<button type="button" x-on:click="reset()" class="block w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-left transition-colors hover:bg-zinc-800">
+						<span class="block text-lg font-semibold text-zinc-100">{ strconv.Itoa(len(rows)) }</span>
+						<span class="block text-xs text-zinc-500">titles · reset filters</span>
+					</button>
+					if dupCount(rows) > 0 {
+						<button type="button" x-on:click="toggleDup()" class="block w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-left transition-colors hover:bg-zinc-800">
+							<span class="block text-lg font-semibold text-zinc-100">{ strconv.Itoa(dupCount(rows)) }</span>
+							<span class="block text-xs text-zinc-500">duplicates · filter clusters</span>
+						</button>
+					}
+					<nav aria-label="Filter by plugin" class="space-y-1">
+						<button type="button" data-plugin="" x-on:click="setPlugin($el.dataset.plugin)" x-bind:class="plugin === $el.dataset.plugin ? 'bg-zinc-800' : ''" class="flex w-full items-center justify-between rounded px-2 py-1 text-left text-sm transition-colors hover:bg-zinc-800">
+							<span>All plugins</span>
+						</button>
+						for _, p := range libraryPluginCounts(rows) {
+							<button type="button" data-plugin={ p.Name } x-on:click="setPlugin($el.dataset.plugin)" x-bind:class="plugin === $el.dataset.plugin ? 'bg-zinc-800' : ''" class="flex w-full items-center justify-between gap-2 rounded px-2 py-1 text-left text-sm transition-colors hover:bg-zinc-800">
+								<span class="flex min-w-0 items-center gap-1.5">
+									<img src={ "/plugins/" + p.Name + "/logo" } alt="" loading="lazy" class="h-4 w-4 rounded-sm" onerror="this.style.display='none'"/>
+									<span class="truncate">{ p.Name }</span>
+								</span>
+								<span class="text-xs text-zinc-500">{ strconv.Itoa(p.Count) }</span>
+							</button>
+						}
+					</nav>
+				</aside>
+				<section class="min-w-0 flex-1">
+					<input id="lib-q" type="search" placeholder="Search library" aria-label="Search library" autocomplete="off" class="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-1.5 transition focus:border-transparent focus:ring-2 focus:ring-zinc-500 focus:outline-none"/>
+					<div class="mt-4 mb-3 flex flex-wrap items-center gap-2">
+						for _, f := range statusFlagBits {
+							<button type="button" data-k={ f.Key } x-on:click="toggleBadge($el.dataset.k)" x-bind:title="chipTitle($el.dataset.k)" x-bind:class="chipCls($el.dataset.k)" aria-label={ "Filter " + f.Name } class="rounded-full border px-2.5 py-1 text-xs transition-colors">{ f.Name }</button>
+						}
+						<span class="flex items-center gap-1 rounded border border-zinc-700 px-1 py-0.5 text-xs">
+							<span class="px-1 text-zinc-500">Sort:</span>
+							<button type="button" x-on:click="setSort('name')" x-bind:class="scls('name')" x-bind:title="'name ' + (sortDir.name || 'asc')" class="py-0.5">name<span x-text="sarrow('name')"></span></button>
+							if dupCount(rows) > 0 {
+								<button type="button" x-on:click="setSort('dup')" x-bind:class="scls('dup')" x-bind:title="'dup ' + (sortDir.dup || 'asc')" class="py-0.5">dup<span x-text="sarrow('dup')"></span></button>
+							}
+						</span>
+						<button type="button" x-on:click="reset()" class="rounded-full border border-zinc-700 px-2.5 py-1 text-xs text-zinc-400 transition-colors hover:bg-zinc-800">Reset</button>
+						<span class="text-xs text-zinc-500" x-text="count + ' / ' + total + ' shown'"></span>
 					</div>
-					<ul x-ref="grid" role="list" class="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4">
+					<div x-show="count === 0" class="py-16 text-center text-sm text-zinc-500">
+						No manga matches
+						<button type="button" x-on:click="reset()" class="underline underline-offset-2 transition-colors hover:text-zinc-300">Reset filters</button>
+					</div>
+					<ul x-ref="grid" role="list" class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
 						for _, r := range rows {
 							@libraryCard(r)
 						}
 					</ul>
-					<p x-show="filtered.length === 0" class="text-sm text-zinc-500">No saved titles for this plugin.</p>
-					<nav x-show="pageCount > 1" aria-label="Library pages" class="flex items-center justify-center gap-4">
-						<button type="button" x-on:click="page--" x-bind:disabled="page <= 1" class="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100 disabled:opacity-40">
-							Prev
-						</button>
-						<span class="font-mono text-xs text-zinc-500">page <span x-text="page"></span>/<span x-text="pageCount"></span></span>
-						<button type="button" x-on:click="page++" x-bind:disabled="page >= pageCount" class="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100 disabled:opacity-40">
-							Next
-						</button>
+					<nav x-show="pageCount > 1" x-cloak aria-label="Library pages" class="mt-4 flex justify-end">
+						<div class="flex items-center gap-1 text-sm text-zinc-400">
+							<button type="button" x-on:click="page = Math.max(1, page - 1); apply()" x-bind:disabled="page <= 1" aria-label="Previous page" class="rounded bg-zinc-800 px-2 py-1 transition-colors hover:bg-zinc-700 disabled:opacity-30">‹</button>
+							<template x-for="n in pageCount" x-bind:key="n">
+								<button type="button" x-on:click="page = n; apply()" class="rounded px-2 py-1 transition-colors" x-bind:class="n === page ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-800 hover:bg-zinc-700'" x-text="n"></button>
+							</template>
+							<button type="button" x-on:click="page = Math.min(pageCount, page + 1); apply()" x-bind:disabled="page >= pageCount" aria-label="Next page" class="rounded bg-zinc-800 px-2 py-1 transition-colors hover:bg-zinc-700 disabled:opacity-30">›</button>
+						</div>
 					</nav>
-				</div>
-			}
-		</div>
+				</section>
+			</div>
+		}
 	}
 }
 
 // libraryCard renders one saved manga: the cover (or an initial tile when no
-// cover is stored) linking to /view/manga/<plugin>/<slug>, the name and the
-// stored detail metadata, plus the filterable data attributes.
+// cover is stored) with corner status badges and the plugin chip, linking to
+// /view/manga/<plugin>/<slug>. The data attributes drive every client filter.
 templ libraryCard(r LibraryRow) {
 	<li
-		x-show="visible($el)"
 		data-plugin={ r.Plugin }
+		data-name={ r.Name }
 		data-dup={ strconv.Itoa(r.DupGroup) }
 		data-status-flags={ strconv.Itoa(r.StatusFlags) }
 		data-status={ r.Status }
 	>
-		<a href={ templ.SafeURL("/view/manga/" + r.Plugin + "/" + r.Slug) } class="group block">
-			if r.Cover != "" {
-				<img src={ r.Cover } alt={ r.Name + " cover" } loading="lazy" class="aspect-[2/3] w-full rounded-lg border border-zinc-800 object-cover transition group-hover:border-zinc-600"/>
-			} else {
-				<span aria-hidden="true" class="flex aspect-[2/3] w-full items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/60 font-mono text-3xl font-semibold text-amber-300">
-					{ pluginInitial(r.Name) }
-				</span>
-			}
-			<h2 class="mt-2 truncate text-sm font-semibold text-zinc-100 transition group-hover:text-amber-300">{ r.Name }</h2>
+		<a href={ templ.SafeURL("/view/manga/" + r.Plugin + "/" + r.Slug) } class="group block min-w-0">
+			<div class="relative">
+				if r.Cover != "" {
+					<img src={ r.Cover } alt={ r.Name } loading="lazy" class="aspect-[2/3] w-full rounded-lg border border-zinc-800 object-cover transition duration-150 group-hover:border-zinc-700" onerror="this.style.display='none';this.parentNode.querySelector('[data-fallback]').style.display='flex'"/>
+					<span data-fallback aria-hidden="true" style="display: none" class="flex aspect-[2/3] w-full items-center justify-center rounded-lg bg-zinc-800 p-2 text-center text-2xl text-zinc-400">{ r.Name }</span>
+				} else {
+					<span aria-hidden="true" class="flex aspect-[2/3] w-full items-center justify-center rounded-lg bg-zinc-800 p-2 text-center text-2xl text-zinc-400">{ r.Name }</span>
+				}
+				<div class="absolute top-2 left-2 z-10 flex flex-wrap items-center gap-1">
+					<span x-show="badge($el.closest('li')).news" class="rounded bg-red-600/70 px-2 py-0.5 text-[12px] font-semibold uppercase tracking-wide text-white">New</span>
+					<span x-show="badge($el.closest('li')).done" class="rounded bg-emerald-600/70 px-2 py-0.5 text-[12px] font-semibold uppercase tracking-wide text-white">Done</span>
+					<span x-show="(($el.closest('li').dataset.statusFlags || 0) & 4)" class="rounded border border-sky-700 bg-sky-900/60 px-2 py-0.5 text-[12px] font-medium uppercase tracking-wide text-sky-200">Ongoing</span>
+					<span x-show="(($el.closest('li').dataset.statusFlags || 0) & 8)" class="rounded border border-amber-700 bg-amber-900/60 px-2 py-0.5 text-[12px] font-medium uppercase tracking-wide text-amber-200">Hiatus</span>
+					<span x-show="(($el.closest('li').dataset.statusFlags || 0) & 16)" class="rounded border border-rose-700 bg-rose-900/60 px-2 py-0.5 text-[12px] font-medium uppercase tracking-wide text-rose-200">Canceled</span>
+					<span x-show="(($el.closest('li').dataset.statusFlags || 0) & 32)" class="rounded border border-violet-700 bg-violet-900/60 px-2 py-0.5 text-[12px] font-medium uppercase tracking-wide text-violet-200">Completed</span>
+					<span x-show="!((($el.closest('li').dataset.statusFlags || 0) & 60)) && $el.closest('li').dataset.status" class="rounded bg-black/40 px-2 py-0.5 text-[12px] font-medium uppercase tracking-wide text-zinc-100" x-text="$el.closest('li').dataset.status"></span>
+				</div>
+				<button type="button" data-plugin={ r.Plugin } x-on:click.prevent.stop="setPlugin($el.dataset.plugin)" aria-label={ "Filter by plugin " + r.Plugin } class="absolute bottom-2 left-2 z-10 flex items-center gap-1.5 rounded bg-black/40 px-2 py-0.5 text-[12px] text-zinc-100 transition-colors hover:bg-black/60">
+					<img src={ "/plugins/" + r.Plugin + "/logo" } alt="" loading="lazy" class="h-5 w-5 rounded-sm" onerror="this.style.display='none'"/>
+					{ r.Plugin }
+				</button>
+			</div>
+			<p class="mt-1 truncate text-sm text-zinc-300 transition-colors group-hover:text-zinc-100">{ r.Name }</p>
 		</a>
 		if len(r.Authors) > 0 {
 			<p class="mt-0.5 truncate text-xs text-zinc-500">{ strings.Join(r.Authors, ", ") }</p>
 		}
-		if len(r.Artists) > 0 {
-			<p class="mt-0.5 truncate text-xs text-zinc-600">art: { strings.Join(r.Artists, ", ") }</p>
-		}
 		if len(r.Tags) > 0 {
-			<ul aria-label="Tags" class="mt-1.5 flex flex-wrap gap-1">
-				for _, t := range r.Tags {
-					<li class="rounded bg-zinc-800/70 px-1.5 py-0.5 text-[10px] leading-4 text-zinc-400">{ t }</li>
-				}
-			</ul>
+			<p class="mt-0.5 truncate text-xs text-zinc-600">{ strings.Join(r.Tags, " · ") }</p>
 		}
 	</li>
 }
 
-// libraryEmpty replaces the grid when no manga is saved yet.
+// libraryEmpty replaces the two-column shell when no manga is saved yet.
 templ libraryEmpty() {
 	<div class="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 px-6 py-12 text-center">
 		<h2 class="font-mono text-sm font-semibold text-zinc-100">Nothing saved yet</h2>
@@ -155,14 +267,35 @@ templ libraryEmpty() {
 	</div>
 }
 
-// libraryPlugins returns the sorted distinct plugin ids across the rows, for
-// the filter dropdown.
-func libraryPlugins(rows []LibraryRow) []string {
-	seen := make(map[string]struct{}, len(rows))
+// pluginCount is one aside nav entry: a plugin id and its saved-title count.
+type pluginCount struct {
+	Name  string
+	Count int
+}
+
+// libraryPluginCounts returns the distinct plugin ids with their saved-title
+// counts, sorted by id, for the aside nav.
+func libraryPluginCounts(rows []LibraryRow) []pluginCount {
+	counts := make(map[string]int, len(rows))
 	for _, r := range rows {
 		if r.Plugin != "" {
-			seen[r.Plugin] = struct{}{}
+			counts[r.Plugin]++
 		}
 	}
-	return slices.Sorted(maps.Keys(seen))
+	out := make([]pluginCount, 0, len(counts))
+	for _, name := range slices.Sorted(maps.Keys(counts)) {
+		out = append(out, pluginCount{Name: name, Count: counts[name]})
+	}
+	return out
+}
+
+// dupCount counts rows belonging to a duplicate cluster.
+func dupCount(rows []LibraryRow) int {
+	n := 0
+	for _, r := range rows {
+		if r.DupGroup > 0 {
+			n++
+		}
+	}
+	return n
 }

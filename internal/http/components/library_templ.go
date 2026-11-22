@@ -32,41 +32,126 @@ type LibraryRow struct {
 	Tags        []string
 }
 
-// libraryGridState is the Alpine component behind the grid: it reads the
-// ?plugin= deep link, filters cards by their data-plugin attribute, slices the
-// filtered list into pages of twelve and exposes the pager state.
+// statusFlagBits mirrors the cppIsekai status_flags bit layout; it drives the
+// filter chips and the corner badges through data-status-flags.
+var statusFlagBits = []struct {
+	Key  string
+	Bit  int
+	Name string
+}{
+	{"new", 1, "New"},
+	{"done", 2, "Done"},
+	{"ongoing", 4, "Ongoing"},
+	{"hiatus", 8, "Hiatus"},
+	{"canceled", 16, "Canceled"},
+	{"completed", 32, "Completed"},
+}
+
+// libraryGridState is the Alpine component behind the two-column library: the
+// aside counters and per-plugin nav, the header search input, status-flag
+// filter chips, name/dup sorting, responsive per-page slicing and the pager.
+// It reads the ?plugin= deep link and keeps every filter client-side.
 const libraryGridState = `{
-	per: 12,
+	per: 30,
 	page: 1,
+	q: '',
 	plugin: '',
+	dup: false,
+	sort: 'name',
+	sortDir: { name: 'asc' },
+	filterState: { new: 'off', done: 'off', ongoing: 'off', hiatus: 'off', canceled: 'off', completed: 'off' },
 	cards: [],
+	count: 0,
 	init() {
-		this.cards = Array.from(this.$refs.grid.querySelectorAll('[data-plugin]'));
-		const q = new URLSearchParams(location.search).get('plugin') || '';
-		if (q) this.plugin = q;
-		this.$watch('plugin', () => { this.page = 1; });
+		this.cards = Array.from(this.$refs.grid.querySelectorAll('li[data-plugin]'));
+		const p = new URLSearchParams(location.search).get('plugin') || '';
+		if (p) this.plugin = p;
+		const inp = document.getElementById('lib-q');
+		if (inp) inp.addEventListener('input', () => { this.q = inp.value; this.page = 1; this.apply(); });
+		window.addEventListener('resize', () => this.updatePer());
+		this.updatePer();
 	},
-	get filtered() {
-		if (!this.plugin) return this.cards;
-		const p = this.plugin;
-		return this.cards.filter(c => c.dataset.plugin === p);
+	updatePer() { // 6 cols x 5 rows; scales with the responsive grid
+		const cols = window.innerWidth >= 1024 ? 6 : window.innerWidth >= 768 ? 4 : 2;
+		this.per = cols * 5;
+		this.apply();
 	},
-	get shown() {
-		return new Set(this.filtered.slice((this.page - 1) * this.per, this.page * this.per));
+	get total() { return this.cards.length; },
+	flag(c) { return +c.dataset.statusFlags || 0; },
+	isDup(c) { return (+c.dataset.dup || 0) > 0; },
+	badge(c) { const f = this.flag(c); return { news: !!(f & 1), done: !!(f & 2) }; },
+	matches(c) {
+		if (this.plugin && c.dataset.plugin !== this.plugin) return false;
+		const q = this.q.trim().toLowerCase();
+		if (q && !(c.dataset.name || '').toLowerCase().includes(q)) return false;
+		if (this.dup && !this.isDup(c)) return false;
+		const f = this.flag(c);
+		const bit = { new: 1, done: 2, ongoing: 4, hiatus: 8, canceled: 16, completed: 32 };
+		for (const k in this.filterState) {
+			const on = (f & bit[k]) !== 0;
+			if (this.filterState[k] === 'show' && !on) return false;
+			if (this.filterState[k] === 'hide' && on) return false;
+		}
+		return true;
 	},
-	visible(el) {
-		return this.shown.has(el);
+	chipCls(k) {
+		const s = this.filterState[k] || 'off';
+		return s === 'show' ? 'border-zinc-100 bg-zinc-800 text-zinc-100'
+			: s === 'hide' ? 'border-zinc-700 bg-zinc-900 text-zinc-500'
+			: 'border-zinc-700 text-zinc-400 hover:bg-zinc-800';
 	},
-	get pageCount() {
-		return Math.max(1, Math.ceil(this.filtered.length / this.per));
+	chipTitle(k) {
+		const s = this.filterState[k] || 'off';
+		return s === 'show' ? 'show ' + k : s === 'hide' ? 'hide ' + k : k + ' off';
+	},
+	toggleBadge(k) { // 3-state per chip: off -> show -> hide -> off
+		const cur = this.filterState[k] || 'off';
+		this.filterState[k] = cur === 'off' ? 'show' : cur === 'show' ? 'hide' : 'off';
+		this.page = 1; this.apply();
+	},
+	toggleDup() { this.dup = !this.dup; this.page = 1; this.apply(); },
+	setPlugin(p) { this.plugin = this.plugin === p ? '' : p; this.page = 1; this.apply(); },
+	setSort(k) { // 2-state per key, matching the available sort data
+		if (this.sort === k) this.sortDir[k] = this.sortDir[k] === 'desc' ? 'asc' : 'desc';
+		else { this.sort = k; this.sortDir = {}; this.sortDir[k] = 'asc'; }
+		this.page = 1; this.apply();
+	},
+	scls(k) { return this.sort === k ? 'rounded bg-zinc-800 px-1 py-0.5 text-zinc-100' : 'px-1 py-0.5 text-zinc-500 hover:text-zinc-200'; },
+	sarrow(k) { return this.sort === k ? (this.sortDir[k] === 'desc' ? ' ↓' : ' ↑') : ''; },
+	cmp() {
+		const dir = (this.sortDir[this.sort] || 'asc') === 'desc' ? -1 : 1;
+		return (a, b) => {
+			if (this.sort === 'dup') {
+				const da = +a.dataset.dup || 0, db = +b.dataset.dup || 0;
+				if ((da > 0) !== (db > 0)) return da > 0 ? 1 : -1; // plain titles first
+				if (da > 0 && da !== db) return db - da; // bigger clusters first
+			}
+			return dir * String(a.dataset.name).localeCompare(String(b.dataset.name));
+		};
+	},
+	reset() {
+		this.q = ''; const i = document.getElementById('lib-q'); if (i) i.value = '';
+		this.plugin = ''; this.dup = false; this.sort = 'name'; this.sortDir = { name: 'asc' };
+		this.filterState = { new: 'off', done: 'off', ongoing: 'off', hiatus: 'off', canceled: 'off', completed: 'off' };
+		this.page = 1; this.apply();
+	},
+	get pageCount() { return Math.max(1, Math.ceil(this.count / this.per)); },
+	apply() {
+		const vis = this.cards.filter((c) => this.matches(c));
+		vis.sort(this.cmp());
+		this.count = vis.length;
+		const pages = Math.max(1, Math.ceil(vis.length / this.per));
+		if (this.page > pages) this.page = pages;
+		const start = (this.page - 1) * this.per;
+		const shown = new Set(vis.slice(start, start + this.per));
+		for (const c of this.cards) c.style.display = shown.has(c) ? '' : 'none';
 	}
 }`
 
-// Library renders the saved-library grid: one cover card per saved manga
-// linking to its reader page, a plugin filter seeded from the ?plugin= query
-// parameter, client-side pagination at twelve cards per page, and the empty
-// state when nothing is saved. Each card carries data-dup, data-status-flags
-// and data-status so client filters never need another request.
+// Library renders the saved library: a w-52 aside with the total and
+// duplicate counters plus the per-plugin nav, and a flex-1 column holding the
+// search input, filter chips, sort bar, the responsive cover grid and pager.
+// Filtering, sorting and paging stay client-side on the card data attributes.
 func Library(active Page, pages []Page, rows []LibraryRow) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -96,102 +181,183 @@ func Library(active Page, pages []Page, rows []LibraryRow) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-6\"><div class=\"flex flex-wrap items-end justify-between gap-4\"><div><h1 class=\"font-mono text-2xl font-semibold tracking-tight text-zinc-50\">Library</h1><p class=\"mt-1 text-sm text-zinc-400\">Manga saved from across every plugin.</p></div>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if len(rows) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<p class=\"font-mono text-xs uppercase tracking-widest text-zinc-500\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var3 string
-				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(rows)))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 70, Col: 99}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, " saved</p>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
 			if len(rows) == 0 {
 				templ_7745c5c3_Err = libraryEmpty().Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div x-data=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div x-data=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var3 string
+				templ_7745c5c3_Var3, templ_7745c5c3_Err = templruntime.NewAttributeExpression(libraryGridState).Resolve(ctx)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 151, Col: 33}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" class=\"flex gap-6\"><aside class=\"w-52 shrink-0 space-y-4\"><button type=\"button\" x-on:click=\"reset()\" class=\"block w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-left transition-colors hover:bg-zinc-800\"><span class=\"block text-lg font-semibold text-zinc-100\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var4 string
-				templ_7745c5c3_Var4, templ_7745c5c3_Err = templruntime.NewAttributeExpression(libraryGridState).Resolve(ctx)
+				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(rows)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 76, Col: 34}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 154, Col: 87}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\" class=\"space-y-4\"><div class=\"flex flex-wrap items-center gap-x-4 gap-y-2\"><label class=\"flex items-center gap-2 text-sm text-zinc-400\">Plugin <select x-model=\"plugin\" aria-label=\"Filter by plugin\" class=\"rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none\"><option value=\"\">All</option> ")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				for _, p := range libraryPlugins(rows) {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<option value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</span> <span class=\"block text-xs text-zinc-500\">titles · reset filters</span></button> ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if dupCount(rows) > 0 {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<button type=\"button\" x-on:click=\"toggleDup()\" class=\"block w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-left transition-colors hover:bg-zinc-800\"><span class=\"block text-lg font-semibold text-zinc-100\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var5 string
-					templ_7745c5c3_Var5, templ_7745c5c3_Err = templruntime.NewAttributeExpression(p).Resolve(ctx)
+					templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(dupCount(rows)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 83, Col: 26}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 159, Col: 93}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</span> <span class=\"block text-xs text-zinc-500\">duplicates · filter clusters</span></button>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<nav aria-label=\"Filter by plugin\" class=\"space-y-1\"><button type=\"button\" data-plugin=\"\" x-on:click=\"setPlugin($el.dataset.plugin)\" x-bind:class=\"plugin === $el.dataset.plugin ? 'bg-zinc-800' : ''\" class=\"flex w-full items-center justify-between rounded px-2 py-1 text-left text-sm transition-colors hover:bg-zinc-800\"><span>All plugins</span></button> ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				for _, p := range libraryPluginCounts(rows) {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<button type=\"button\" data-plugin=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var6 string
-					templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(p)
+					templ_7745c5c3_Var6, templ_7745c5c3_Err = templruntime.NewAttributeExpression(p.Name).Resolve(ctx)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 83, Col: 32}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 168, Col: 49}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</option>")
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" x-on:click=\"setPlugin($el.dataset.plugin)\" x-bind:class=\"plugin === $el.dataset.plugin ? 'bg-zinc-800' : ''\" class=\"flex w-full items-center justify-between gap-2 rounded px-2 py-1 text-left text-sm transition-colors hover:bg-zinc-800\"><span class=\"flex min-w-0 items-center gap-1.5\"><img src=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var7 string
+					templ_7745c5c3_Var7, templ_7745c5c3_Err = templruntime.NewAttributeExpression("/plugins/" + p.Name + "/logo").ResolveURL(ctx)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 170, Col: 50}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" alt=\"\" loading=\"lazy\" class=\"h-4 w-4 rounded-sm\" onerror=\"this.style.display='none'\"> <span class=\"truncate\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var8 string
+					templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(p.Name)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 171, Col: 40}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</span></span> <span class=\"text-xs text-zinc-500\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var9 string
+					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(p.Count))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 173, Col: 67}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</span></button>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</select></label><p x-show=\"plugin !== ''\" class=\"text-xs text-zinc-500\"><span x-text=\"filtered.length\"></span> of ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</nav></aside><section class=\"min-w-0 flex-1\"><input id=\"lib-q\" type=\"search\" placeholder=\"Search library\" aria-label=\"Search library\" autocomplete=\"off\" class=\"w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-1.5 transition focus:border-transparent focus:ring-2 focus:ring-zinc-500 focus:outline-none\"><div class=\"mt-4 mb-3 flex flex-wrap items-center gap-2\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var7 string
-				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(rows)))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 89, Col: 35}
+				for _, f := range statusFlagBits {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<button type=\"button\" data-k=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var10 string
+					templ_7745c5c3_Var10, templ_7745c5c3_Err = templruntime.NewAttributeExpression(f.Key).Resolve(ctx)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 182, Col: 43}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\" x-on:click=\"toggleBadge($el.dataset.k)\" x-bind:title=\"chipTitle($el.dataset.k)\" x-bind:class=\"chipCls($el.dataset.k)\" aria-label=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var11 string
+					templ_7745c5c3_Var11, templ_7745c5c3_Err = templruntime.NewAttributeExpression("Filter " + f.Name).Resolve(ctx)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 182, Col: 195}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" class=\"rounded-full border px-2.5 py-1 text-xs transition-colors\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var12 string
+					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(f.Name)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 182, Col: 272}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</button> ")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<span class=\"flex items-center gap-1 rounded border border-zinc-700 px-1 py-0.5 text-xs\"><span class=\"px-1 text-zinc-500\">Sort:</span> <button type=\"button\" x-on:click=\"setSort('name')\" x-bind:class=\"scls('name')\" x-bind:title=\"'name ' + (sortDir.name || 'asc')\" class=\"py-0.5\">name<span x-text=\"sarrow('name')\"></span></button> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, " saved</p></div><ul x-ref=\"grid\" role=\"list\" class=\"grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4\">")
+				if dupCount(rows) > 0 {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<button type=\"button\" x-on:click=\"setSort('dup')\" x-bind:class=\"scls('dup')\" x-bind:title=\"'dup ' + (sortDir.dup || 'asc')\" class=\"py-0.5\">dup<span x-text=\"sarrow('dup')\"></span></button>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</span> <button type=\"button\" x-on:click=\"reset()\" class=\"rounded-full border border-zinc-700 px-2.5 py-1 text-xs text-zinc-400 transition-colors hover:bg-zinc-800\">Reset</button> <span class=\"text-xs text-zinc-500\" x-text=\"count + ' / ' + total + ' shown'\"></span></div><div x-show=\"count === 0\" class=\"py-16 text-center text-sm text-zinc-500\">No manga matches <button type=\"button\" x-on:click=\"reset()\" class=\"underline underline-offset-2 transition-colors hover:text-zinc-300\">Reset filters</button></div><ul x-ref=\"grid\" role=\"list\" class=\"grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -201,14 +367,10 @@ func Library(active Page, pages []Page, rows []LibraryRow) templ.Component {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</ul><p x-show=\"filtered.length === 0\" class=\"text-sm text-zinc-500\">No saved titles for this plugin.</p><nav x-show=\"pageCount > 1\" aria-label=\"Library pages\" class=\"flex items-center justify-center gap-4\"><button type=\"button\" x-on:click=\"page--\" x-bind:disabled=\"page <= 1\" class=\"rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100 disabled:opacity-40\">Prev</button> <span class=\"font-mono text-xs text-zinc-500\">page <span x-text=\"page\"></span>/<span x-text=\"pageCount\"></span></span> <button type=\"button\" x-on:click=\"page++\" x-bind:disabled=\"page >= pageCount\" class=\"rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100 disabled:opacity-40\">Next</button></nav></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</ul><nav x-show=\"pageCount > 1\" x-cloak aria-label=\"Library pages\" class=\"mt-4 flex justify-end\"><div class=\"flex items-center gap-1 text-sm text-zinc-400\"><button type=\"button\" x-on:click=\"page = Math.max(1, page - 1); apply()\" x-bind:disabled=\"page <= 1\" aria-label=\"Previous page\" class=\"rounded bg-zinc-800 px-2 py-1 transition-colors hover:bg-zinc-700 disabled:opacity-30\">‹</button><template x-for=\"n in pageCount\" x-bind:key=\"n\"><button type=\"button\" x-on:click=\"page = n; apply()\" class=\"rounded px-2 py-1 transition-colors\" x-bind:class=\"n === page ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-800 hover:bg-zinc-700'\" x-text=\"n\"></button></template><button type=\"button\" x-on:click=\"page = Math.min(pageCount, page + 1); apply()\" x-bind:disabled=\"page >= pageCount\" aria-label=\"Next page\" class=\"rounded bg-zinc-800 px-2 py-1 transition-colors hover:bg-zinc-700 disabled:opacity-30\">›</button></div></nav></section></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</div>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
 			}
 			return nil
 		})
@@ -221,8 +383,8 @@ func Library(active Page, pages []Page, rows []LibraryRow) templ.Component {
 }
 
 // libraryCard renders one saved manga: the cover (or an initial tile when no
-// cover is stored) linking to /view/manga/<plugin>/<slug>, the name and the
-// stored detail metadata, plus the filterable data attributes.
+// cover is stored) with corner status badges and the plugin chip, linking to
+// /view/manga/<plugin>/<slug>. The data attributes drive every client filter.
 func libraryCard(r LibraryRow) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -240,210 +402,259 @@ func libraryCard(r LibraryRow) templ.Component {
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<li x-show=\"visible($el)\" data-plugin=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<li data-plugin=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var9 string
-		templ_7745c5c3_Var9, templ_7745c5c3_Err = templruntime.NewAttributeExpression(r.Plugin).Resolve(ctx)
+		var templ_7745c5c3_Var14 string
+		templ_7745c5c3_Var14, templ_7745c5c3_Err = templruntime.NewAttributeExpression(r.Plugin).Resolve(ctx)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 119, Col: 24}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 223, Col: 24}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" data-dup=\"")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var10 string
-		templ_7745c5c3_Var10, templ_7745c5c3_Err = templruntime.NewAttributeExpression(strconv.Itoa(r.DupGroup)).Resolve(ctx)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 120, Col: 37}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" data-name=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" data-status-flags=\"")
+		var templ_7745c5c3_Var15 string
+		templ_7745c5c3_Var15, templ_7745c5c3_Err = templruntime.NewAttributeExpression(r.Name).Resolve(ctx)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 224, Col: 20}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var11 string
-		templ_7745c5c3_Var11, templ_7745c5c3_Err = templruntime.NewAttributeExpression(strconv.Itoa(r.StatusFlags)).Resolve(ctx)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 121, Col: 49}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" data-dup=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" data-status=\"")
+		var templ_7745c5c3_Var16 string
+		templ_7745c5c3_Var16, templ_7745c5c3_Err = templruntime.NewAttributeExpression(strconv.Itoa(r.DupGroup)).Resolve(ctx)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 225, Col: 37}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var12 string
-		templ_7745c5c3_Var12, templ_7745c5c3_Err = templruntime.NewAttributeExpression(r.Status).Resolve(ctx)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 122, Col: 24}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\"><a href=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var13 string
-		templ_7745c5c3_Var13, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL("/view/manga/" + r.Plugin + "/" + r.Slug)).ResolveURL(ctx)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 124, Col: 67}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" class=\"group block\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if r.Cover != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<img src=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var14 string
-			templ_7745c5c3_Var14, templ_7745c5c3_Err = templruntime.NewAttributeExpression(r.Cover).ResolveURL(ctx)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 126, Col: 22}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" alt=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var15 string
-			templ_7745c5c3_Var15, templ_7745c5c3_Err = templruntime.NewAttributeExpression(r.Name + " cover").Resolve(ctx)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 126, Col: 48}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" loading=\"lazy\" class=\"aspect-[2/3] w-full rounded-lg border border-zinc-800 object-cover transition group-hover:border-zinc-600\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<span aria-hidden=\"true\" class=\"flex aspect-[2/3] w-full items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/60 font-mono text-3xl font-semibold text-amber-300\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var16 string
-			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(pluginInitial(r.Name))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 129, Col: 28}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</span>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<h2 class=\"mt-2 truncate text-sm font-semibold text-zinc-100 transition group-hover:text-amber-300\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" data-status-flags=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var17 string
-		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(r.Name)
+		templ_7745c5c3_Var17, templ_7745c5c3_Err = templruntime.NewAttributeExpression(strconv.Itoa(r.StatusFlags)).Resolve(ctx)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 132, Col: 111}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 226, Col: 49}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</h2></a> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\" data-status=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var18 string
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templruntime.NewAttributeExpression(r.Status).Resolve(ctx)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 227, Col: 24}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\"><a href=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var19 string
+		templ_7745c5c3_Var19, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL("/view/manga/" + r.Plugin + "/" + r.Slug)).ResolveURL(ctx)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 229, Col: 67}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" class=\"group block min-w-0\"><div class=\"relative\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if r.Cover != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<img src=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var20 string
+			templ_7745c5c3_Var20, templ_7745c5c3_Err = templruntime.NewAttributeExpression(r.Cover).ResolveURL(ctx)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 232, Col: 23}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\" alt=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var21 string
+			templ_7745c5c3_Var21, templ_7745c5c3_Err = templruntime.NewAttributeExpression(r.Name).Resolve(ctx)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 232, Col: 38}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var21)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\" loading=\"lazy\" class=\"aspect-[2/3] w-full rounded-lg border border-zinc-800 object-cover transition duration-150 group-hover:border-zinc-700\" onerror=\"this.style.display='none';this.parentNode.querySelector('[data-fallback]').style.display='flex'\"> <span data-fallback aria-hidden=\"true\" style=\"display: none\" class=\"flex aspect-[2/3] w-full items-center justify-center rounded-lg bg-zinc-800 p-2 text-center text-2xl text-zinc-400\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var22 string
+			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(r.Name)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 233, Col: 197}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<span aria-hidden=\"true\" class=\"flex aspect-[2/3] w-full items-center justify-center rounded-lg bg-zinc-800 p-2 text-center text-2xl text-zinc-400\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var23 string
+			templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(r.Name)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 235, Col: 161}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<div class=\"absolute top-2 left-2 z-10 flex flex-wrap items-center gap-1\"><span x-show=\"badge($el.closest('li')).news\" class=\"rounded bg-red-600/70 px-2 py-0.5 text-[12px] font-semibold uppercase tracking-wide text-white\">New</span> <span x-show=\"badge($el.closest('li')).done\" class=\"rounded bg-emerald-600/70 px-2 py-0.5 text-[12px] font-semibold uppercase tracking-wide text-white\">Done</span> <span x-show=\"(($el.closest('li').dataset.statusFlags || 0) & 4)\" class=\"rounded border border-sky-700 bg-sky-900/60 px-2 py-0.5 text-[12px] font-medium uppercase tracking-wide text-sky-200\">Ongoing</span> <span x-show=\"(($el.closest('li').dataset.statusFlags || 0) & 8)\" class=\"rounded border border-amber-700 bg-amber-900/60 px-2 py-0.5 text-[12px] font-medium uppercase tracking-wide text-amber-200\">Hiatus</span> <span x-show=\"(($el.closest('li').dataset.statusFlags || 0) & 16)\" class=\"rounded border border-rose-700 bg-rose-900/60 px-2 py-0.5 text-[12px] font-medium uppercase tracking-wide text-rose-200\">Canceled</span> <span x-show=\"(($el.closest('li').dataset.statusFlags || 0) & 32)\" class=\"rounded border border-violet-700 bg-violet-900/60 px-2 py-0.5 text-[12px] font-medium uppercase tracking-wide text-violet-200\">Completed</span> <span x-show=\"!((($el.closest('li').dataset.statusFlags || 0) & 60)) && $el.closest('li').dataset.status\" class=\"rounded bg-black/40 px-2 py-0.5 text-[12px] font-medium uppercase tracking-wide text-zinc-100\" x-text=\"$el.closest('li').dataset.status\"></span></div><button type=\"button\" data-plugin=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var24 string
+		templ_7745c5c3_Var24, templ_7745c5c3_Err = templruntime.NewAttributeExpression(r.Plugin).Resolve(ctx)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 246, Col: 48}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "\" x-on:click.prevent.stop=\"setPlugin($el.dataset.plugin)\" aria-label=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var25 string
+		templ_7745c5c3_Var25, templ_7745c5c3_Err = templruntime.NewAttributeExpression("Filter by plugin " + r.Plugin).Resolve(ctx)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 246, Col: 150}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\" class=\"absolute bottom-2 left-2 z-10 flex items-center gap-1.5 rounded bg-black/40 px-2 py-0.5 text-[12px] text-zinc-100 transition-colors hover:bg-black/60\"><img src=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var26 string
+		templ_7745c5c3_Var26, templ_7745c5c3_Err = templruntime.NewAttributeExpression("/plugins/" + r.Plugin + "/logo").ResolveURL(ctx)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 247, Col: 48}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var26)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\" alt=\"\" loading=\"lazy\" class=\"h-5 w-5 rounded-sm\" onerror=\"this.style.display='none'\"> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var27 string
+		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(r.Plugin)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 248, Col: 15}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</button></div><p class=\"mt-1 truncate text-sm text-zinc-300 transition-colors group-hover:text-zinc-100\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var28 string
+		templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(r.Name)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 251, Col: 102}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</p></a> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(r.Authors) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<p class=\"mt-0.5 truncate text-xs text-zinc-500\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<p class=\"mt-0.5 truncate text-xs text-zinc-500\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var18 string
-			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(strings.Join(r.Authors, ", "))
+			var templ_7745c5c3_Var29 string
+			templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(strings.Join(r.Authors, ", "))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 135, Col: 83}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 254, Col: 83}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</p>")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-		}
-		if len(r.Artists) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<p class=\"mt-0.5 truncate text-xs text-zinc-600\">art: ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var19 string
-			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(strings.Join(r.Artists, ", "))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 138, Col: 88}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if len(r.Tags) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<ul aria-label=\"Tags\" class=\"mt-1.5 flex flex-wrap gap-1\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<p class=\"mt-0.5 truncate text-xs text-zinc-600\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			for _, t := range r.Tags {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<li class=\"rounded bg-zinc-800/70 px-1.5 py-0.5 text-[10px] leading-4 text-zinc-400\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var20 string
-				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(t)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 143, Col: 93}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</li>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
+			var templ_7745c5c3_Var30 string
+			templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(strings.Join(r.Tags, " · "))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/library.templ`, Line: 257, Col: 82}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "</ul>")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</li>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "</li>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -451,7 +662,7 @@ func libraryCard(r LibraryRow) templ.Component {
 	})
 }
 
-// libraryEmpty replaces the grid when no manga is saved yet.
+// libraryEmpty replaces the two-column shell when no manga is saved yet.
 func libraryEmpty() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -469,7 +680,7 @@ func libraryEmpty() templ.Component {
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<div class=\"rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 px-6 py-12 text-center\"><h2 class=\"font-mono text-sm font-semibold text-zinc-100\">Nothing saved yet</h2><p class=\"mt-2 text-sm text-zinc-400\">Manga you save will show up here.</p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<div class=\"rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 px-6 py-12 text-center\"><h2 class=\"font-mono text-sm font-semibold text-zinc-100\">Nothing saved yet</h2><p class=\"mt-2 text-sm text-zinc-400\">Manga you save will show up here.</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -477,16 +688,37 @@ func libraryEmpty() templ.Component {
 	})
 }
 
-// libraryPlugins returns the sorted distinct plugin ids across the rows, for
-// the filter dropdown.
-func libraryPlugins(rows []LibraryRow) []string {
-	seen := make(map[string]struct{}, len(rows))
+// pluginCount is one aside nav entry: a plugin id and its saved-title count.
+type pluginCount struct {
+	Name  string
+	Count int
+}
+
+// libraryPluginCounts returns the distinct plugin ids with their saved-title
+// counts, sorted by id, for the aside nav.
+func libraryPluginCounts(rows []LibraryRow) []pluginCount {
+	counts := make(map[string]int, len(rows))
 	for _, r := range rows {
 		if r.Plugin != "" {
-			seen[r.Plugin] = struct{}{}
+			counts[r.Plugin]++
 		}
 	}
-	return slices.Sorted(maps.Keys(seen))
+	out := make([]pluginCount, 0, len(counts))
+	for _, name := range slices.Sorted(maps.Keys(counts)) {
+		out = append(out, pluginCount{Name: name, Count: counts[name]})
+	}
+	return out
+}
+
+// dupCount counts rows belonging to a duplicate cluster.
+func dupCount(rows []LibraryRow) int {
+	n := 0
+	for _, r := range rows {
+		if r.DupGroup > 0 {
+			n++
+		}
+	}
+	return n
 }
 
 var _ = templruntime.GeneratedTemplate

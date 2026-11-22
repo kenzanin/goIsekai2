@@ -1,22 +1,248 @@
 package components
 
-// About renders the about page: the project README as pre-converted HTML,
-// with mermaid diagrams rendered client-side from the vendored asset.
+// About renders the about page: the pre-converted README HTML in a readable
+// markdown typography block, with mermaid diagrams rendered client-side from
+// the vendored asset and a per-diagram toolbar (zoom / fullscreen / SVG / PNG)
+// operating purely on the already-rendered SVG DOM.
 templ About(active Page, pages []Page, readmeHTML string) {
 	@Base(active, pages) {
+		<style>
+			.about-md {
+				max-width: 52rem;
+				margin: 0 auto;
+				line-height: 1.7;
+				color: #d4d4d8;
+			}
+			.about-md h1 {
+				font-size: 1.6rem;
+				font-weight: 700;
+				color: #fafafa;
+				margin-bottom: 0.4rem;
+			}
+			.about-md h2 {
+				font-size: 1.2rem;
+				font-weight: 600;
+				color: #fafafa;
+				margin: 1.6rem 0 0.5rem;
+				border-bottom: 1px solid #27272a;
+				padding-bottom: 0.3rem;
+			}
+			.about-md h3 {
+				font-size: 1rem;
+				font-weight: 600;
+				color: #e4e4e7;
+				margin: 1.1rem 0 0.4rem;
+			}
+			.about-md p {
+				margin: 0.45rem 0;
+			}
+			.about-md li {
+				margin: 0.45rem 0 0.45rem 1.25rem;
+				list-style: disc;
+			}
+			.about-md a {
+				color: #93c5fd;
+				text-decoration: underline;
+				text-underline-offset: 2px;
+			}
+			.about-md a:hover {
+				color: #bfdbfe;
+			}
+			.about-md code {
+				background: #18181b;
+				border: 1px solid #27272a;
+				border-radius: 0.3rem;
+				padding: 0.1rem 0.35rem;
+				font-size: 0.85em;
+			}
+			.about-md pre {
+				background: #18181b;
+				border: 1px solid #27272a;
+				border-radius: 0.5rem;
+				padding: 0.75rem 1rem;
+				overflow-x: auto;
+				margin: 0.6rem 0;
+			}
+			.about-md pre code {
+				background: transparent;
+				border: 0;
+				padding: 0;
+			}
+			.about-md svg {
+				max-width: 100%;
+				height: auto;
+			}
+			.about-md pre:has(.language-mermaid) {
+				background: transparent;
+				border: 0;
+				text-align: center;
+			}
+			.mm-wrap {
+				position: relative;
+			}
+			.mm-bar {
+				position: absolute;
+				top: 0.25rem;
+				right: 0.25rem;
+				display: flex;
+				gap: 0.25rem;
+				opacity: 0.25;
+				transition: opacity 0.15s;
+				z-index: 5;
+			}
+			.mm-wrap:hover .mm-bar,
+			.mm-wrap:focus-within .mm-bar {
+				opacity: 1;
+			}
+			.mm-bar button {
+				background: #18181b;
+				border: 1px solid #27272a;
+				color: #d4d4d8;
+				border-radius: 0.3rem;
+				padding: 0 0.4rem;
+				font-size: 0.8rem;
+				line-height: 1.4;
+				cursor: pointer;
+			}
+			.mm-bar button:hover {
+				border-color: #52525b;
+				color: #fafafa;
+			}
+			.mm-wrap:fullscreen {
+				background: #09090b;
+				padding: 2rem;
+				display: flex;
+				flex-direction: column;
+			}
+			.mm-wrap:fullscreen pre {
+				flex: 1;
+				overflow: auto;
+				margin: 0;
+			}
+		</style>
 		<script defer src="/assets/vendor/mermaid.min.js"></script>
+		<article id="about-content" class="about-md my-6">
+			@rawFragment(readmeHTML)
+		</article>
 		<script>
 			document.addEventListener("DOMContentLoaded", () => {
-				mermaid.initialize({ startOnLoad: false });
-				mermaid.run({ querySelector: "pre code.language-mermaid" });
+				const FAIL = "Diagrams failed to render: ";
+				mermaid.initialize({
+					startOnLoad: false,
+					theme: "dark",
+					securityLevel: "strict",
+				});
+				mermaid
+					.run({ querySelector: "pre code.language-mermaid" })
+					.then(decorateDiagrams)
+					.catch((e) => {
+						const warn = document.createElement("p");
+						warn.className = "text-yellow-500 text-sm";
+						warn.textContent = FAIL + (e.message || e);
+						document.getElementById("about-content").prepend(warn);
+					});
+
+				// Per-diagram toolbar: zoom, fullscreen, SVG/PNG export. The svg keeps
+				// its natural width; zoom scales it past the column and the pre scrolls.
+				function dl(href, name) {
+					const a = document.createElement("a");
+					a.href = href;
+					a.download = name;
+					document.body.appendChild(a);
+					a.click();
+					a.remove();
+				}
+				function decorateDiagrams() {
+					document
+						.querySelectorAll("pre code.language-mermaid")
+						.forEach((code, i) => {
+							const svg = code.querySelector("svg");
+							const pre = code.closest("pre");
+							if (!svg || !pre) return;
+							const wrap = document.createElement("div");
+							wrap.className = "mm-wrap";
+							pre.replaceWith(wrap);
+							wrap.appendChild(pre);
+							const bar = document.createElement("div");
+							bar.className = "mm-bar";
+							bar.innerHTML =
+								'<button title="Zoom in">+</button>' +
+								'<button title="Zoom out">&minus;</button>' +
+								'<button title="Reset zoom">100%</button>' +
+								'<button title="Fullscreen">&#x26F6;</button>' +
+								'<button title="Download SVG">SVG</button>' +
+								'<button title="Download PNG">PNG</button>';
+							wrap.appendChild(bar);
+							const zin = bar.children[0],
+								zout = bar.children[1],
+								zreset = bar.children[2];
+							const fs = bar.children[3],
+								svgB = bar.children[4],
+								pngB = bar.children[5];
+							let scale = 1;
+							const apply = () => {
+								svg.style.maxWidth = "none";
+								svg.style.width = scale * 100 + "%";
+								svg.style.height = "auto";
+							};
+							zin.onclick = () => {
+								scale = Math.min(4, scale * 1.25);
+								apply();
+							};
+							zout.onclick = () => {
+								scale = Math.max(0.5, scale / 1.25);
+								apply();
+							};
+							zreset.onclick = () => {
+								scale = 1;
+								svg.style.maxWidth = "";
+								svg.style.width = "";
+								svg.style.height = "";
+							};
+							fs.onclick = () =>
+								document.fullscreenElement
+									? document.exitFullscreen()
+									: wrap.requestFullscreen();
+							const src = new XMLSerializer().serializeToString(svg);
+							svgB.onclick = () =>
+								dl(
+									URL.createObjectURL(
+										new Blob([src], { type: "image/svg+xml" }),
+									),
+									"diagram-" + (i + 1) + ".svg",
+								);
+							pngB.onclick = () => {
+								try {
+									const img = new Image();
+									img.onload = () => {
+										const vb = svg.viewBox && svg.viewBox.baseVal;
+										const w = (vb && vb.width) || img.naturalWidth,
+											h = (vb && vb.height) || img.naturalHeight;
+										const c = document.createElement("canvas");
+										c.width = w * 2;
+										c.height = h * 2;
+										c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+										c.toBlob(
+											(b) =>
+												b &&
+												dl(
+													URL.createObjectURL(b),
+													"diagram-" + (i + 1) + ".png",
+												),
+											"image/png",
+										);
+									};
+									img.onerror = () => {};
+									img.src =
+										"data:image/svg+xml;charset=utf-8," +
+										encodeURIComponent(src);
+								} catch (err) {
+									console.warn("png export failed", err);
+								}
+							};
+						});
+				}
 			});
 		</script>
-		<div class="mx-auto max-w-4xl">
-			<h1 class="font-mono text-2xl font-semibold tracking-tight text-zinc-50">About</h1>
-			<p class="mt-1 text-sm text-zinc-400">Project README, rendered with diagrams.</p>
-			<article class="prose prose-invert mt-8 max-w-none text-zinc-200">
-				@rawFragment(readmeHTML)
-			</article>
-		</div>
 	}
 }

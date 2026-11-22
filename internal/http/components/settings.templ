@@ -2,7 +2,7 @@ package components
 
 import "strconv"
 
-// Row is one registry knob rendered as an editable or read-only form row.
+// Row is one registry knob rendered as an editable or read-only card.
 type Row struct {
 	FullKey  string
 	Key      string
@@ -36,12 +36,19 @@ const settingsFormData = `{
 		this.$root.querySelectorAll('input[data-key]').forEach((el) => {
 			el.dataset.original = el.value;
 		});
+	},
+	discard() {
+		this.$root.querySelectorAll('input[data-key]:not(:disabled)').forEach((el) => {
+			el.value = el.dataset.original;
+		});
 	}
 }`
 
-// Settings renders the settings page: one row per registry knob grouped by
-// section. Alpine tracks dirty fields, htmx submits only those to POST
-// /config and swaps the save status fragment in place.
+// Settings renders the settings page: one card per registry knob grouped by
+// section, each showing the code key, provenance, live/restart state and the
+// editable value. Alpine tracks dirty fields, htmx submits only those to POST
+// /config and swaps the save status fragment in place; Discard restores the
+// stored values client-side.
 templ Settings(active Page, pages []Page, groups []Group) {
 	@Base(active, pages) {
 		<form
@@ -52,84 +59,102 @@ templ Settings(active Page, pages []Page, groups []Group) {
 			hx-post="/config"
 			hx-target="#settings-status"
 			hx-swap="innerHTML"
-			class="space-y-10"
+			class="mx-auto max-w-5xl space-y-10"
 		>
 			<div class="flex flex-wrap items-end justify-between gap-4">
 				<div>
-					<h1 class="font-mono text-2xl font-semibold tracking-tight text-zinc-50">Settings</h1>
-					<p class="mt-1 text-sm text-zinc-400">Every knob of the running daemon, grouped by section. Only changed fields are submitted.</p>
+					<h1 class="text-2xl font-semibold tracking-tight text-zinc-50">Settings</h1>
+					<p class="mt-1 text-sm text-zinc-400">Every knob of the running daemon. Only changed fields are submitted.</p>
 				</div>
-				<button
-					type="submit"
-					x-bind:disabled="!hasDirty()"
-					class="rounded-md bg-amber-400 px-4 py-2 text-sm font-semibold text-zinc-950 shadow transition hover:bg-amber-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
-				>
-					Save changes
-				</button>
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						x-on:click="discard()"
+						class="rounded border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+					>
+						Discard
+					</button>
+					<button
+						type="submit"
+						x-bind:disabled="!hasDirty()"
+						class="rounded bg-zinc-100 px-4 py-1.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-300 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+					>
+						Save changes
+					</button>
+				</div>
 			</div>
 			<div id="settings-status" role="status" aria-live="polite"></div>
 			for _, g := range groups {
-				<fieldset class="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/40">
-					<legend class="ml-4 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-0.5 font-mono text-xs uppercase tracking-widest text-zinc-400">{ g.Section }</legend>
-					<dl class="divide-y divide-zinc-800/70">
+				<section>
+					<h2 class="border-b border-zinc-800 pb-2 font-mono text-xs font-semibold uppercase tracking-widest text-zinc-400">{ g.Section }</h2>
+					<div class="mt-4 grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
 						for _, r := range g.Rows {
-							@settingsRow(r)
+							@settingsCard(r)
 						}
-					</dl>
-				</fieldset>
+					</div>
+				</section>
 			}
 		</form>
 	}
 }
 
-// settingsRow renders a single knob: label, input or read-only value, doc
-// text, provenance hint and restart badge.
-templ settingsRow(r Row) {
-	<div class="grid gap-2 px-6 py-5 sm:grid-cols-[minmax(0,14rem)_1fr] sm:gap-6">
-		<div>
-			<label for={ fieldID(r.FullKey) } class="font-mono text-sm font-medium text-zinc-100">{ r.Key }</label>
+// settingsCard renders a single knob: code key, provenance badge, live or
+// restart badge, the value input and the documentation footer.
+templ settingsCard(r Row) {
+	<div class="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
+		<div class="flex flex-wrap items-center gap-2">
+			<label for={ fieldID(r.FullKey) } class="font-mono text-sm font-medium text-zinc-100" title={ r.FullKey }>{ r.Key }</label>
+			<span class="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-zinc-400">{ sourceLabel(r.Source) }</span>
 			if r.Restart {
-				<span class="mt-1.5 inline-flex items-center gap-1 rounded-full bg-sky-400/10 px-2 py-0.5 text-xs font-medium text-sky-300 ring-1 ring-inset ring-sky-400/20">
-					restart required
-				</span>
-			}
-			<p class="mt-1.5 text-xs leading-relaxed text-zinc-500">{ r.Doc }</p>
-		</div>
-		<div class="min-w-0">
-			if r.Disabled {
-				<input
-					id={ fieldID(r.FullKey) }
-					type="text"
-					value={ r.Value }
-					disabled
-					class="w-full cursor-not-allowed rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2 font-mono text-sm text-zinc-500"
-				/>
-				<p class="mt-1.5 text-xs text-zinc-500">{ r.Hint } — edit it at that source; this row is read-only.</p>
+				<span class="rounded bg-sky-400/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-sky-300 ring-1 ring-inset ring-sky-400/20">restart required</span>
 			} else {
-				<input
-					id={ fieldID(r.FullKey) }
-					type="text"
-					data-key={ r.FullKey }
-					value={ r.Value }
-					if r.Invalid {
-						aria-invalid="true"
-						class="w-full rounded-md border border-red-500/60 bg-zinc-900 px-3 py-2 font-mono text-sm text-zinc-100 transition focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
-					} else {
-						class="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 font-mono text-sm text-zinc-100 transition focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
-					}
-				/>
-				if r.Invalid {
-					<p class="mt-1.5 text-xs font-medium text-red-400">Stored value could not be parsed; showing the default. Fix and save to repair it.</p>
-				}
+				<span class="rounded bg-emerald-400/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-emerald-300 ring-1 ring-inset ring-emerald-400/20">live</span>
 			}
-			<p class="mt-1.5 text-xs text-zinc-600">source: { r.Source }</p>
 		</div>
+		if r.Disabled {
+			<input
+				id={ fieldID(r.FullKey) }
+				type="text"
+				value={ r.Value }
+				disabled
+				class="w-full cursor-not-allowed rounded border border-zinc-800 bg-zinc-900/50 px-2.5 py-1.5 font-mono text-sm text-zinc-500"
+			/>
+		} else {
+			<input
+				id={ fieldID(r.FullKey) }
+				type="text"
+				data-key={ r.FullKey }
+				value={ r.Value }
+				if r.Invalid {
+					aria-invalid="true"
+					class="w-full rounded border border-red-500/60 bg-zinc-900 px-2.5 py-1.5 font-mono text-sm text-zinc-100 transition-colors focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 focus:outline-none"
+				} else {
+					class="w-full rounded border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 font-mono text-sm text-zinc-100 transition-colors focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 focus:outline-none"
+				}
+			/>
+		}
+		<p class="text-xs leading-relaxed text-zinc-500">{ r.Doc }</p>
+		if r.Disabled {
+			<p class="text-xs text-zinc-500">{ r.Hint } — edit it at that source; this knob is read-only.</p>
+		}
+		if r.Invalid {
+			<p class="text-xs font-medium text-red-400">Stored value could not be parsed; showing the default. Fix and save to repair it.</p>
+		}
+		<p class="text-[10px] text-zinc-600">{ r.FullKey }</p>
 	</div>
 }
 
 // fieldID derives a stable element id from a section.key full key.
 func fieldID(fullKey string) string {
 	return "field-" + fullKey
+}
+
+// sourceLabel maps a provenance source to its badge label.
+func sourceLabel(source string) string {
+	if source == "" {
+		return "default"
+	}
+	return source
 }
 
 // StatusFragment is the htmx response swapped into #settings-status after a

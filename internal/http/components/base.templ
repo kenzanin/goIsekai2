@@ -7,8 +7,16 @@ type Page struct {
 	Title string
 }
 
+// utilityPaths marks the nav entries rendered right of the flexible spacer,
+// mirroring the cppIsekai header: primary pages left, Log and About right.
+var utilityPaths = map[string]bool{
+	"/log":   true,
+	"/about": true,
+}
+
 // Base renders the shared HTML shell: head, compiled stylesheet, vendored
-// scripts and the top navigation listing exactly the implemented pages.
+// scripts, the split top navigation, the page body, a fixed bottom-right
+// toast host and the client-side toast surface used by htmx error events.
 templ Base(active Page, pages []Page) {
 	<!DOCTYPE html>
 	<html lang="en" class="h-full">
@@ -16,28 +24,88 @@ templ Base(active Page, pages []Page) {
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>{ active.Title } · goisekai2</title>
+			<style>
+				[x-cloak] {
+					display: none !important;
+				}
+			</style>
 			<link rel="stylesheet" href="/assets/app.css"/>
 			<script defer src="/assets/vendor/htmx.min.js"></script>
 			<script defer src="/assets/vendor/alpine.min.js"></script>
 		</head>
-		<body class="min-h-full bg-zinc-950 font-sans text-zinc-200 antialiased">
-			<header class="border-b border-zinc-800 bg-zinc-900/60">
-				<div class="mx-auto flex h-14 max-w-4xl items-center gap-8 px-6">
-					<span class="font-mono text-sm font-semibold tracking-widest text-amber-400">goisekai2</span>
-					<nav aria-label="Primary" class="flex items-center gap-1">
-						for _, p := range pages {
-							if p.Path == active.Path {
-								<a href={ templ.SafeURL(p.Path) } aria-current="page" class="rounded-md bg-amber-400/10 px-3 py-1.5 text-sm font-medium text-amber-300">{ p.Title }</a>
-							} else {
-								<a href={ templ.SafeURL(p.Path) } class="rounded-md px-3 py-1.5 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100">{ p.Title }</a>
-							}
+		<body class="min-h-screen bg-zinc-950 text-zinc-100 antialiased">
+			<header class="flex h-12 items-center gap-1 border-b border-zinc-800 px-4">
+				<nav aria-label="Primary" class="flex items-center gap-1">
+					for _, p := range pages {
+						if !utilityPaths[p.Path] {
+							@navLink(p, active)
 						}
-					</nav>
-				</div>
+					}
+				</nav>
+				<span class="flex-1"></span>
+				<nav aria-label="Secondary" class="flex items-center gap-1">
+					for _, p := range pages {
+						if utilityPaths[p.Path] {
+							@navLink(p, active)
+						}
+					}
+				</nav>
 			</header>
-			<main class="mx-auto max-w-4xl px-6 py-10">
+			<main class="p-4">
 				{ children... }
 			</main>
+			<div id="toast-host" class="fixed right-4 bottom-4 z-[60] flex flex-col items-end gap-2"></div>
+			<script>
+				(function () {
+					const host = document.getElementById("toast-host");
+					const KINDS = {
+						success: "bg-emerald-600 text-white",
+						error: "bg-red-600 text-white",
+						info: "bg-zinc-700 text-zinc-100",
+					};
+					window.toast = function (kind, msg) {
+						while (host.children.length >= 4) host.firstElementChild.remove();
+						const t = document.createElement("div");
+						t.className =
+							"max-w-xs cursor-pointer rounded px-3 py-2 text-sm shadow-lg " +
+							(KINDS[kind] || KINDS.info);
+						t.textContent = msg;
+						t.onclick = function () {
+							t.remove();
+						};
+						host.appendChild(t);
+						setTimeout(
+							function () {
+								t.remove();
+							},
+							kind === "error" ? 8000 : 5000,
+						);
+					};
+					document.body.addEventListener("htmx:responseError", function (ev) {
+						window.toast(
+							"error",
+							"Request failed (" +
+								((ev.detail && ev.detail.xhr && ev.detail.xhr.status) ||
+									"network") +
+								")",
+						);
+					});
+				})();
+			</script>
 		</body>
 	</html>
+}
+
+// navLink renders one header entry; the active page gets the zinc-800
+// surface and aria-current.
+templ navLink(p Page, active Page) {
+	if p.Path == active.Path {
+		<a href={ templ.SafeURL(p.Path) } aria-current="page" class="rounded px-3 py-1 transition-colors bg-zinc-800 text-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none">
+			{ p.Title }
+		</a>
+	} else {
+		<a href={ templ.SafeURL(p.Path) } class="rounded px-3 py-1 transition-colors hover:bg-zinc-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none">
+			{ p.Title }
+		</a>
+	}
 }

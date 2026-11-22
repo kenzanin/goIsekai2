@@ -1,45 +1,40 @@
 package components
 
-// Log renders the live log page: a scrolling line buffer fed by the daemon
-// WebSocket at /ws/log, with a connection status badge and reconnect.
+// Log renders the live log page: a full-height terminal panel fed by the
+// daemon WebSocket at /ws/log, a connection status badge, a 200-line DOM cap
+// and a 1s reconnect. No framework, vendored assets only.
 templ Log(active Page, pages []Page) {
 	@Base(active, pages) {
 		<div class="flex flex-wrap items-end justify-between gap-4">
 			<div>
-				<h1 class="font-mono text-2xl font-semibold tracking-tight text-zinc-50">Live log</h1>
-				<p class="mt-1 text-sm text-zinc-400">Daemon log stream over WebSocket. Newest lines at the bottom.</p>
+				<h1 class="text-2xl font-semibold tracking-tight text-zinc-50">Log</h1>
+				<p class="mt-1 text-sm text-zinc-400">Live daemon log over WebSocket. Newest lines at the bottom.</p>
 			</div>
-			<span
-				id="log-status"
-				class="inline-flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-400 ring-1 ring-inset ring-zinc-700"
-			>
+			<span id="log-status" class="inline-flex items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-400">
 				<span id="log-status-dot" class="h-2 w-2 rounded-full bg-zinc-500"></span>
 				<span id="log-status-text">Connecting</span>
 			</span>
 		</div>
-		<pre
-			id="log-lines"
-			class="mt-8 h-[32rem] overflow-y-auto whitespace-pre-wrap rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 font-mono text-xs leading-relaxed text-zinc-300"
-		></pre>
+		<pre id="log" class="mt-4 h-[70vh] overflow-auto whitespace-pre-wrap rounded bg-zinc-900 p-3 text-xs leading-5 text-zinc-300"></pre>
 		<script>
 			(() => {
-				const pre = document.getElementById("log-lines");
-				const badge = document.getElementById("log-status");
+				const pre = document.getElementById("log");
 				const dot = document.getElementById("log-status-dot");
-				const text = document.getElementById("log-status-text");
+				const label = document.getElementById("log-status-text");
+				const badge = document.getElementById("log-status");
 				const MAX_LINES = 200;
 
 				function setStatus(connected) {
 					if (connected) {
-						text.textContent = "Connected";
-						dot.className = "h-2 w-2 rounded-full bg-amber-400";
+						label.textContent = "Connected";
+						dot.className = "h-2 w-2 rounded-full bg-emerald-400";
 						badge.className =
-							"inline-flex items-center gap-1.5 rounded-full bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-300 ring-1 ring-inset ring-amber-400/20";
+							"inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-300";
 					} else {
-						text.textContent = "Disconnected";
+						label.textContent = "Disconnected";
 						dot.className = "h-2 w-2 rounded-full bg-red-400";
 						badge.className =
-							"inline-flex items-center gap-1.5 rounded-full bg-red-400/10 px-3 py-1 text-xs font-medium text-red-300 ring-1 ring-inset ring-red-400/20";
+							"inline-flex items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs text-red-300";
 					}
 				}
 
@@ -49,9 +44,8 @@ templ Log(active Page, pages []Page) {
 					ws.onopen = () => setStatus(true);
 					ws.onmessage = (ev) => {
 						pre.appendChild(document.createTextNode(String(ev.data) + "\n"));
-						while (pre.childNodes.length > MAX_LINES) {
+						while (pre.childNodes.length > MAX_LINES)
 							pre.removeChild(pre.firstChild);
-						}
 						pre.scrollTop = pre.scrollHeight;
 					};
 					ws.onclose = () => {
