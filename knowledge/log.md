@@ -1,4 +1,12 @@
 ## 2026-11-22
+* **Update**: Linked `references/diagrams.md` to `architecture/capability-map.md` (Diagram source concept indexed by references/diagrams).
+* **Update**: Linked `references/diagrams.md` to `architecture/event-driven-core.md` (Diagram source concept indexed by references/diagrams).
+* **Update**: Linked `references/diagrams.md` to `architecture/state-machines.md` (Diagram source concept indexed by references/diagrams).
+* **Update**: Linked `references/diagrams.md` to `architecture/data-flows.md` (Diagram source concept indexed by references/diagrams).
+* **Update**: Linked `references/diagrams.md` to `architecture/overview.md` (Diagram source concept indexed by references/diagrams).
+* **Creation**: Documented concept `references/diagrams.md` (Diagram index: all Mermaid diagrams live in OKF concepts).
+* **Update**: Linked `references/pi-worker.md` to `references/kit-worker.md` (Alternative headless worker harness using pi instead of KIT).
+* **Creation**: Documented concept `references/pi-worker.md` (PI worker harness).
 * **Update**: Updated concept `notes/webp-self-registers-image-decoder.md`.
 * **Update**: Updated concept `notes/cache-cover-cgo-gate.md`.
 * **Update**: Linked `notes/webp-self-registers-image-decoder.md` to `architecture/cache-layout.md` (Decoder-registration behaviour the cache transcode and any webp re-decode rely on.).

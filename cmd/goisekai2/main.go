@@ -17,6 +17,7 @@ import (
 
 	imagecache "goisekai2/internal/cache"
 	"goisekai2/internal/config"
+	"goisekai2/internal/detail"
 	"goisekai2/internal/events"
 	httpserver "goisekai2/internal/http"
 	"goisekai2/internal/library"
@@ -140,6 +141,15 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	_ = pool.Rebuild()
 	srv.SetCache(imagecache.NewStore(cacheRoot, snap.String("cache.image_format"),
 		int(snap.Int("cache.cover_max_px")), pool))
+	enrichDir := filepath.Join(dataDir, "enrichment")
+	toolSet := &tools.ToolSet{Store: st, Snapshot: snap, DataDir: dataDir, Log: slog.Default()}
+	enrichment, err := detail.LoadEnrichment(enrichDir, toolSet)
+	if err != nil {
+		fmt.Fprintf(stderr, "goisekai2: enrichment sources: %v\n", err)
+	}
+	dsvc := detail.New(st, host)
+	dsvc.SetEnrichment(enrichment)
+	srv.SetDetail(dsvc)
 
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", snap.Int(config.KnobServerPort)))
 	if err != nil {

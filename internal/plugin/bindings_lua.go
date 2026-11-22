@@ -57,6 +57,16 @@ func bindLua(L *lua.LState, ts *tools.ToolSet) {
 		return 0
 	}))
 	L.SetField(host, "storage", storage)
+	text := L.NewTable()
+	L.SetField(text, "normalize_status", L.NewFunction(func(L *lua.LState) int {
+		L.Push(lua.LString(tools.NormalizeStatus(L.CheckString(1))))
+		return 1
+	}))
+	L.SetField(text, "clean", L.NewFunction(func(L *lua.LState) int {
+		L.Push(lua.LString(tools.Clean(L.CheckString(1))))
+		return 1
+	}))
+	L.SetField(host, "text", text)
 }
 
 // hostResult is the JSON envelope returned by host.call.

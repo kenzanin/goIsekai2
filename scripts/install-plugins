@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Install the bundled plugin corpus into a goIsekai2 data directory. Existing
+# folders are overwritten by the bundled version; unrelated folders are kept.
+set -euo pipefail
+
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+DATA_DIR="${1:-${GOISEKAI_DATA_DIR:-$REPO/data}}"
+PLUGINS="$DATA_DIR/plugins"
+ENRICHMENT="$DATA_DIR/enrichment"
+
+for group in lua js; do
+  mkdir -p "$PLUGINS"
+  cp -R "$REPO/plugins/$group/." "$PLUGINS/"
+done
+mkdir -p "$ENRICHMENT"
+cp -R "$REPO/plugins/enrichment/." "$ENRICHMENT/"
+
+echo "installed plugins into $PLUGINS and $ENRICHMENT"
