@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"goisekai2/internal/browser"
 	"goisekai2/internal/config"
 	"goisekai2/internal/store"
 )
@@ -15,12 +16,14 @@ import (
 // Snapshot are shared daemon state, PluginID scopes storage rows and log
 // lines, Dir is the plugin's own directory.
 type ToolSet struct {
-	Store    *store.Store
-	Snapshot *config.Snapshot
-	Dir      string
-	DataDir  string
-	PluginID string
-	Log      *slog.Logger
+	Store          *store.Store
+	Snapshot       *config.Snapshot
+	Dir            string
+	DataDir        string
+	PluginID       string
+	Log            *slog.Logger
+	Browser        browser.Browser
+	BrowserAllowed func(string) bool
 }
 
 // Now returns the current Unix time in seconds.

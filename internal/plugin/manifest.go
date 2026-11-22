@@ -26,6 +26,8 @@ type Manifest struct {
 	API          int      `json:"api"`
 	Entry        string   `json:"entry"`
 	Logo         string   `json:"logo"`
+	Website      string   `json:"website"`
+	ImageReferer string   `json:"image_referer"`
 }
 
 // LoadManifest reads and validates the manifest file at path. Entry resolves

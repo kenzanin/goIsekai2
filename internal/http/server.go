@@ -318,7 +318,11 @@ func (s *Server) getCacheImage(w http.ResponseWriter, r *http.Request) {
 	}
 	matches, _ := filepath.Glob(base + ".*")
 	if len(matches) == 0 || strings.HasSuffix(matches[0], ".json") {
-		body, err := s.cacheStore.GetOrFetch(r.Context(), imagecache.Hash(rawURL), rawURL)
+		referer := ""
+		if s.host != nil {
+			referer = s.host.ImageReferer(pluginID)
+		}
+		body, err := s.cacheStore.GetOrFetchWithReferer(r.Context(), imagecache.Hash(rawURL), rawURL, referer)
 		if err != nil {
 			http.NotFound(w, r)
 			return

@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"goisekai2/internal/browser"
 	imagecache "goisekai2/internal/cache"
 	"goisekai2/internal/config"
 	"goisekai2/internal/detail"
@@ -127,8 +128,36 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if !filepath.IsAbs(pluginDir) && !strings.ContainsRune(pluginDir, os.PathSeparator) {
 		pluginDir = filepath.Join(dataDir, pluginDir)
 	}
-	host := plugin.NewHost(st, bus, pluginDir, &tools.ToolSet{
+	sup := &browser.Supervisor{
+		URL: snap.String("browser.url"), Binary: snap.String("browser.binary"),
+		Port: int(snap.Int("browser.cdp_port")),
+	}
+	var rodBrowser browser.Browser
+	owned, startErr := sup.Start(ctx)
+	if startErr != nil {
+		fmt.Fprintf(stderr, "goisekai2: browser backend: %v\n", startErr)
+	} else {
+		rodBrowser, startErr = browser.ConnectRod(ctx, sup.ControlURL(),
+			time.Duration(snap.Int("browser.timeout_ms"))*time.Millisecond)
+		if startErr != nil {
+			fmt.Fprintf(stderr, "goisekai2: browser connect: %v\n", startErr)
+		}
+	}
+	if owned {
+		defer func() {
+			stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = sup.Stop(stopCtx)
+		}()
+	}
+	if rodBrowser != nil {
+		defer rodBrowser.Close()
+	}
+
+	var host *plugin.Host
+	host = plugin.NewHost(st, bus, pluginDir, &tools.ToolSet{
 		Store: st, Snapshot: snap, DataDir: dataDir, Log: slog.Default(),
+		Browser: rodBrowser, BrowserAllowed: func(id string) bool { return host.HasCapability(id, "browser") },
 	})
 	if err := host.Boot(ctx); err != nil {
 		fmt.Fprintf(stderr, "goisekai2: plugin host: %v\n", err)

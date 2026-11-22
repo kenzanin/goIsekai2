@@ -27,6 +27,7 @@ table that answers "library or hand-written?" without reading five concepts.
 | WebSocket | `coder/websocket` | v1.8.15 | `decisions/http-framework` |
 | Event bus | `gookit/event` | v1.2.0 | `decisions/event-dispatch` |
 | FSM engine | `qmuntal/stateless` | v1.8.0 | `decisions/state-machine-engine` |
+| Browser CDP driver | `github.com/go-rod/rod` | v0.116.2 | `decisions/browser-host-transport` |
 | WebP encode | `gen2brain/webp` | v0.6.4 | `decisions/image-pipeline` |
 | AVIF encode | `gen2brain/avif` | v0.6.0 | `decisions/image-pipeline` |
 | JPEG XL encode | `gen2brain/jpegxl` | unpinned | `decisions/image-pipeline` |

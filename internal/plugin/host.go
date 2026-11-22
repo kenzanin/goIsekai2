@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -53,6 +55,15 @@ func (noopTools) StorageSet(string, string) {}
 // Hash returns the value unchanged until a crypto tool is wired.
 func (noopTools) Hash(value string) string { return value }
 
+func hasCapability(m *Manifest, want string) bool {
+	for _, c := range m.Capabilities {
+		if strings.EqualFold(c, want) {
+			return true
+		}
+	}
+	return false
+}
+
 func snapshotOf(ts *tools.ToolSet) *config.Snapshot {
 	if ts == nil {
 		return nil
@@ -65,6 +76,40 @@ func dataDirOf(ts *tools.ToolSet, dir string) string {
 		return ts.DataDir
 	}
 	return filepath.Dir(dir)
+}
+
+// HasCapability reports whether a plugin declares the named capability.
+func (h *Host) HasCapability(id, capability string) bool {
+	inst, err := h.instance(id)
+	if err != nil {
+		return false
+	}
+	for _, c := range inst.Manifest.Capabilities {
+		if strings.EqualFold(c, capability) {
+			return true
+		}
+	}
+	return false
+}
+
+// ImageReferer resolves the referer for a plugin's image fetches. An empty
+// result means no Referer header; "none" is the explicit sentinel.
+func (h *Host) ImageReferer(id string) string {
+	inst, err := h.instance(id)
+	if err != nil {
+		return ""
+	}
+	if inst.Manifest.ImageReferer == "none" {
+		return ""
+	}
+	if inst.Manifest.ImageReferer != "" {
+		return inst.Manifest.ImageReferer
+	}
+	u, err := url.Parse(inst.Manifest.Website)
+	if err != nil {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host + "/"
 }
 
 // Health is the last call outcome; it is never a lifecycle state.
@@ -155,8 +200,12 @@ func (h *Host) Boot(ctx context.Context) error {
 		lc := NewLifecycle(h.store, h.bus, folder, initial)
 		ts := &tools.ToolSet{
 			Store: h.store, Snapshot: snapshotOf(h.tools), Dir: folder,
-			DataDir: dataDirOf(h.tools, h.dir), PluginID: folder, Log: slog.Default(),
+			DataDir: dataDirOf(h.tools, h.dir), PluginID: folder,
 		}
+		if h.tools != nil {
+			ts.Browser = h.tools.Browser
+		}
+		ts.BrowserAllowed = func(id string) bool { return hasCapability(m, "browser") }
 		if binder, ok := rt.(interface{ SetTools(*tools.ToolSet) }); ok {
 			binder.SetTools(ts)
 		}

@@ -85,6 +85,30 @@ func Knobs() *Registry {
 			Doc: "Number of database snapshots to retain",
 		},
 		Entry{
+			Section: "browser", Key: "url", Kind: KindString,
+			Default: "http://127.0.0.1:9222/json/version",
+			Flag:    "browser-url", Env: "GOISEKAI_BROWSER_URL",
+			Doc: "Browser health endpoint (CDP /json/version)",
+		},
+		Entry{
+			Section: "browser", Key: "cdp_port", Kind: KindInt,
+			Default: "9222", Min: 1, Max: 65535,
+			Flag: "browser-cdp-port", Env: "GOISEKAI_BROWSER_CDP_PORT",
+			Doc: "CDP port for an owned browser child",
+		},
+		Entry{
+			Section: "browser", Key: "binary", Kind: KindString,
+			Default: "lightpanda",
+			Flag:    "browser-binary", Env: "GOISEKAI_BROWSER_BINARY",
+			Doc: "Browser daemon binary to spawn when none is healthy",
+		},
+		Entry{
+			Section: "browser", Key: "timeout_ms", Kind: KindInt64,
+			Default: "30000", Min: 1,
+			Flag: "browser-timeout-ms", Env: "GOISEKAI_BROWSER_TIMEOUT_MS",
+			Doc: "Browser call timeout (ms)",
+		},
+		Entry{
 			Section: "paths", Key: "data_dir", Kind: KindString,
 			Default: "data",
 			Flag:    "data-dir", Env: "GOISEKAI_DATA_DIR",
