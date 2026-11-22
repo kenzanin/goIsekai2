@@ -22,3 +22,9 @@
 
 - Merge `change/add-sites` into `main` with `--no-ff`.
 - Archive the change with `openspec archive add-sites -y` after the gates pass.
+
+## 2b. UI pages added on request
+
+- [x] 2b.1 Add `/about` rendering the project README with vendored Mermaid.js — verify the page returns 200 and mermaid script is present.
+- [x] 2b.2 Add `/log` reading the WebSocket log stream — verify replay over `/ws/log` through httptest.
+- [x] 2b.3 Add the in-memory log hub and slog handler — verify published lines replay to a fresh subscriber.

@@ -39,3 +39,4 @@
 * [updates.Maintenance isolates its three steps](updates-maintenance-isolation.md) - Prune, backup and recluster each run and log their own failure, so a failing step never blocks the rest.
 * [Backup cadence watermark is the newest snapshot, not a store key](updates-backup-watermark.md) - Backups are VACUUM snapshots in <db dir>/backups; cadence reads the newest library-*.db timestamp because the frozen schema has no key/value table.
 * [Cache prune is a GORM chain, not a store method](updates-prune-gorm-chain.md) - PruneCache deletes expired api_cache rows via Where/Delete on Store.DB() because no typed prune method exists.
+* [Manifest id is optional; folder is the fallback identity](manifest-id-optional.md) - cppIsekai plugin loaders default a main.json without id to the folder name, and goIsekai2 LoadManifest rejects only a declared id that differs from the folder.

@@ -12,3 +12,4 @@
 * [Store access: GORM with one raw-SQL boundary](store-access.md) - GORM runs on the pure-Go glebarez/sqlite driver; raw SQL is confined to the internal/store/sql module and enforced by scripts/sql-boundary-check.
 * [No generic worker pool: job runners plus semaphores](concurrency-pool-policy.md) - goIsekai V2 does not build a general worker pool: only the scheduler has bounded job runners, while plugin calls and fetches use semaphores and SQLite serialization comes from database/sql.
 * [UI stack: templ + Tailwind + Alpine + htmx](ui-stack.md) - goIsekai V2 SSR UI uses typed templ components, compiled Tailwind CSS, and locally vendored Alpine/htmx; generated assets are committed and embedded.
+* [First site corpus tranche and parity tracking](site-corpus-scope.md) - Port seven baseline plugin folders first and record every other baseline folder as an omission with a reason rather than silently dropping it.

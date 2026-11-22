@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	coderwebsocket "github.com/coder/websocket"
+
 	imagecache "goisekai2/internal/cache"
 	"goisekai2/internal/config"
 	"goisekai2/internal/detail"
@@ -25,6 +27,7 @@ import (
 	"goisekai2/internal/plugin"
 	"goisekai2/internal/reader"
 	"goisekai2/internal/store"
+	"goisekai2/internal/stream"
 )
 
 func testIni(t *testing.T) string {
@@ -39,8 +42,8 @@ func testIni(t *testing.T) string {
 
 func TestRoutesOnlyIncludeImplementedPages(t *testing.T) {
 	s := New(config.Knobs(), testIni(t), nil, nil, nil, nil, nil)
-	if got := s.Pages(); len(got) != 3 || got[0].Path != "/settings" || got[1].Path != "/library" || got[2].Path != "/search" {
-		t.Fatalf("pages = %v, want settings/library/search", got)
+	if got := s.Pages(); len(got) != 5 || got[0].Path != "/settings" || got[1].Path != "/log" || got[2].Path != "/about" || got[3].Path != "/library" || got[4].Path != "/search" {
+		t.Fatalf("pages = %v, want settings/log/about/library/search", got)
 	}
 
 	rec := httptest.NewRecorder()
@@ -499,5 +502,56 @@ func TestCacheImageRoute(t *testing.T) {
 	}
 	if calls != 1 {
 		t.Fatalf("upstream calls = %d, want 1", calls)
+	}
+}
+
+func TestPluginLogoRouteAlias(t *testing.T) {
+	s := New(config.Knobs(), testIni(t), nil, nil, nil, nil, nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/plugin/mangadex/logo", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("logo alias = %d, want 404 without a plugin host", rec.Code)
+	}
+}
+
+func TestAboutAndLogRoutes(t *testing.T) {
+	s := New(config.Knobs(), testIni(t), nil, nil, nil, nil, nil)
+	s.SetStream(stream.New(20))
+	for _, path := range []string{"/about", "/log"} {
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s = %d", path, rec.Code)
+		}
+	}
+	found := false
+	for _, p := range s.Pages() {
+		if p.Path == "/about" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("about not in navigation")
+	}
+}
+
+func TestWebSocketLogReplay(t *testing.T) {
+	hub := stream.New(20)
+	hub.Publish("HELLO_LOG")
+	s := New(config.Knobs(), testIni(t), nil, nil, nil, nil, nil)
+	s.SetStream(hub)
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws/log"
+	conn, _, err := coderwebsocket.Dial(ctx, wsURL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.CloseNow()
+	_, data, err := conn.Read(ctx)
+	if err != nil || !strings.Contains(string(data), "HELLO_LOG") {
+		t.Fatalf("frame = %q, %v", data, err)
 	}
 }

@@ -1,4 +1,8 @@
 ## 2026-11-22
+* **Update**: Linked `notes/manifest-id-optional.md` to `decisions/site-corpus-scope.md` (Manifest id validation evidence for the site corpus tranche).
+* **Update**: Linked `decisions/site-corpus-scope.md` to `architecture/capability-map.md` (Site corpus tranche follows the mapped capability order).
+* **Creation**: Documented concept `notes/manifest-id-optional.md` (Manifest id is optional; folder is the fallback identity).
+* **Creation**: Documented concept `decisions/site-corpus-scope.md` (First site corpus tranche and parity tracking).
 * **Update**: Updated concept `decisions/browser-host-transport.md`.
 * **Creation**: Documented concept `notes/updates-prune-gorm-chain.md` (Cache prune is a GORM chain, not a store method).
 * **Creation**: Documented concept `notes/updates-backup-watermark.md` (Backup cadence watermark is the newest snapshot, not a store key).

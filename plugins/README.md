@@ -50,3 +50,10 @@ folders. The daemon config key `plugin.plugins` must point at `data/plugins`.
 With the installed corpus and a daemon on port 18091, `GET /plugins` returned 200
 and listed `Atsumaru`, `MangaFire`, `MangaHub` and `MangaTown`. Enrichment sources
 are intentionally absent from that scraper list.
+
+## Parity
+
+`PARITY.md` lists every baseline `plugins_dev/` folder with a status. The first tranche ships the
+top five manga plugins by baseline saved-title count, the mangadex reference plugin, and two
+enrichment sources. Every other folder is explicitly omitted with a reason; `1manga` is deferred
+until the Lua runtime exposes a module `require` shim.

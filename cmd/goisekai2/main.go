@@ -26,6 +26,7 @@ import (
 	"goisekai2/internal/plugin/tools"
 	"goisekai2/internal/reader"
 	"goisekai2/internal/store"
+	"goisekai2/internal/stream"
 	"goisekai2/internal/updates"
 )
 
@@ -94,7 +95,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 
 	levelVar := new(slog.LevelVar)
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: levelVar})))
+	logHub := stream.New(200)
+	textHandler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: levelVar})
+	slog.SetDefault(slog.New(stream.NewHandler(textHandler, logHub)))
 	config.RegisterLiveApplier("log.level", func(v string) error {
 		var level slog.Level
 		if err := level.UnmarshalText([]byte(v)); err != nil {
@@ -180,6 +183,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	dsvc := detail.New(st, host)
 	dsvc.SetEnrichment(enrichment)
 	srv.SetDetail(dsvc)
+	srv.SetStream(logHub)
 
 	schedCtx, schedCancel := context.WithCancel(ctx)
 	defer schedCancel()

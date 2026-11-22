@@ -1,0 +1,22 @@
+package components
+
+// About renders the about page: the project README as pre-converted HTML,
+// with mermaid diagrams rendered client-side from the vendored asset.
+templ About(active Page, pages []Page, readmeHTML string) {
+	@Base(active, pages) {
+		<script defer src="/assets/vendor/mermaid.min.js"></script>
+		<script>
+			document.addEventListener("DOMContentLoaded", () => {
+				mermaid.initialize({ startOnLoad: false });
+				mermaid.run({ querySelector: "pre code.language-mermaid" });
+			});
+		</script>
+		<div class="mx-auto max-w-4xl">
+			<h1 class="font-mono text-2xl font-semibold tracking-tight text-zinc-50">About</h1>
+			<p class="mt-1 text-sm text-zinc-400">Project README, rendered with diagrams.</p>
+			<article class="prose prose-invert mt-8 max-w-none text-zinc-200">
+				@rawFragment(readmeHTML)
+			</article>
+		</div>
+	}
+}

@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	coderwebsocket "github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
 
 	imagecache "goisekai2/internal/cache"
@@ -27,6 +28,7 @@ import (
 	"goisekai2/internal/plugin"
 	"goisekai2/internal/reader"
 	"goisekai2/internal/store"
+	"goisekai2/internal/stream"
 )
 
 //go:embed assets/*
@@ -40,7 +42,11 @@ type Page struct {
 	Title string
 }
 
-var pages = []Page{{Path: "/settings", Title: "Settings"}}
+var pages = []Page{
+	{Path: "/settings", Title: "Settings"},
+	{Path: "/log", Title: "Log"},
+	{Path: "/about", Title: "About"},
+}
 
 // Server owns the HTTP listener, router and template set.
 type Server struct {
@@ -49,6 +55,7 @@ type Server struct {
 	httpServer *http.Server
 	cacheStore *imagecache.Store
 	detailSvc  *detail.Service
+	streamHub  *stream.Hub
 	bus        *events.Bus
 	host       *plugin.Host
 	lib        *library.Service
@@ -82,6 +89,9 @@ func (s *Server) SetCache(c *imagecache.Store) { s.cacheStore = c }
 // SetDetail attaches the detail resolver used by the detail routes.
 func (s *Server) SetDetail(d *detail.Service) { s.detailSvc = d }
 
+// SetStream attaches the WebSocket log hub.
+func (s *Server) SetStream(h *stream.Hub) { s.streamHub = h }
+
 // Pages returns the implemented pages in navigation order.
 func (s *Server) Pages() []Page {
 	out := append([]Page(nil), pages...)
@@ -99,6 +109,9 @@ func (s *Server) Handler() http.Handler {
 	for _, p := range pages {
 		r.Get(p.Path, s.renderSettings)
 	}
+	r.Get("/ws/log", s.wsLog)
+	r.Get("/log", s.renderLog)
+	r.Get("/about", s.renderAbout)
 	r.Get("/config", s.getConfig)
 	r.Post("/config", s.postConfig)
 	r.Get("/view/manga/{plugin}/{slug}", s.renderDetail)
@@ -125,6 +138,7 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/plugins/{id}/toggle", s.togglePlugin)
 		r.Post("/plugins/{id}/reload", s.reloadPlugin)
 		r.Get("/plugins/{id}/logo", s.pluginLogo)
+		r.Get("/plugin/{id}/logo", s.pluginLogo)
 	}
 	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.FS(assetRoot))))
 	return r
@@ -927,4 +941,61 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func (s *Server) wsLog(w http.ResponseWriter, r *http.Request) {
+	if s.streamHub == nil {
+		http.NotFound(w, r)
+		return
+	}
+	conn, err := coderwebsocket.Accept(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer conn.CloseNow()
+	ctx := r.Context()
+	for _, line := range s.streamHub.Lines() {
+		if err := conn.Write(ctx, coderwebsocket.MessageText, []byte(line)); err != nil {
+			return
+		}
+	}
+	lines, unsubscribe := s.streamHub.Subscribe()
+	defer unsubscribe()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case line := <-lines:
+			if err := conn.Write(ctx, coderwebsocket.MessageText, []byte(line)); err != nil {
+				return
+			}
+		}
+	}
+}
+
+func (s *Server) renderLog(w http.ResponseWriter, r *http.Request) {
+	nav := make([]components.Page, 0, len(s.Pages()))
+	for _, p := range s.Pages() {
+		nav = append(nav, components.Page{Path: p.Path, Title: p.Title})
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := components.Log(components.Page{Path: "/log", Title: "Log"}, nav).Render(r.Context(), w); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (s *Server) renderAbout(w http.ResponseWriter, r *http.Request) {
+	raw, err := assetFiles.ReadFile("assets/README.md")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	nav := make([]components.Page, 0, len(s.Pages()))
+	for _, p := range s.Pages() {
+		nav = append(nav, components.Page{Path: p.Path, Title: p.Title})
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := components.About(components.Page{Path: "/about", Title: "About"}, nav, readmeHTML(string(raw))).Render(r.Context(), w); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
