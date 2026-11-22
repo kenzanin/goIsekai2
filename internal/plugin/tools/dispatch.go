@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -282,11 +283,34 @@ func (t *ToolSet) Dispatch(name string, args ...any) (any, error) {
 			return nil, err
 		}
 		return Attr(doc, q, attr)
-	case "text.json_blob":
+	case "json.encode":
 		if len(args) == 0 {
-			return "", nil
+			return "null", nil
 		}
-		return JSONBlob(args[0]), nil
+		b, err := json.Marshal(args[0])
+		return string(b), err
+	case "json.decode":
+		s, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		var v any
+		err = json.Unmarshal([]byte(s), &v)
+		return v, err
+	case "text.json_blob":
+		s, err := argString(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		marker, err := argString(args, 1)
+		if err != nil {
+			marker = ""
+		}
+		blob, ok := JSONBlobFrom(s, marker)
+		if !ok {
+			return nil, nil
+		}
+		return blob, nil
 	case "text.date_epoch":
 		s, err := argString(args, 0)
 		if err != nil {

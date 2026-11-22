@@ -23,9 +23,9 @@ Lane gate: lane 1 gate.
 
 ## 3. Lane 3 — binding wrappers and parity lock
 
-- [ ] 3.1 Expose `browser.call`, `html.select`, `html.attr`, `html.xpath`, `re2.gmatch` and the `codecs.*` names in the Lua layer as thin marshals — verify a Lua fixture exercises each against local fixtures.
-- [ ] 3.2 Expose the same names in the JS binding — verify a JS fixture parity run.
-- [ ] 3.3 Add the parity lock test: enumerate Lua and JS host tables, assert equality with the dispatcher registry — verify it fails when a name lands in one runtime only.
+- [x] 3.1 Expose `browser.call`, `html.select`, `html.attr`, `html.xpath`, `re2.gmatch` and the `codecs.*` names in the Lua layer as thin marshals — verify a Lua fixture exercises each against local fixtures.
+- [x] 3.2 Expose the same names in the JS binding — verify a JS fixture parity run.
+- [x] 3.3 Add the parity lock test: enumerate Lua and JS host tables, assert equality with the dispatcher registry — verify it fails when a name lands in one runtime only.
 
 Lane gate: `make build && make test && go vet ./...`.
 
