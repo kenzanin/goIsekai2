@@ -34,17 +34,19 @@ func (s *Service) Save(ctx context.Context, plugin, slug, name, cover string) er
 	if err = s.store.Tx(ctx, func(txCtx context.Context, tx *gorm.DB) error {
 		var existing store.SavedManga
 		found := tx.WithContext(txCtx).Where("plugin = ? AND slug = ?", plugin, slug).First(&existing).Error == nil
-		row := store.SavedManga{Plugin: plugin, Slug: slug, Name: name, Cover: cover, AddedAt: time.Now().Unix()}
+		row := existing
+		if !found {
+			row = store.SavedManga{Plugin: plugin, Slug: slug}
+		}
+		if name != "" && name != slug {
+			row.Name = name
+		}
+		if cover != "" {
+			row.Cover = cover
+		}
+		row.Plugin, row.Slug, row.AddedAt = plugin, slug, time.Now().Unix()
 		if found && existing.AddedAt > 0 {
 			row.AddedAt = existing.AddedAt
-		}
-		if found && existing.Name != "" && (name == "" || name == slug) {
-			row.Name = existing.Name
-			row.Status = existing.Status
-			row.StatusFlags = existing.StatusFlags
-			row.TotalCh = existing.TotalCh
-			row.ReadCh = existing.ReadCh
-			row.DupGroup = existing.DupGroup
 		}
 		return tx.WithContext(txCtx).Save(&row).Error
 	}); err != nil {

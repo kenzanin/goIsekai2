@@ -79,6 +79,9 @@ func (s *Service) fetch(ctx context.Context, pluginID, method, slug string) (map
 			slog.Debug("plugin envelope preview", "plugin", pluginID, "method", method, "preview", string(preview))
 			data, parseErr := envelope(raw)
 			if parseErr == nil {
+				if method == "detail" {
+					canonicalizeDetail(data)
+				}
 				_ = s.store.PutCached(ctx, &store.ApiCache{
 					PluginID: pluginID, QueryHash: cacheHash(pluginID, method, slug),
 					Payload: string(raw), FetchedAt: time.Now().Unix(), TTL: 86400,
@@ -215,6 +218,13 @@ func (s *Service) Candidates(ctx context.Context, title, kind string) []map[stri
 func (s *Service) Detail(ctx context.Context, pluginID, slug string) (map[string]any, error) {
 	row, err := s.store.GetSaved(ctx, pluginID, slug)
 	if err == nil {
+		if row.AddedAt == 0 && (row.Synopsis == "" || row.Authors == "" || row.Tags == "") {
+			if _, fetchErr := s.fetch(ctx, pluginID, "detail", slug); fetchErr == nil {
+				if fresh, getErr := s.store.GetSaved(ctx, pluginID, slug); getErr == nil {
+					row = fresh
+				}
+			}
+		}
 		out := map[string]any{
 			"plugin": row.Plugin, "slug": row.Slug, "name": row.Name, "cover": row.Cover,
 			"status": row.Status, "synopsis": row.Synopsis, "alt_titles": row.AltTitles,
@@ -232,6 +242,38 @@ func (s *Service) Detail(ctx context.Context, pluginID, slug string) (map[string
 		return nil, fmt.Errorf("%w: %s/%s: %v", ErrUnknownTitle, pluginID, slug, err)
 	}
 	return data, nil
+}
+
+// canonicalizeDetail maps plugin-specific field names to the frozen
+// detail vocabulary for every runtime, without hardcoding site strings.
+func canonicalizeDetail(data map[string]any) {
+	data["synopsis"] = detailString(data, "synopsis", "description")
+	data["authors"] = detailString(data, "authors", "author")
+	data["artists"] = detailString(data, "artists", "artist")
+	data["tags"] = detailString(data, "tags", "genres", "genre")
+	data["alt_titles"] = detailString(data, "alt_titles", "altTitles", "other_names")
+}
+
+func detailString(data map[string]any, keys ...string) string {
+	for _, key := range keys {
+		switch v := data[key].(type) {
+		case string:
+			if v != "" {
+				return v
+			}
+		case []any:
+			parts := make([]string, 0, len(v))
+			for _, item := range v {
+				if s, ok := item.(string); ok && s != "" {
+					parts = append(parts, s)
+				}
+			}
+			if len(parts) > 0 {
+				return strings.Join(parts, ", ")
+			}
+		}
+	}
+	return ""
 }
 
 // materialize keeps saved_manga as the single master row for title metadata.
@@ -257,19 +299,19 @@ func (s *Service) materialize(ctx context.Context, pluginID, slug string, data m
 	if v := get("status"); v != "" {
 		row.Status = v
 	}
-	if v := get("synopsis"); v != "" {
+	if v := get("synopsis", "description"); v != "" {
 		row.Synopsis = v
 	}
 	if v := get("alt_titles"); v != "" {
 		row.AltTitles = v
 	}
-	if v := get("authors", "author"); v != "" {
+	if v := detailString(data, "authors", "author"); v != "" {
 		row.Authors = v
 	}
-	if v := get("artists", "artist"); v != "" {
+	if v := detailString(data, "artists", "artist"); v != "" {
 		row.Artists = v
 	}
-	if v := get("tags"); v != "" {
+	if v := detailString(data, "tags", "genres", "genre"); v != "" {
 		row.Tags = v
 	}
 	if n, ok := data["total_ch"].(float64); ok && int(n) > row.TotalCh {

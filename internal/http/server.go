@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -245,6 +246,30 @@ func (s *Server) applyCandidate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusNotFound, map[string]any{"ok": false, "error": "unknown candidate"})
 }
 
+// imageSrc routes a remote image through the host cache so browser hotlink
+// blocks do not break covers or reader pages.
+func imageSrc(pluginID, slug, raw string, cover bool) string {
+	if raw == "" {
+		return ""
+	}
+	coverValue := "0"
+	if cover {
+		coverValue = "1"
+	}
+	return "/cache/img?plugin=" + url.QueryEscape(pluginID) +
+		"&slug=" + url.QueryEscape(slug) +
+		"&cover=" + coverValue +
+		"&url=" + url.QueryEscape(raw)
+}
+
+func proxiedPages(pluginID, slug string, urls []string) []string {
+	out := make([]string, len(urls))
+	for i, raw := range urls {
+		out[i] = imageSrc(pluginID, slug, raw, false)
+	}
+	return out
+}
+
 func (s *Server) renderDetail(w http.ResponseWriter, r *http.Request) {
 	if s.detailSvc == nil || s.store == nil {
 		http.NotFound(w, r)
@@ -268,16 +293,31 @@ func (s *Server) renderDetail(w http.ResponseWriter, r *http.Request) {
 		ChosenCover: str("chosen_cover"), Cached: data["cached"] == true,
 		Saved: data["saved"] == true,
 	}
+	row.Cover = imageSrc(pluginID, slug, row.Cover, true)
+	row.ChosenCover = imageSrc(pluginID, slug, row.ChosenCover, true)
 	if authors, ok := data["authors"].([]string); ok {
 		row.Authors = authors
+	} else if v, ok := data["authors"].(string); ok && v != "" {
+		row.Authors = strings.Split(v, ", ")
 	}
 	if tags, ok := data["tags"].([]string); ok {
 		row.Tags = tags
+	} else if v, ok := data["tags"].(string); ok && v != "" {
+		row.Tags = strings.Split(v, ", ")
 	}
 	chapters := make([]components.ChapterRow, 0)
 	var stored []store.Chapter
-	_ = s.store.DB().WithContext(r.Context()).Where("plugin = ? AND slug = ?", pluginID, slug).
-		Order("number, chapter_id").Find(&stored)
+	if err := s.store.DB().WithContext(r.Context()).Where("plugin = ? AND slug = ?", pluginID, slug).
+		Order("number, chapter_id").Find(&stored).Error; err != nil {
+		stored = nil
+	}
+	if len(stored) == 0 && s.detailSvc != nil {
+		if fresh, err := s.detailSvc.Chapters(r.Context(), pluginID, slug); err == nil {
+			stored = fresh
+		} else {
+			slog.Debug("detail chapters fallback failed", "error", err)
+		}
+	}
 	for _, ch := range stored {
 		chapters = append(chapters, components.ChapterRow{
 			Plugin: pluginID, Slug: slug, ID: ch.ChapterID, Number: ch.Number,
@@ -512,7 +552,8 @@ func (s *Server) renderRead(w http.ResponseWriter, r *http.Request) {
 		chapter.Number = v
 	}
 	if urls, ok := result["pages"].([]string); ok {
-		for i, u := range urls {
+		result["pages"] = proxiedPages(pluginID, slug, urls)
+		for i, u := range result["pages"].([]string) {
 			chapter.Pages = append(chapter.Pages, components.ReaderPage{URL: u, Index: i})
 		}
 	}
@@ -568,6 +609,9 @@ func (s *Server) getPages(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]any{"ok": false, "error": "unknown chapter"})
 		return
+	}
+	if urls, ok := result["pages"].([]string); ok {
+		result["pages"] = proxiedPages(chi.URLParam(r, "plugin"), chi.URLParam(r, "slug"), urls)
 	}
 	writeJSON(w, http.StatusOK, result)
 }
@@ -779,6 +823,32 @@ func (s *Server) listLibrary(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, filtered)
 }
 
+func decodeLibraryRequest(r *http.Request, out any) error {
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
+		if err := r.ParseForm(); err != nil {
+			return err
+		}
+		if fields, ok := out.(*struct {
+			Plugin string `json:"plugin"`
+			Slug   string `json:"slug"`
+			Name   string `json:"name"`
+			Cover  string `json:"cover"`
+		}); ok {
+			fields.Plugin, fields.Slug = r.FormValue("plugin"), r.FormValue("slug")
+			fields.Name, fields.Cover = r.FormValue("name"), r.FormValue("cover")
+			return nil
+		}
+		if fields, ok := out.(*struct {
+			Plugin string `json:"plugin"`
+			Slug   string `json:"slug"`
+		}); ok {
+			fields.Plugin, fields.Slug = r.FormValue("plugin"), r.FormValue("slug")
+			return nil
+		}
+	}
+	return json.NewDecoder(r.Body).Decode(out)
+}
+
 func (s *Server) saveLibrary(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Plugin string `json:"plugin"`
@@ -786,7 +856,7 @@ func (s *Server) saveLibrary(w http.ResponseWriter, r *http.Request) {
 		Name   string `json:"name"`
 		Cover  string `json:"cover"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeLibraryRequest(r, &body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
@@ -806,7 +876,7 @@ func (s *Server) removeLibrary(w http.ResponseWriter, r *http.Request) {
 		Plugin string `json:"plugin"`
 		Slug   string `json:"slug"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeLibraryRequest(r, &body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}

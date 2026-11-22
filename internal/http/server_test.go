@@ -380,7 +380,7 @@ func TestReaderPagesAndPositionRoutes(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/pages/p/s/2", nil))
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"one"`) {
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "/cache/img?") || !strings.Contains(rec.Body.String(), "url=one") {
 		t.Fatalf("pages = %d %s", rec.Code, rec.Body.String())
 	}
 	rec = httptest.NewRecorder()
