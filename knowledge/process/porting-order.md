@@ -3,7 +3,7 @@ type: Process
 title: "Capability porting order: one OpenSpec change per capability, config first"
 description: "Authoritative dependency-ordered sequence for implementing the 11 V2 capabilities as OpenSpec changes, with per-change rules, gates and a status column that is updated when a change archives."
 tags: [process, openspec, porting, sequencing, status]
-generated: { by: agent/mcp, at: "2026-11-22T01:14:32Z" }
+generated: { by: agent/mcp, at: "2026-11-22T02:13:55Z" }
 status: stable
 ---
 
@@ -22,7 +22,7 @@ is a cross-cutting foundation change against the `config` capability, tracked as
 | 5 | library | `add-library` | host-tools, store | archived |
 | 6 | reader | `add-reader` | library | archived |
 | 7 | image-cache | `add-image-cache` | reader | archived |
-| 8 | detail | `add-detail` | library, image-cache | active |
-| 9 | updates | `add-updates` | store, plugin-host | pending |
+| 8 | detail | `add-detail` | library, image-cache | archived |
+| 9 | updates | `add-updates` | store, plugin-host | active |
 | 10 | browser | `add-browser` | plugin-host | pending |
 | 11 | sites | `add-sites` | plugin-host, host-tools | pending |
