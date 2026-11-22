@@ -25,6 +25,7 @@ import (
 	"goisekai2/internal/plugin/tools"
 	"goisekai2/internal/reader"
 	"goisekai2/internal/store"
+	"goisekai2/internal/updates"
 )
 
 func main() {
@@ -151,6 +152,20 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	dsvc.SetEnrichment(enrichment)
 	srv.SetDetail(dsvc)
 
+	schedCtx, schedCancel := context.WithCancel(ctx)
+	defer schedCancel()
+	reload := func() (*config.Snapshot, error) {
+		ini, err := config.LoadIni(cli.ConfigPath)
+		if err != nil {
+			return nil, err
+		}
+		return cli.Snapshot(ini)
+	}
+	sched := updates.New(st, host, reload)
+	sched.DBPath = dbPath
+	schedDone := make(chan error, 1)
+	go func() { schedDone <- sched.Run(schedCtx) }()
+
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", snap.Int(config.KnobServerPort)))
 	if err != nil {
 		fmt.Fprintf(stderr, "goisekai2: %v\n", err)
@@ -161,6 +176,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "goisekai2: listening on %s\n", ln.Addr())
 
 	<-ctx.Done()
+	schedCancel()
+	<-schedDone
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

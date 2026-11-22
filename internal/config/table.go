@@ -55,6 +55,36 @@ func Knobs() *Registry {
 			Doc: "Cover longest-side cap (px)",
 		},
 		Entry{
+			Section: "updates", Key: "update_interval_days", Kind: KindInt64,
+			Default: "1", Min: 1,
+			Flag: "update-interval-days", Env: "GOISEKAI_UPDATE_INTERVAL_DAYS",
+			Doc: "Days between automatic update batches",
+		},
+		Entry{
+			Section: "updates", Key: "update_per_plugin_limit", Kind: KindInt64,
+			Default: "5", Min: 1,
+			Flag: "update-per-plugin-limit", Env: "GOISEKAI_UPDATE_PER_PLUGIN_LIMIT",
+			Doc: "Maximum auto-updated titles per plugin per batch",
+		},
+		Entry{
+			Section: "updates", Key: "update_request_delay_ms", Kind: KindInt64,
+			Default: "500", Min: 0,
+			Flag: "update-request-delay-ms", Env: "GOISEKAI_UPDATE_REQUEST_DELAY_MS",
+			Doc: "Delay between scheduled title requests",
+		},
+		Entry{
+			Section: "updates", Key: "backup_interval_h", Kind: KindInt64,
+			Default: "24", Min: 1,
+			Flag: "backup-interval-h", Env: "GOISEKAI_BACKUP_INTERVAL_H",
+			Doc: "Hours between database snapshots",
+		},
+		Entry{
+			Section: "updates", Key: "backup_keep", Kind: KindInt64,
+			Default: "3", Min: 1,
+			Flag: "backup-keep", Env: "GOISEKAI_BACKUP_KEEP",
+			Doc: "Number of database snapshots to retain",
+		},
+		Entry{
 			Section: "paths", Key: "data_dir", Kind: KindString,
 			Default: "data",
 			Flag:    "data-dir", Env: "GOISEKAI_DATA_DIR",
