@@ -1,4 +1,5 @@
 ## 2026-11-22
+* **Update**: Updated concept `decisions/browser-host-transport.md`.
 * **Creation**: Documented concept `notes/updates-prune-gorm-chain.md` (Cache prune is a GORM chain, not a store method).
 * **Creation**: Documented concept `notes/updates-backup-watermark.md` (Backup cadence watermark is the newest snapshot, not a store key).
 * **Creation**: Documented concept `notes/updates-maintenance-isolation.md` (updates.Maintenance isolates its three steps).

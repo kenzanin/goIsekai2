@@ -54,7 +54,7 @@ func (s *Supervisor) Start(ctx context.Context) (owned bool, err error) {
 		return false, nil
 	}
 	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(s.Port))
-	cmd := exec.Command(s.Binary, "mcp", "--host", "127.0.0.1", "--port", strconv.Itoa(s.Port))
+	cmd := exec.Command(s.Binary, "serve", "--host", "127.0.0.1", "--port", strconv.Itoa(s.Port))
 	if err := cmd.Start(); err != nil {
 		return false, fmt.Errorf("browser: spawn %s: %w", s.Binary, err)
 	}
@@ -69,6 +69,11 @@ func (s *Supervisor) Start(ctx context.Context) (owned bool, err error) {
 	_ = cmd.Process.Kill()
 	s.cmd, s.owned = nil, false
 	return false, fmt.Errorf("browser: %s did not become healthy", addr)
+}
+
+// ControlURL returns the CDP websocket URL for the configured port.
+func (s *Supervisor) ControlURL() string {
+	return fmt.Sprintf("ws://127.0.0.1:%d/", s.Port)
 }
 
 // Respawn restarts an owned child once. A second failure marks the backend
@@ -90,7 +95,7 @@ func (s *Supervisor) Respawn(ctx context.Context) error {
 	}
 	s.cmd = nil
 	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(s.Port))
-	cmd := exec.Command(s.Binary, "mcp", "--host", "127.0.0.1", "--port", strconv.Itoa(s.Port))
+	cmd := exec.Command(s.Binary, "serve", "--host", "127.0.0.1", "--port", strconv.Itoa(s.Port))
 	if err := cmd.Start(); err != nil {
 		s.dead = true
 		return fmt.Errorf("browser: respawn %s: %w", s.Binary, err)

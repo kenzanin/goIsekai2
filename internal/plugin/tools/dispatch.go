@@ -181,6 +181,19 @@ func (t *ToolSet) Dispatch(name string, args ...any) (any, error) {
 				return nil, err
 			}
 			return Replace(p, s, repl)
+		case "browser.call":
+			if t.BrowserAllowed == nil || !t.BrowserAllowed(t.PluginID) || t.Browser == nil {
+				return nil, fmt.Errorf("tools: unknown tool %q", name)
+			}
+			tool, err := argString(args, 0)
+			if err != nil {
+				return nil, err
+			}
+			params, err := argMap(args, 1)
+			if err != nil {
+				return nil, err
+			}
+			return t.Browser.Call(tool, params)
 		default:
 			return FindIndex(p, s)
 		}

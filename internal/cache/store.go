@@ -146,6 +146,11 @@ func (s *Store) Put(path string, data []byte, cover bool) (string, float64, erro
 
 // GetOrFetch returns a cached body or fetches it once for concurrent callers.
 func (s *Store) GetOrFetch(ctx context.Context, key, rawURL string) ([]byte, error) {
+	return s.GetOrFetchWithReferer(ctx, key, rawURL, "")
+}
+
+// GetOrFetchWithReferer behaves like GetOrFetch, sending referer when set.
+func (s *Store) GetOrFetchWithReferer(ctx context.Context, key, rawURL, referer string) ([]byte, error) {
 	s.mu.Lock()
 	if until, ok := s.negative[key]; ok && time.Now().Before(until) {
 		s.mu.Unlock()
@@ -165,6 +170,9 @@ func (s *Store) GetOrFetch(ctx context.Context, key, rawURL string) ([]byte, err
 	s.mu.Unlock()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err == nil && referer != "" {
+		req.Header.Set("Referer", referer)
+	}
 	if err == nil {
 		var resp *http.Response
 		resp, err = s.Client.Do(req)
