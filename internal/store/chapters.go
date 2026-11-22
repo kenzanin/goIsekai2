@@ -87,6 +87,11 @@ func (s *Store) MarkChapterRead(ctx context.Context, plugin, slug, chapterID str
 	})
 }
 
+// SetChapterFlags applies bit operations without rewriting other bits.
+func (s *Store) SetChapterFlags(ctx context.Context, plugin, slug, chapterID string, set, clear int) error {
+	return sqlb.SetChapterFlag(s.db.WithContext(ctx), plugin, slug, chapterID, set, clear)
+}
+
 // HighestReadNumber returns the largest chapter number with the read bit set.
 func (s *Store) HighestReadNumber(ctx context.Context, plugin, slug string) (float64, error) {
 	var chapters []Chapter

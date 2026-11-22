@@ -1,0 +1,117 @@
+package components
+
+import "strconv"
+
+// ChapterRow is one chapter entry on the manga detail page. ID is the exact
+// plugin chapter id used for reader links and flag toggles; Read and Skip
+// mirror chapters.flags bit0 and bit1; Pages carries the stored page count
+// so the row badge needs no extra request.
+type ChapterRow struct {
+	Plugin string
+	Slug   string
+	ID     string
+	Number float64
+	Title  string
+	Read   bool
+	Skip   bool
+	Pages  int
+}
+
+// Chapters renders the manga detail chapter list: one row per chapter with a
+// read check, a skip eye toggle posting to /chapter/flags through htmx and a
+// page-count badge, plus a fixed-size pager with prev/next ?page= links and a
+// page/total indicator that hides when the list fits on one page.
+templ Chapters(active Page, pages []Page, mangaName string, rows []ChapterRow, page, totalPages int) {
+	@Base(active, pages) {
+		<div class="space-y-6">
+			<div class="flex flex-wrap items-end justify-between gap-4">
+				<div>
+					<h1 class="font-mono text-2xl font-semibold tracking-tight text-zinc-50">{ mangaName }</h1>
+					<p class="mt-1 text-sm text-zinc-400">Chapters known for this title.</p>
+				</div>
+				if len(rows) > 0 {
+					<p class="font-mono text-xs uppercase tracking-widest text-zinc-500">{ strconv.Itoa(len(rows)) } listed</p>
+				}
+			</div>
+			if len(rows) == 0 {
+				<div class="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 px-6 py-12 text-center">
+					<h2 class="font-mono text-sm font-semibold text-zinc-100">No chapters yet</h2>
+					<p class="mt-2 text-sm text-zinc-400">Chapters will show up here once the plugin lists them.</p>
+				</div>
+			} else {
+				<ul role="list" aria-label="Chapters" class="divide-y divide-zinc-800 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/40">
+					for _, r := range rows {
+						@chapterRow(r)
+					}
+				</ul>
+				if totalPages > 1 {
+					<nav aria-label="Chapter pages" class="flex items-center justify-center gap-4">
+						if page > 1 {
+							<a href={ templ.SafeURL("?page=" + strconv.Itoa(page-1)) } class="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100">Prev</a>
+						} else {
+							<span aria-disabled="true" class="rounded-md border border-zinc-800 px-3 py-1.5 text-sm font-medium text-zinc-600">Prev</span>
+						}
+						<span class="font-mono text-xs text-zinc-500">{ strconv.Itoa(page) }/{ strconv.Itoa(totalPages) }</span>
+						if page < totalPages {
+							<a href={ templ.SafeURL("?page=" + strconv.Itoa(page+1)) } class="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100">Next</a>
+						} else {
+							<span aria-disabled="true" class="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-600 opacity-40">Next</span>
+						}
+					</nav>
+				}
+			}
+		</div>
+	}
+}
+
+// chapterRow renders one chapter: a read check lit only when Read is set, the
+// linked chapter label and title, a page-count badge, and the skip eye toggle.
+// The eye flips optimistically with Alpine while htmx posts the flag change;
+// a failed request is corrected on the next page load. ponytail: no rollback
+// on toggle failure; add an htmx response target when the route returns rows.
+templ chapterRow(r ChapterRow) {
+	<li class="flex items-center gap-3 px-4 py-2.5">
+		if r.Read {
+			<span aria-label="Read" title="Read" class="shrink-0 text-amber-400">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"></path></svg>
+			</span>
+		} else {
+			<span aria-label="Unread" title="Unread" class="shrink-0 text-zinc-700">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"></path></svg>
+			</span>
+		}
+		<a href={ templ.SafeURL("/read/" + r.Plugin + "/" + r.Slug + "?ch=" + chLabel(r.Number) + "&ch_id=" + r.ID) } class="group flex min-w-0 flex-1 items-baseline gap-3">
+			<span class="shrink-0 font-mono text-xs text-zinc-500">ch { chLabel(r.Number) }</span>
+			if r.Title != "" {
+				<span class="truncate text-sm font-medium text-zinc-100 transition group-hover:text-amber-300">{ r.Title }</span>
+			} else {
+				<span class="truncate text-sm font-medium text-zinc-400 transition group-hover:text-amber-300">Chapter { chLabel(r.Number) }</span>
+			}
+		</a>
+		if r.Pages > 0 {
+			<span aria-label="Page count" class="shrink-0 rounded bg-zinc-800/70 px-1.5 py-0.5 font-mono text-[10px] leading-4 text-zinc-400">{ strconv.Itoa(r.Pages) }p</span>
+		}
+		<form hx-post="/chapter/flags" hx-swap="none" x-data={ "{ on: " + strconv.FormatBool(r.Skip) + " }" } x-on:submit="on = !on" class="shrink-0">
+			<input type="hidden" name="plugin" value={ r.Plugin }/>
+			<input type="hidden" name="slug" value={ r.Slug }/>
+			<input type="hidden" name="ch_id" value={ r.ID }/>
+			<input type="hidden" name="flag" value="skip"/>
+			<button
+				type="submit"
+				x-bind:aria-pressed="on"
+				x-bind:title="on ? 'Skipped — click to include' : 'Visible — click to skip'"
+				x-bind:aria-label="on ? 'Chapter skipped, click to include' : 'Chapter visible, click to skip'"
+				x-bind:class="on ? 'text-amber-400 hover:text-amber-300' : 'text-zinc-500 hover:text-zinc-200'"
+				class="rounded-md p-1.5 transition hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
+			>
+				<svg x-show="!on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"></path>
+					<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"></path>
+				</svg>
+				<svg x-show="on" x-cloak viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"></path>
+				</svg>
+			</button>
+		</form>
+	</li>
+}
