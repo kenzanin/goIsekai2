@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 	"time"
 
@@ -180,8 +181,9 @@ func (s *Service) pageList(ctx context.Context, plugin, slug string, ch store.Ch
 	params, _ := json.Marshal(map[string]string{"id": ch.ChapterID})
 	if s.Host != nil {
 		if out, err := s.Host.Call(ctx, plugin, "pages", params); err == nil {
-			var urls []string
-			if json.Unmarshal(out, &urls) == nil && len(urls) > 0 {
+			slog.Debug("reader pages raw", "plugin", plugin, "chapter", ch.ChapterID, "bytes", len(out), "preview", string(out[:min(len(out), 200)]))
+			urls := parsePageURLs(out)
+			if len(urls) > 0 {
 				pages := make([]store.ChapterPage, len(urls))
 				for i, u := range urls {
 					pages[i] = store.ChapterPage{URL: u}
@@ -191,6 +193,20 @@ func (s *Service) pageList(ctx context.Context, plugin, slug string, ch store.Ch
 		}
 	}
 	return s.storedPages(ctx, plugin, slug, ch.ChapterID), nil
+}
+
+func parsePageURLs(raw []byte) []string {
+	var urls []string
+	if json.Unmarshal(raw, &urls) == nil {
+		return urls
+	}
+	var env struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if json.Unmarshal(raw, &env) == nil && json.Unmarshal(env.Data, &urls) == nil {
+		return urls
+	}
+	return nil
 }
 
 func (s *Service) storedPages(ctx context.Context, plugin, slug, chapterID string) []string {

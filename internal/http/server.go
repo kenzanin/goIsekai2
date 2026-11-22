@@ -656,6 +656,13 @@ func (s *Server) listChapters(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
+	if len(rows) == 0 && s.detailSvc != nil {
+		if fresh, err := s.detailSvc.Chapters(r.Context(), chi.URLParam(r, "plugin"), chi.URLParam(r, "slug")); err == nil {
+			rows = fresh
+		} else {
+			slog.Debug("chapter fallback failed", "error", err)
+		}
+	}
 	out := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
 		var count int64

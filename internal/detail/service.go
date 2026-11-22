@@ -46,11 +46,18 @@ func envelope(raw []byte) (map[string]any, error) {
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return nil, err
 	}
-	if ok, _ := env["ok"].(bool); !ok {
-		return nil, fmt.Errorf("plugin envelope: ok=false")
+	if okValue, present := env["ok"]; present {
+		if ok, _ := okValue.(bool); !ok {
+			return nil, fmt.Errorf("plugin envelope: ok=false")
+		}
 	}
-	data, ok := env["data"].(map[string]any)
-	if !ok {
+	var data map[string]any
+	switch raw := env["data"].(type) {
+	case map[string]any:
+		data = raw
+	case []any:
+		data = map[string]any{"chapters": raw}
+	default:
 		return nil, fmt.Errorf("plugin envelope: missing data")
 	}
 	data["cached"] = false
@@ -64,6 +71,11 @@ func (s *Service) fetch(ctx context.Context, pluginID, method, slug string) (map
 		var raw []byte
 		raw, err = s.host.Call(ctx, pluginID, method, params)
 		if err == nil {
+			preview := raw
+			if len(preview) > 300 {
+				preview = preview[:300]
+			}
+			slog.Debug("plugin envelope preview", "plugin", pluginID, "method", method, "preview", string(preview))
 			data, parseErr := envelope(raw)
 			if parseErr == nil {
 				_ = s.store.PutCached(ctx, &store.ApiCache{
@@ -266,6 +278,50 @@ func (s *Service) materialize(ctx context.Context, pluginID, slug string, data m
 	}
 }
 
+// Chapters resolves and persists the chapter list for saved or unsaved titles.
+func (s *Service) Chapters(ctx context.Context, pluginID, slug string) ([]store.Chapter, error) {
+	data, err := s.fetch(ctx, pluginID, "chapters", slug)
+	if err != nil {
+		return nil, err
+	}
+	return s.storeChapters(ctx, pluginID, slug, data)
+}
+
+func (s *Service) storeChapters(ctx context.Context, pluginID, slug string, data map[string]any) ([]store.Chapter, error) {
+	raw, err := json.Marshal(data["chapters"])
+	if err != nil {
+		return nil, err
+	}
+	var parsed []struct {
+		ID        string  `json:"id"`
+		ChapterID string  `json:"chapter_id"`
+		Number    float64 `json:"number"`
+		Title     string  `json:"title"`
+		URL       string  `json:"url"`
+		ReleaseAt int64   `json:"release_at"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return nil, err
+	}
+	rows := make([]store.Chapter, 0, len(parsed))
+	for _, item := range parsed {
+		id := item.ChapterID
+		if id == "" {
+			id = item.ID
+		}
+		rows = append(rows, store.Chapter{
+			Plugin: pluginID, Slug: slug, ChapterID: id,
+			Number: item.Number, Title: item.Title, URL: item.URL, UpdatedAt: item.ReleaseAt,
+		})
+	}
+	if len(rows) > 0 {
+		if err := s.store.UpsertChapters(ctx, pluginID, slug, rows); err != nil {
+			return nil, err
+		}
+	}
+	return rows, nil
+}
+
 // Refresh resolves detail and chapters, then stores both only when both pass
 // validation. The failure is named so callers can return a precise 502.
 func (s *Service) Refresh(ctx context.Context, pluginID, slug string) error {
@@ -287,6 +343,12 @@ func (s *Service) Refresh(ctx context.Context, pluginID, slug string) error {
 		}); err != nil {
 			s.stamp(ctx, pluginID, slug, false, err.Error())
 			return err
+		}
+		if method == "chapters" {
+			if _, err := s.storeChapters(ctx, pluginID, slug, data); err != nil {
+				s.stamp(ctx, pluginID, slug, false, err.Error())
+				return err
+			}
 		}
 	}
 	s.stamp(ctx, pluginID, slug, true, "")
