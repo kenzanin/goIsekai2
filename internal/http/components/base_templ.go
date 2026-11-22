@@ -17,11 +17,36 @@ type Page struct {
 	Title string
 }
 
-// utilityPaths marks the nav entries rendered right of the flexible spacer,
-// mirroring the cppIsekai header: primary pages left, Log and About right.
-var utilityPaths = map[string]bool{
-	"/log":   true,
-	"/about": true,
+// primaryNavOrder and utilityNavOrder pin the rendered nav to the cppIsekai
+// baseline order — Library, Search, Plugins, Settings · spacer · Log, About —
+// regardless of the handler's page-slice order. Pages missing from the slice
+// are skipped; unknown extras keep rendering at the end of the primary group.
+var primaryNavOrder = []string{"/library", "/search", "/plugins", "/settings"}
+var utilityNavOrder = []string{"/log", "/about"}
+
+// navPage finds the page with the given path.
+func navPage(pages []Page, path string) (Page, bool) {
+	for _, p := range pages {
+		if p.Path == path {
+			return p, true
+		}
+	}
+	return Page{}, false
+}
+
+// navCovered reports whether the path is one of the canonical nav slots.
+func navCovered(path string) bool {
+	for _, p := range primaryNavOrder {
+		if p == path {
+			return true
+		}
+	}
+	for _, p := range utilityNavOrder {
+		if p == path {
+			return true
+		}
+	}
+	return false
 }
 
 // Base renders the shared HTML shell: head, compiled stylesheet, vendored
@@ -52,7 +77,7 @@ func Base(active Page, pages []Page) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(active.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 26, Col: 24}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 51, Col: 24}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -62,8 +87,16 @@ func Base(active Page, pages []Page) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
+		for _, path := range primaryNavOrder {
+			if p, ok := navPage(pages, path); ok {
+				templ_7745c5c3_Err = navLink(p, active).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+		}
 		for _, p := range pages {
-			if !utilityPaths[p.Path] {
+			if !navCovered(p.Path) {
 				templ_7745c5c3_Err = navLink(p, active).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -74,8 +107,8 @@ func Base(active Page, pages []Page) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, p := range pages {
-			if utilityPaths[p.Path] {
+		for _, path := range utilityNavOrder {
+			if p, ok := navPage(pages, path); ok {
 				templ_7745c5c3_Err = navLink(p, active).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -125,7 +158,7 @@ func navLink(p Page, active Page) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL(p.Path)).ResolveURL(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 103, Col: 33}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 133, Col: 33}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 			if templ_7745c5c3_Err != nil {
@@ -138,7 +171,7 @@ func navLink(p Page, active Page) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 104, Col: 12}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 134, Col: 12}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -156,7 +189,7 @@ func navLink(p Page, active Page) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL(p.Path)).ResolveURL(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 107, Col: 33}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 137, Col: 33}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 			if templ_7745c5c3_Err != nil {
@@ -169,7 +202,7 @@ func navLink(p Page, active Page) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 108, Col: 12}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 138, Col: 12}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {

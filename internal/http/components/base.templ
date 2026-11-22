@@ -7,11 +7,36 @@ type Page struct {
 	Title string
 }
 
-// utilityPaths marks the nav entries rendered right of the flexible spacer,
-// mirroring the cppIsekai header: primary pages left, Log and About right.
-var utilityPaths = map[string]bool{
-	"/log":   true,
-	"/about": true,
+// primaryNavOrder and utilityNavOrder pin the rendered nav to the cppIsekai
+// baseline order — Library, Search, Plugins, Settings · spacer · Log, About —
+// regardless of the handler's page-slice order. Pages missing from the slice
+// are skipped; unknown extras keep rendering at the end of the primary group.
+var primaryNavOrder = []string{"/library", "/search", "/plugins", "/settings"}
+var utilityNavOrder = []string{"/log", "/about"}
+
+// navPage finds the page with the given path.
+func navPage(pages []Page, path string) (Page, bool) {
+	for _, p := range pages {
+		if p.Path == path {
+			return p, true
+		}
+	}
+	return Page{}, false
+}
+
+// navCovered reports whether the path is one of the canonical nav slots.
+func navCovered(path string) bool {
+	for _, p := range primaryNavOrder {
+		if p == path {
+			return true
+		}
+	}
+	for _, p := range utilityNavOrder {
+		if p == path {
+			return true
+		}
+	}
+	return false
 }
 
 // Base renders the shared HTML shell: head, compiled stylesheet, vendored
@@ -36,16 +61,21 @@ templ Base(active Page, pages []Page) {
 		<body class="min-h-screen bg-zinc-950 text-zinc-100 antialiased">
 			<header class="flex h-12 items-center gap-1 border-b border-zinc-800 px-4">
 				<nav aria-label="Primary" class="flex items-center gap-1">
+					for _, path := range primaryNavOrder {
+						if p, ok := navPage(pages, path); ok {
+							@navLink(p, active)
+						}
+					}
 					for _, p := range pages {
-						if !utilityPaths[p.Path] {
+						if !navCovered(p.Path) {
 							@navLink(p, active)
 						}
 					}
 				</nav>
 				<span class="flex-1"></span>
 				<nav aria-label="Secondary" class="flex items-center gap-1">
-					for _, p := range pages {
-						if utilityPaths[p.Path] {
+					for _, path := range utilityNavOrder {
+						if p, ok := navPage(pages, path); ok {
 							@navLink(p, active)
 						}
 					}
