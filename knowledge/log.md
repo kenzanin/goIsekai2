@@ -1,4 +1,6 @@
 ## 2026-11-22
+* **Update**: Linked `notes/lua-plugin-tool-gaps.md` to `decisions/lua-runtime.md` (E2E evidence and out-of-scope gaps observed during the Lua 5.5 port.).
+* **Creation**: Documented concept `notes/lua-plugin-tool-gaps.md` (Mangafire and mangahub need host tools the runtime never provided).
 * **Update**: Linked `decisions/lua-runtime.md` to `notes/modernc-wasm3-unavailable.md` (Contrasts the available modernc Lua module with the unavailable modernc wasm3 module.).
 * **Update**: Linked `decisions/lua-runtime.md` to `architecture/stack.md` (Runtime change reflected in the stack review.).
 * **Update**: Linked `decisions/lua-runtime.md` to `decisions/dependency-stack.md` (Updates the Lua slot in the frozen dependency stack.).

@@ -8,13 +8,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
-	lua "github.com/yuin/gopher-lua"
+	"modernc.org/lua"
 
 	"goisekai2/internal/plugin/tools"
 )
 
-// LuaRuntime executes a Lua 5.1 plugin with the frozen JSON envelope.
+// LuaRuntime executes a Lua 5.5 plugin with the frozen JSON envelope.
 type LuaRuntime struct {
 	source string
 
@@ -24,191 +25,179 @@ type LuaRuntime struct {
 }
 
 // SetTools attaches the host tool set exposed to scripts; Call binds it into
-// each fresh state.
+// every fresh state.
 func (r *LuaRuntime) SetTools(ts *tools.ToolSet) { r.Tools = ts }
 
-// SetDir sets the folder used to resolve plugin-local Lua modules.
+// SetDir sets the plugin directory used by the confined require shim.
 func (r *LuaRuntime) SetDir(dir string) { r.Dir = dir }
 
-func configureLuaDir(L *lua.LState, dir string) {
-	configureLua(L)
-	if dir == "" {
-		return
+const unsupportedModule = "unsupported module (Lua 5.5 runtime)"
+
+// newVM builds a sandboxed VM with the frozen host bridge and helper chunks.
+func (r *LuaRuntime) newVM() (*lua.VM, error) {
+	m, err := lua.NewVM()
+	if err != nil {
+		return nil, fmt.Errorf("plugin: lua vm: %w", err)
 	}
-	L.SetGlobal("require", L.NewFunction(func(L *lua.LState) int {
-		name := L.CheckString(1)
-		path := filepath.Join(dir, name+".lua")
+	for _, name := range []string{"os", "io", "debug", "dofile", "loadfile", "package"} {
+		if err := m.SetGlobal(name, nil); err != nil {
+			_ = m.Close()
+			return nil, fmt.Errorf("plugin: lua sandbox: %w", err)
+		}
+	}
+	if err := bindLua(m, r.Tools); err != nil {
+		_ = m.Close()
+		return nil, fmt.Errorf("plugin: lua bindings: %w", err)
+	}
+	if err := m.SetGlobal("require", r.requireFunc(m)); err != nil {
+		_ = m.Close()
+		return nil, fmt.Errorf("plugin: lua require: %w", err)
+	}
+	for _, helper := range []string{luaJSONHelper, luaHostHelper} {
+		if _, err := m.EvalChunk("=goisekai-helper", helper); err != nil {
+			_ = m.Close()
+			return nil, fmt.Errorf("plugin: lua helper: %w", err)
+		}
+	}
+	return m, nil
+}
+
+// requireFunc resolves plugin-local modules and returns their JSON encoding.
+// The Lua wrapper decodes that string back into a table.
+func (r *LuaRuntime) requireFunc(m *lua.VM) func(string) (string, error) {
+	cache := map[string]string{}
+	return func(name string) (string, error) {
+		if name == "ffi" || name == "bit" {
+			return "", fmt.Errorf("%s: %s", unsupportedModule, name)
+		}
+		if encoded, ok := cache[name]; ok {
+			return encoded, nil
+		}
+		if r.Dir == "" {
+			return "", fmt.Errorf("plugin: lua: module %s not found", name)
+		}
+		base, err := filepath.Abs(r.Dir)
+		if err != nil {
+			return "", fmt.Errorf("plugin: lua: module %s: %w", name, err)
+		}
+		path, err := filepath.Abs(filepath.Join(base, name+".lua"))
+		if err != nil {
+			return "", fmt.Errorf("plugin: lua: module %s: %w", name, err)
+		}
+		rel, err := filepath.Rel(base, path)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return "", fmt.Errorf("plugin: lua: module %s outside plugin directory", name)
+		}
 		src, err := os.ReadFile(path)
 		if err != nil {
-			L.RaiseError("module %s not found: %v", name, err)
-			return 0
+			return "", fmt.Errorf("plugin: lua: module %s not found: %w", name, err)
 		}
-		if err := L.DoString(string(src)); err != nil {
-			L.RaiseError("module %s: %v", name, err)
-			return 0
+		values, err := m.EvalChunk("@"+path, string(src))
+		if err != nil {
+			return "", fmt.Errorf("plugin: lua: module %s: %w", name, err)
 		}
-		value := L.Get(-1)
-		L.Pop(1)
-		L.Push(value)
-		return 1
-	}))
-}
-
-const unsupportedModule = "unsupported module (Lua 5.1 runtime)"
-
-func configureLua(L *lua.LState) {
-	L.OpenLibs()
-	L.SetGlobal("os", lua.LNil)
-	L.SetGlobal("debug", lua.LNil)
-	L.SetGlobal("io", lua.LNil)
-	L.PreloadModule("ffi", func(*lua.LState) int {
-		L.RaiseError("%s: ffi", unsupportedModule)
-		return 0
-	})
-	L.PreloadModule("bit", func(*lua.LState) int {
-		L.RaiseError("%s: bit", unsupportedModule)
-		return 0
-	})
-	L.PreloadModule("json", func(L *lua.LState) int {
-		mod := L.NewTable()
-		L.SetField(mod, "encode", L.NewFunction(func(L *lua.LState) int {
-			v, err := json.Marshal(luaValue(L.CheckAny(1)))
-			if err != nil {
-				L.RaiseError("json encode: %v", err)
+		if len(values) == 0 || values[0] == nil {
+			return "null", nil
+		}
+		encoded, err := m.Call("__go_encode", values[0])
+		if err != nil || len(encoded) == 0 {
+			if err == nil {
+				err = fmt.Errorf("no encoded result")
 			}
-			L.Push(lua.LString(v))
-			return 1
-		}))
-		L.SetField(mod, "decode", L.NewFunction(func(L *lua.LState) int {
-			var v any
-			if err := json.Unmarshal([]byte(L.CheckString(1)), &v); err != nil {
-				L.RaiseError("json decode: %v", err)
-			}
-			L.Push(goValue(L, v))
-			return 1
-		}))
-		L.Push(mod)
-		return 1
-	})
-}
-
-func luaValue(v lua.LValue) any {
-	switch value := v.(type) {
-	case lua.LString:
-		return string(value)
-	case lua.LNumber:
-		return float64(value)
-	case lua.LBool:
-		return bool(value)
-	case *lua.LTable:
-		if n := value.MaxN(); n > 0 {
-			out := make([]any, n)
-			for i := 1; i <= n; i++ {
-				out[i-1] = luaValue(value.RawGetInt(i))
-			}
-			return out
+			return "", fmt.Errorf("plugin: lua: module %s encode: %w", name, err)
 		}
-		out := make(map[string]any)
-		value.ForEach(func(k, val lua.LValue) {
-			out[fmt.Sprint(luaValue(k))] = luaValue(val)
-		})
-		return out
-	default:
-		return nil
-	}
-}
-
-func goValue(L *lua.LState, v any) lua.LValue {
-	switch value := v.(type) {
-	case string:
-		return lua.LString(value)
-	case float64:
-		return lua.LNumber(value)
-	case bool:
-		return lua.LBool(value)
-	case map[string]any:
-		t := L.NewTable()
-		for k, item := range value {
-			L.SetField(t, k, goValue(L, item))
+		text, ok := encoded[0].(string)
+		if !ok {
+			return "", fmt.Errorf("plugin: lua: module %s encode: unexpected result", name)
 		}
-		return t
-	case []any:
-		t := L.NewTable()
-		for _, item := range value {
-			t.Append(goValue(L, item))
-		}
-		return t
-	default:
-		return lua.LNil
+		cache[name] = text
+		return text, nil
 	}
 }
 
 // NewLuaRuntime compiles source and rejects scripts without a handle function.
 func NewLuaRuntime(source string) (*LuaRuntime, error) {
-	L := lua.NewState()
-	defer L.Close()
-	configureLua(L)
-	// ponytail: validation compiles syntax only; top-level host calls run at Call time.
-	if _, err := L.LoadString(source); err != nil {
-		return nil, fmt.Errorf("plugin: lua source: %w", err)
-	}
-	if !strings.Contains(source, "handle") {
-		return nil, fmt.Errorf("plugin: lua: missing handle function")
-	}
-	return &LuaRuntime{source: source}, nil
+	return NewLuaRuntimeWithTools(source, nil)
 }
 
 // NewLuaRuntimeWithTools compiles source with tools bound, so top-level host
-// calls can resolve during validation.
+// calls during validation see the same bridge as a live call.
 func NewLuaRuntimeWithTools(source string, ts *tools.ToolSet) (*LuaRuntime, error) {
-	L := lua.NewState()
-	defer L.Close()
-	configureLua(L)
-	if ts != nil {
-		bindLua(L, ts)
+	r := &LuaRuntime{source: source, Tools: ts}
+	m, err := r.newVM()
+	if err != nil {
+		return nil, err
 	}
-	if _, err := L.LoadString(source); err != nil {
+	defer m.Close()
+	if err := m.SetGlobal("__source", source); err != nil {
 		return nil, fmt.Errorf("plugin: lua source: %w", err)
+	}
+	values, err := m.EvalChunk("=validate", "return load(__source, '=plugin', 't')")
+	if err != nil {
+		return nil, fmt.Errorf("plugin: lua source: %w", err)
+	}
+	if len(values) == 0 || values[0] == nil {
+		msg := "invalid syntax"
+		if len(values) > 1 {
+			msg = fmt.Sprint(values[1])
+		}
+		return nil, fmt.Errorf("plugin: lua source: %s", msg)
 	}
 	if !strings.Contains(source, "handle") {
 		return nil, fmt.Errorf("plugin: lua: missing handle function")
 	}
-	return &LuaRuntime{source: source, Tools: ts}, nil
+	return r, nil
 }
 
 // Call invokes handle(requestJSON) with a fresh sandboxed state. The context
-// deadline cancels a runaway loop.
+// deadline interrupts a runaway loop.
 func (r *LuaRuntime) Call(ctx context.Context, request []byte) ([]byte, error) {
-	L := lua.NewState()
-	defer L.Close()
-	L.SetContext(ctx)
-	configureLuaDir(L, r.Dir)
-	if r.Tools != nil {
-		bindLua(L, r.Tools)
+	m, err := r.newVM()
+	if err != nil {
+		return nil, err
 	}
+	defer m.Close()
+
+	done := make(chan struct{})
+	defer close(done)
+	if deadline, ok := ctx.Deadline(); ok {
+		m.SetEvalTimeout(time.Until(deadline))
+	}
+	go func() {
+		select {
+		case <-ctx.Done():
+			m.Interrupt()
+		case <-done:
+		}
+	}()
+
 	slog.Debug("plugin lua call start", "dir", r.Dir, "request_bytes", len(request))
-	if err := L.DoString(r.source); err != nil {
+	if _, err := m.EvalChunk("=plugin", r.source); err != nil {
 		return nil, fmt.Errorf("plugin: lua source: %w", err)
 	}
-	fn := L.GetGlobal("handle")
-	if fn == lua.LNil {
-		return nil, fmt.Errorf("plugin: lua: missing handle function")
+	if _, err := m.EvalChunk("=goisekai-invoke", luaInvokeHelper); err != nil {
+		return nil, fmt.Errorf("plugin: lua invoke: %w", err)
 	}
+
 	var decoded any
 	if err := json.Unmarshal(request, &decoded); err != nil {
 		return nil, fmt.Errorf("plugin: lua: decode request: %w", err)
 	}
-	luaRequest := goValue(L, decoded)
-	slog.Debug("plugin lua request decoded", "type", fmt.Sprintf("%T", luaRequest))
-	if err := L.CallByParam(lua.P{Fn: fn, NRet: 1, Protect: true}, luaRequest); err != nil {
+	values, err := m.Call("__invoke", decoded)
+	if err != nil {
 		return nil, fmt.Errorf("plugin: lua call: %w", err)
 	}
-	value := L.Get(-1)
-	slog.Debug("plugin lua result", "type", fmt.Sprintf("%T", value))
-	if text, ok := value.(lua.LString); ok {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("plugin: lua call: %w", err)
+	}
+	if len(values) == 0 {
+		return nil, fmt.Errorf("plugin: lua call: no result")
+	}
+	slog.Debug("plugin lua result", "type", fmt.Sprintf("%T", values[0]))
+	if text, ok := values[0].(string); ok {
 		return []byte(text), nil
 	}
-	body, err := json.Marshal(luaValue(value))
+	body, err := json.Marshal(values[0])
 	if err != nil {
 		return nil, fmt.Errorf("plugin: lua: encode result: %w", err)
 	}
