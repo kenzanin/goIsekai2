@@ -22,6 +22,7 @@ is a cross-cutting foundation change against the `config` capability, tracked as
 | 4 | host-tools | `add-host-tools` | plugin-host | archived |
 | 5 | library | `add-library` | host-tools, store | archived |
 | 6 | reader | `add-reader` | library | archived |
+| 6a | reader fullscreen/controls parity | `add-reader-parity` | reader | archived |
 | 7 | image-cache | `add-image-cache` | reader | archived |
 | 8 | detail | `add-detail` | library, image-cache | archived |
 | 9 | updates | `add-updates` | store, plugin-host | archived |
