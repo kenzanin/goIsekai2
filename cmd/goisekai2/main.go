@@ -21,6 +21,7 @@ import (
 	"goisekai2/internal/library"
 	"goisekai2/internal/plugin"
 	"goisekai2/internal/plugin/tools"
+	"goisekai2/internal/reader"
 	"goisekai2/internal/store"
 )
 
@@ -131,7 +132,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	lib := library.New(st, bus)
-	srv := httpserver.New(reg, cli.ConfigPath, bus, host, lib, st)
+	rd := reader.New(st, host)
+	srv := httpserver.New(reg, cli.ConfigPath, bus, host, lib, rd, st)
 
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", snap.Int(config.KnobServerPort)))
 	if err != nil {

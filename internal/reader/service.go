@@ -174,14 +174,16 @@ func locate(chs []store.Chapter, number float64, chapterID string) int {
 // to the last stored list when the host fails or returns nothing usable.
 func (s *Service) pageList(ctx context.Context, plugin, slug string, ch store.Chapter) ([]string, error) {
 	params, _ := json.Marshal(map[string]string{"id": ch.ChapterID})
-	if out, err := s.Host.Call(ctx, plugin, "pages", params); err == nil {
-		var urls []string
-		if json.Unmarshal(out, &urls) == nil && len(urls) > 0 {
-			pages := make([]store.ChapterPage, len(urls))
-			for i, u := range urls {
-				pages[i] = store.ChapterPage{URL: u}
+	if s.Host != nil {
+		if out, err := s.Host.Call(ctx, plugin, "pages", params); err == nil {
+			var urls []string
+			if json.Unmarshal(out, &urls) == nil && len(urls) > 0 {
+				pages := make([]store.ChapterPage, len(urls))
+				for i, u := range urls {
+					pages[i] = store.ChapterPage{URL: u}
+				}
+				return urls, s.Store.ReplacePages(ctx, plugin, slug, ch.ChapterID, pages)
 			}
-			return urls, s.Store.ReplacePages(ctx, plugin, slug, ch.ChapterID, pages)
 		}
 	}
 	return s.storedPages(ctx, plugin, slug, ch.ChapterID), nil
