@@ -516,6 +516,16 @@ func TestDetailRoutes(t *testing.T) {
 	}
 }
 
+func TestOriginalImageURL(t *testing.T) {
+	nested := "/cache/img?plugin=p&slug=s&cover=1&url=%2Fcache%2Fimg%3Fplugin%3Dp%26slug%3Ds%26cover%3D1%26url%3Dhttps%253A%252F%252Fcdn.example%252Fcover.jpg"
+	if got := originalImageURL(nested); got != "https://cdn.example/cover.jpg" {
+		t.Fatalf("unwrapped = %q", got)
+	}
+	if got := originalImageURL("https://cdn.example/cover.jpg"); got != "https://cdn.example/cover.jpg" {
+		t.Fatalf("plain cover changed = %q", got)
+	}
+}
+
 func TestDetailChapterPagination(t *testing.T) {
 	st, err := store.Open(filepath.Join(t.TempDir(), "lib.db"))
 	if err != nil {
@@ -543,6 +553,9 @@ func TestDetailChapterPagination(t *testing.T) {
 	if rec.Code != http.StatusOK || strings.Count(body, `aria-label="Read chapter`) != 20 ||
 		!strings.Contains(body, `aria-label="Detail chapter pages"`) || !strings.Contains(body, `aria-current="page"`) {
 		t.Fatalf("page 1 rows = %d, pager = %v", strings.Count(body, `aria-label="Read chapter`), strings.Contains(body, `aria-label="Detail chapter pages"`))
+	}
+	if !strings.Contains(body, `aria-label="Read chapter 25"`) || strings.Contains(body, `aria-label="Read chapter 1"`) {
+		t.Fatal("chapter list is not newest-first")
 	}
 	rec = httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/view/manga/p/s?page=2", nil))
