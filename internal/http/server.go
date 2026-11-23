@@ -294,7 +294,11 @@ func originalImageURL(cover string) string {
 		if err != nil || u.Path != "/cache/img" {
 			break
 		}
-		raw := u.Query().Get("url")
+		values, err := url.ParseQuery(u.RawQuery)
+		if err != nil {
+			break
+		}
+		raw := values.Get("url")
 		if raw == "" || raw == cover {
 			break
 		}
