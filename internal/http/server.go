@@ -633,6 +633,26 @@ func (s *Server) apiSearch(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(out)
 }
 
+// canonicalChapterID resolves a chapter number to the release the library
+// currently lists. Duplicate releases keep their own stored ids, but reader
+// links always open the listed one so old bookmarks do not show a different
+// scanlation's page set.
+func (s *Server) canonicalChapterID(ctx context.Context, pluginID, slug string, number float64, requested string) string {
+	if s.reader == nil {
+		return requested
+	}
+	rows, err := s.reader.Chapters(ctx, pluginID, slug)
+	if err != nil {
+		return requested
+	}
+	for _, row := range rows {
+		if row.Number == number && row.ChapterID != "" {
+			return row.ChapterID
+		}
+	}
+	return requested
+}
+
 func (s *Server) renderRead(w http.ResponseWriter, r *http.Request) {
 	if s.reader == nil || s.store == nil {
 		http.NotFound(w, r)
@@ -640,17 +660,18 @@ func (s *Server) renderRead(w http.ResponseWriter, r *http.Request) {
 	}
 	pluginID, slug := chi.URLParam(r, "plugin"), chi.URLParam(r, "slug")
 	number, _ := strconv.ParseFloat(r.FormValue("ch"), 64)
-	result, err := s.reader.Pages(r.Context(), pluginID, slug, number, r.FormValue("ch_id"))
+	chID := s.canonicalChapterID(r.Context(), pluginID, slug, number, r.FormValue("ch_id"))
+	result, err := s.reader.Pages(r.Context(), pluginID, slug, number, chID)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
-	chapter := components.ReaderChapter{Number: number, ID: r.FormValue("ch_id")}
+	chapter := components.ReaderChapter{Number: number, ID: chID}
 	if v, ok := result["chapter"].(float64); ok {
 		chapter.Number = v
 	}
 	if urls, ok := result["pages"].([]string); ok {
-		result["pages"] = proxiedPages(pluginID, slug, strconv.FormatFloat(number, 'f', -1, 64), r.FormValue("ch_id"), urls)
+		result["pages"] = proxiedPages(pluginID, slug, strconv.FormatFloat(number, 'f', -1, 64), chID, urls)
 		for i, u := range result["pages"].([]string) {
 			chapter.Pages = append(chapter.Pages, components.ReaderPage{URL: u, Index: i})
 		}
@@ -709,13 +730,14 @@ func (s *Server) getPages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	number, _ := strconv.ParseFloat(chi.URLParam(r, "ch"), 64)
-	result, err := s.reader.Pages(r.Context(), chi.URLParam(r, "plugin"), chi.URLParam(r, "slug"), number, r.FormValue("ch_id"))
+	chID := s.canonicalChapterID(r.Context(), chi.URLParam(r, "plugin"), chi.URLParam(r, "slug"), number, r.FormValue("ch_id"))
+	result, err := s.reader.Pages(r.Context(), chi.URLParam(r, "plugin"), chi.URLParam(r, "slug"), number, chID)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]any{"ok": false, "error": "unknown chapter"})
 		return
 	}
 	if urls, ok := result["pages"].([]string); ok {
-		result["pages"] = proxiedPages(chi.URLParam(r, "plugin"), chi.URLParam(r, "slug"), chi.URLParam(r, "ch"), r.FormValue("ch_id"), urls)
+		result["pages"] = proxiedPages(chi.URLParam(r, "plugin"), chi.URLParam(r, "slug"), chi.URLParam(r, "ch"), chID, urls)
 	}
 	writeJSON(w, http.StatusOK, result)
 }

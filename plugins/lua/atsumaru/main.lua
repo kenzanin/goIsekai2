@@ -131,24 +131,35 @@ methods.chapters = function(params)
   local data, err = get_json(BASE .. "/api/manga/allChapters?mangaId=" .. host.url_encode(id))
   if err ~= nil then return { ok = false, error = err } end
   local raw = type(data) == "table" and data.chapters or {}
-  local out, seen = {}, {}
+  local out, by_num = {}, {}
   for _, c in ipairs(type(raw) == "table" and raw or {}) do
     if type(c) == "table" and c.id then
       local label = c.title or ("Chapter " .. tostring(c.number or ""))
       local num = tonumber(c.number)
         or tonumber(tostring(label):match("[%d%.]+"))
         or 0
-      -- host routes pages/CBZ by chapter number, so a second release of the
-      -- same number is unreachable and only duplicates the list; keep first.
-      if not seen[num] then
-        seen[num] = true
-        out[#out + 1] = {
-          id = id .. ":" .. c.id, -- composite mangaId:chapterId, pages needs both
-          number = num,
-          title = label,
-          release_at = epoch_ms(c.createdAt),
-          pages = tonumber(c.pageCount) or 0, -- read_ch rollup needs page count
-        }
+      local entry = {
+        id = id .. ":" .. c.id, -- composite mangaId:chapterId, pages needs both
+        number = num,
+        title = label,
+        release_at = epoch_ms(c.createdAt),
+        pages = tonumber(c.pageCount) or 0, -- read_ch rollup needs page count
+      }
+      -- Several scanlation groups release the same chapter number. V2 routes
+      -- pages by ch_id, so the newest release is the one the upstream reader
+      -- opens; keep it instead of the first (older) duplicate.
+      local prev = by_num[num]
+      if prev == nil then
+        by_num[num] = entry
+        out[#out + 1] = entry
+      elseif (entry.release_at or 0) > (prev.release_at or 0) then
+        for i, old in ipairs(out) do
+          if old == prev then
+            out[i] = entry
+            break
+          end
+        end
+        by_num[num] = entry
       end
     end
   end
