@@ -65,7 +65,7 @@ func envelope(raw []byte) (map[string]any, error) {
 	return data, nil
 }
 
-func (s *Service) fetch(ctx context.Context, pluginID, method, slug string) (map[string]any, error) {
+func (s *Service) fetchRaw(ctx context.Context, pluginID, method, slug string) (map[string]any, error) {
 	params, _ := json.Marshal(map[string]string{"slug": slug, "id": slug})
 	var err error
 	if s.host != nil {
@@ -86,9 +86,7 @@ func (s *Service) fetch(ctx context.Context, pluginID, method, slug string) (map
 					PluginID: pluginID, QueryHash: cacheHash(pluginID, method, slug),
 					Payload: string(raw), FetchedAt: time.Now().Unix(), TTL: 86400,
 				})
-				if method == "detail" {
-					s.materialize(ctx, pluginID, slug, data)
-				}
+				data["cached"] = false
 				return data, nil
 			}
 			err = parseErr
@@ -104,6 +102,40 @@ func (s *Service) fetch(ctx context.Context, pluginID, method, slug string) (map
 		}
 	}
 	return nil, err
+}
+
+func (s *Service) fetch(ctx context.Context, pluginID, method, slug string) (map[string]any, error) {
+	data, err := s.fetchRaw(ctx, pluginID, method, slug)
+	if err == nil && method == "detail" {
+		s.materialize(ctx, pluginID, slug, data)
+	}
+	return data, err
+}
+
+// Prepare fetches detail and chapters into the JSON cache when the user opens
+// a search result. It never writes the master row.
+func (s *Service) Prepare(ctx context.Context, pluginID, slug string) error {
+	if _, err := s.fetchRaw(ctx, pluginID, "detail", slug); err != nil {
+		return err
+	}
+	_, err := s.fetchRaw(ctx, pluginID, "chapters", slug)
+	return err
+}
+
+// PromoteCached copies a cached detail envelope into the master row. It does
+// not change library membership; the library Save action sets added_at.
+func (s *Service) PromoteCached(ctx context.Context, pluginID, slug string) error {
+	payload, ok := s.store.GetCached(ctx, pluginID, cacheHash(pluginID, "detail", slug), time.Now().Unix())
+	if !ok {
+		return fmt.Errorf("detail: no cached envelope for %s/%s", pluginID, slug)
+	}
+	data, err := envelope([]byte(payload))
+	if err != nil {
+		return err
+	}
+	canonicalizeDetail(data)
+	s.materialize(ctx, pluginID, slug, data)
+	return nil
 }
 
 // ApplyCandidate stores a user-picked metadata candidate. Plugin fields are

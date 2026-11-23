@@ -167,9 +167,9 @@ func Search(active Page, pages []Page, plugins []SearchPlugin, hits []SearchHit,
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var8 string
-					templ_7745c5c3_Var8, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL("/view/manga/" + h.Plugin + "/" + h.Slug)).ResolveURL(ctx)
+					templ_7745c5c3_Var8, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL("/view/manga/" + h.Plugin + "/" + h.Slug + "?fetch=1")).ResolveURL(ctx)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/search.templ`, Line: 75, Col: 72}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/search.templ`, Line: 75, Col: 85}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 					if templ_7745c5c3_Err != nil {

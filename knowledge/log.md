@@ -1,4 +1,7 @@
 ## 2026-11-23
+* **Update**: Linked `decisions/staging-json-in-api-cache.md` to `decisions/saved-manga-master-data.md` (Save promotes staged JSON into the master row.).
+* **Update**: Linked `decisions/staging-json-in-api-cache.md` to `decisions/cache-only-read-path.md` (Search-result fetch is an allowed explicit action; reads stay cache-only.).
+* **Creation**: Documented concept `decisions/staging-json-in-api-cache.md` (Staged plugin JSON lives in api_cache, not a separate in-memory DB).
 * **Update**: Linked `decisions/cache-only-read-path.md` to `decisions/saved-state-marker.md` (Unsaved master rows may render placeholders; saved state remains an explicit marker.).
 * **Update**: Linked `decisions/cache-only-read-path.md` to `decisions/saved-manga-master-data.md` (Cache-only reads use saved_manga as the single master row.).
 * **Creation**: Documented concept `decisions/cache-only-read-path.md` (Manga detail is a cache-only read path).

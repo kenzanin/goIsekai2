@@ -304,6 +304,11 @@ func (s *Server) renderDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pluginID, slug := chi.URLParam(r, "plugin"), chi.URLParam(r, "slug")
+	if r.FormValue("fetch") == "1" {
+		if err := s.detailSvc.Prepare(r.Context(), pluginID, slug); err != nil {
+			slog.Debug("prepare from search result failed", "plugin", pluginID, "slug", slug, "error", err)
+		}
+	}
 	data, err := s.detailSvc.Detail(r.Context(), pluginID, slug)
 	if err != nil {
 		http.NotFound(w, r)
@@ -932,6 +937,9 @@ func (s *Server) saveLibrary(w http.ResponseWriter, r *http.Request) {
 	if s.lib == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "error": "library unavailable"})
 		return
+	}
+	if s.detailSvc != nil {
+		_ = s.detailSvc.PromoteCached(r.Context(), body.Plugin, body.Slug)
 	}
 	if err := s.lib.Save(r.Context(), body.Plugin, body.Slug, body.Name, body.Cover); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
