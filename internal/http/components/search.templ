@@ -72,7 +72,7 @@ templ Search(active Page, pages []Page, plugins []SearchPlugin, hits []SearchHit
 				<ul role="list" class="divide-y divide-zinc-800 rounded-xl border border-zinc-800 bg-zinc-900/40">
 					for _, h := range hits {
 						<li>
-							<a href={ templ.SafeURL("/view/manga/" + h.Plugin + "/" + h.Slug) } class="group flex items-center gap-3 px-4 py-3 transition hover:bg-zinc-800/60">
+							<a href={ templ.SafeURL("/view/manga/" + h.Plugin + "/" + h.Slug + "?fetch=1") } class="group flex items-center gap-3 px-4 py-3 transition hover:bg-zinc-800/60">
 								<span class="shrink-0 rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] leading-4 uppercase tracking-wider text-zinc-400">{ h.Plugin }</span>
 								<span class="truncate text-sm font-medium text-zinc-100 group-hover:text-amber-300">{ h.Name }</span>
 							</a>
