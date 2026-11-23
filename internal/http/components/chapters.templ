@@ -71,7 +71,7 @@ const chapterBulk = `{
 			method: 'POST',
 			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 			body: body.toString(),
-		}).then((res) => { if (res.ok) location.reload(); });
+		}).then((res) => { if (res.ok) window.reloadMain(); });
 	},
 	markAll() {
 		if (confirm('Mark all chapters as read?')) this.post(this.all().map((c) => c.id), 1, 0);
@@ -121,15 +121,23 @@ templ Chapters(active Page, pages []Page, mangaName string, rows []ChapterRow, p
 					}
 				</ul>
 				if totalPages > 1 {
-					<nav aria-label="Chapter pages" class="flex items-center justify-center gap-4">
+					<nav aria-label="Chapter pages" class="flex flex-wrap items-center justify-center gap-1">
 						if page > 1 {
-							<a href={ templ.SafeURL("?page=" + strconv.Itoa(page-1)) } class="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100">Prev</a>
+							<a href={ templ.SafeURL("?page=" + strconv.Itoa(page-1)) } hx-get={ "?page=" + strconv.Itoa(page-1) } hx-select="#page-main" hx-target="#page-main" hx-swap="outerHTML" hx-push-url="true" class="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100">Prev</a>
 						} else {
 							<span aria-disabled="true" class="rounded-md border border-zinc-800 px-3 py-1.5 text-sm font-medium text-zinc-600">Prev</span>
 						}
-						<span class="font-mono text-xs text-zinc-500">{ strconv.Itoa(page) }/{ strconv.Itoa(totalPages) }</span>
+						for _, token := range PageWindow(page, totalPages) {
+							if token == "…" {
+								<span class="px-1 font-mono text-xs text-zinc-600">…</span>
+							} else if token == strconv.Itoa(page) {
+								<span aria-current="page" class="rounded-md bg-zinc-700 px-2.5 py-1.5 font-mono text-xs text-zinc-100">{ token }</span>
+							} else {
+								<a href={ templ.SafeURL("?page=" + token) } hx-get={ "?page=" + token } hx-select="#page-main" hx-target="#page-main" hx-swap="outerHTML" hx-push-url="true" class="rounded-md border border-zinc-700 px-2.5 py-1.5 font-mono text-xs text-zinc-300 transition hover:border-zinc-500">{ token }</a>
+							}
+						}
 						if page < totalPages {
-							<a href={ templ.SafeURL("?page=" + strconv.Itoa(page+1)) } class="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100">Next</a>
+							<a href={ templ.SafeURL("?page=" + strconv.Itoa(page+1)) } hx-get={ "?page=" + strconv.Itoa(page+1) } hx-select="#page-main" hx-target="#page-main" hx-swap="outerHTML" hx-push-url="true" class="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100">Next</a>
 						} else {
 							<span aria-disabled="true" class="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-600 opacity-40">Next</span>
 						}
@@ -156,7 +164,7 @@ templ chapterRow(r ChapterRow) {
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"></path></svg>
 			</span>
 		}
-		<a href={ templ.SafeURL("/read/" + r.Plugin + "/" + r.Slug + "?ch=" + chLabel(r.Number) + "&ch_id=" + r.ID) } class="group flex min-w-0 flex-1 items-baseline gap-3">
+		<a href={ templ.SafeURL("/read/" + r.Plugin + "/" + r.Slug + "?ch=" + chLabel(r.Number) + "&ch_id=" + r.ID) } hx-get={ "/read/" + r.Plugin + "/" + r.Slug + "?ch=" + chLabel(r.Number) + "&ch_id=" + r.ID } hx-select="#page-main" hx-target="#page-main" hx-swap="outerHTML" hx-push-url="true" class="group flex min-w-0 flex-1 items-baseline gap-3">
 			<span class="shrink-0 font-mono text-xs text-zinc-500">ch { chLabel(r.Number) }</span>
 			if r.Title != "" {
 				<span class="truncate text-sm font-medium text-zinc-100 transition group-hover:text-amber-300">{ r.Title }</span>

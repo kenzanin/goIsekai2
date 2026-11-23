@@ -11,17 +11,20 @@ import (
 // (the user-picked candidate); Cached reports that the row was served from
 // the store without a plugin call.
 type DetailRow struct {
-	Plugin      string
-	Slug        string
-	Name        string
-	Cover       string
-	Status      string
-	Synopsis    string
-	Authors     []string
-	Tags        []string
-	ChosenCover string
-	Cached      bool
-	Saved       bool
+	Plugin        string
+	Slug          string
+	Name          string
+	Cover         string
+	Status        string
+	Synopsis      string
+	Authors       []string
+	Tags          []string
+	ChosenCover   string
+	Cached        bool
+	Saved         bool
+	HasContinue   bool
+	ContinueHref  string
+	ContinueLabel string
 }
 
 // Candidate is one enrichment match offered to the user. Selected marks the
@@ -52,51 +55,45 @@ templ Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, ca
 							<span class="rounded bg-amber-400/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-amber-300">cached</span>
 						}
 					</p>
-					<div class="mt-3">
+					<div class="mt-3 flex flex-wrap items-center gap-2">
 						if !row.Saved {
 							<button
 								type="button"
 								hx-post="/api/library"
 								hx-vals={ libraryArgs(row.Plugin, row.Slug, row.Name, detailCoverURL(row)) }
 								hx-swap="none"
-								hx-on::after-request="if (event.detail.successful) location.reload()"
+								hx-on::after-request="if (event.detail.successful) window.reloadMain()"
 								class="rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-sm font-medium text-amber-300 transition hover:bg-amber-400/20"
 							>
 								+ Save to library
 							</button>
-						} else {
-							<button
-								type="button"
-								hx-post="/api/library/remove"
-								hx-vals={ libraryArgs(row.Plugin, row.Slug, "", "") }
-								hx-swap="none"
-								hx-on::after-request="if (event.detail.successful) location.reload()"
-								class="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-100"
-							>
-								Remove from library
-							</button>
+						}
+						if row.HasContinue {
+							<a
+								href={ templ.SafeURL(row.ContinueHref) }
+								hx-get={ row.ContinueHref }
+								hx-select="#page-main"
+								hx-target="#page-main"
+								hx-swap="outerHTML"
+								hx-push-url="true"
+								class="rounded-md bg-amber-400 px-3 py-1.5 text-sm font-semibold text-zinc-950 transition hover:bg-amber-300"
+							>{ row.ContinueLabel }</a>
 						}
 					</div>
 				</div>
-				<div class="flex items-center gap-2">
-					<form method="post" action={ templ.SafeURL("/api/refresh/" + row.Plugin + "/" + row.Slug) }>
-						<button type="submit" aria-label="Fetch detail and chapters" title="Fetch" class="flex items-center gap-1.5 rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-200 transition hover:border-amber-400 hover:text-amber-300">
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"></path></svg>
-							Fetch
-						</button>
-					</form>
-					<form method="post" action={ templ.SafeURL("/api/refresh/" + row.Plugin + "/" + row.Slug + "/force") }>
-						<button type="submit" aria-label="Force refresh, replacing cached detail and chapters" title="Force refresh" class="flex items-center gap-1.5 rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-200 transition hover:border-amber-400 hover:text-amber-300">
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"></path></svg>
-							Force
-						</button>
-					</form>
-					<form method="post" action={ templ.SafeURL("/api/detail/" + row.Plugin + "/" + row.Slug + "/reset") }>
-						<button type="submit" aria-label="Reset detail and cover to the plugin values" title="Reset to plugin data" class="flex items-center gap-1.5 rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-100">
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"></path></svg>
-							Reset
-						</button>
-					</form>
+				<div class="flex flex-wrap items-center gap-2">
+					<button type="button" hx-post={ "/api/refresh/" + row.Plugin + "/" + row.Slug } hx-swap="none" hx-on::after-request="if (event.detail.successful) window.reloadMain()" aria-label="Fetch detail and chapters" title="Fetch" class="flex items-center gap-1.5 rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-200 transition hover:border-amber-400 hover:text-amber-300">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"></path></svg>
+						Fetch
+					</button>
+					<button type="button" hx-post={ "/api/refresh/" + row.Plugin + "/" + row.Slug + "/force" } hx-swap="none" hx-on::after-request="if (event.detail.successful) window.reloadMain()" aria-label="Force refresh, replacing cached detail and chapters" title="Force refresh" class="flex items-center gap-1.5 rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-200 transition hover:border-amber-400 hover:text-amber-300">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"></path></svg>
+						Force
+					</button>
+					<button type="button" hx-post={ "/api/detail/" + row.Plugin + "/" + row.Slug + "/reset" } hx-swap="none" hx-on::after-request="if (event.detail.successful) window.reloadMain()" aria-label="Reset detail and cover to the plugin values" title="Reset to plugin data" class="flex items-center gap-1.5 rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-100">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"></path></svg>
+						Reset
+					</button>
 				</div>
 			</div>
 			<div class="grid gap-6 sm:grid-cols-[180px_1fr]">
@@ -132,21 +129,43 @@ templ Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, ca
 						<dt class="font-mono text-xs uppercase tracking-widest text-zinc-500">Synopsis</dt>
 						<dd class="mt-1 leading-relaxed text-zinc-300">{ detailOr(row.Synopsis, "No synopsis yet.") }</dd>
 					</div>
+					if row.Saved {
+						<div class="pt-1">
+							<button
+								type="button"
+								hx-post="/api/library/remove"
+								hx-vals={ libraryArgs(row.Plugin, row.Slug, "", "") }
+								hx-swap="none"
+								hx-on::after-request="if (event.detail.successful) window.reloadMain()"
+								title="Remove from library"
+								aria-label="Remove from library"
+								class="rounded border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-amber-300 transition hover:bg-amber-400/20"
+							>highlight</button>
+						</div>
+					}
 				</dl>
 			</div>
 			<section aria-label="Chapters" class="space-y-3">
 				<div class="flex flex-wrap items-center justify-between gap-3">
 					<h2 class="font-mono text-sm font-semibold uppercase tracking-widest text-zinc-400">Chapters</h2>
 					if totalPages > 1 {
-						<nav aria-label="Detail chapter pages" class="flex items-center gap-2 font-mono text-xs text-zinc-500">
+						<nav aria-label="Detail chapter pages" class="flex flex-wrap items-center gap-1 font-mono text-xs text-zinc-500">
 							if page > 1 {
-								<a href={ templ.SafeURL("?page=" + strconv.Itoa(page-1)) } class="rounded-md border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500">Prev</a>
+								<a href={ templ.SafeURL("?page=" + strconv.Itoa(page-1)) } hx-get={ "?page=" + strconv.Itoa(page-1) } hx-select="#page-main" hx-target="#page-main" hx-swap="outerHTML" hx-push-url="true" class="rounded-md border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500">Prev</a>
 							} else {
 								<span aria-disabled="true" class="rounded-md border border-zinc-800 px-2 py-1 text-zinc-600">Prev</span>
 							}
-							<span>{ strconv.Itoa(page) }/{ strconv.Itoa(totalPages) }</span>
+							for _, token := range PageWindow(page, totalPages) {
+								if token == "…" {
+									<span class="px-1 text-zinc-600">…</span>
+								} else if token == strconv.Itoa(page) {
+									<span aria-current="page" class="rounded-md bg-zinc-700 px-2 py-1 text-zinc-100">{ token }</span>
+								} else {
+									<a href={ templ.SafeURL("?page=" + token) } hx-get={ "?page=" + token } hx-select="#page-main" hx-target="#page-main" hx-swap="outerHTML" hx-push-url="true" class="rounded-md border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500">{ token }</a>
+								}
+							}
 							if page < totalPages {
-								<a href={ templ.SafeURL("?page=" + strconv.Itoa(page+1)) } class="rounded-md border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500">Next</a>
+								<a href={ templ.SafeURL("?page=" + strconv.Itoa(page+1)) } hx-get={ "?page=" + strconv.Itoa(page+1) } hx-select="#page-main" hx-target="#page-main" hx-swap="outerHTML" hx-push-url="true" class="rounded-md border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500">Next</a>
 							} else {
 								<span aria-disabled="true" class="rounded-md border border-zinc-800 px-2 py-1 text-zinc-600">Next</span>
 							}
@@ -170,9 +189,7 @@ templ Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, ca
 					<h2 class="font-mono text-sm font-semibold uppercase tracking-widest text-zinc-400">Enrichment</h2>
 					<div class="flex items-center gap-3">
 						<p class="text-xs text-zinc-500">Nothing is overwritten until you apply a candidate.</p>
-						<form method="post" action={ templ.SafeURL("/api/enrichment/refresh/" + row.Plugin + "/" + row.Slug) }>
-							<button type="submit" aria-label="Refresh enrichment candidates" title="Fetch enrichment candidates now" class="rounded-md border border-zinc-700 px-2.5 py-1 text-xs font-medium text-zinc-300 transition hover:border-amber-400 hover:text-amber-200">Refresh candidates</button>
-						</form>
+						<button type="button" hx-post={ "/api/enrichment/refresh/" + row.Plugin + "/" + row.Slug } hx-swap="none" hx-on::after-request="if (event.detail.successful) window.reloadMain()" aria-label="Refresh enrichment candidates" title="Fetch enrichment candidates now" class="rounded-md border border-zinc-700 px-2.5 py-1 text-xs font-medium text-zinc-300 transition hover:border-amber-400 hover:text-amber-200">Refresh candidates</button>
 					</div>
 				</div>
 				if len(candidates) == 0 {
@@ -210,7 +227,7 @@ templ detailCover(row DetailRow) {
 // /cbz; switch to a job link when archive generation becomes async.
 templ detailChapterRow(row DetailRow, ch ChapterRow) {
 	<li class="flex items-center gap-3 px-4 py-2.5">
-		<a href={ templ.SafeURL("/read/" + row.Plugin + "/" + row.Slug + "?ch=" + chLabel(ch.Number) + "&ch_id=" + ch.ID) } aria-label={ "Read chapter " + chLabel(ch.Number) } title="Read" class="flex min-w-0 flex-1 items-baseline gap-3 rounded-md p-1 transition hover:text-amber-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400">
+		<a href={ templ.SafeURL("/read/" + row.Plugin + "/" + row.Slug + "?ch=" + chLabel(ch.Number) + "&ch_id=" + ch.ID) } hx-get={ "/read/" + row.Plugin + "/" + row.Slug + "?ch=" + chLabel(ch.Number) + "&ch_id=" + ch.ID } hx-select="#page-main" hx-target="#page-main" hx-swap="outerHTML" hx-push-url="true" aria-label={ "Read chapter " + chLabel(ch.Number) } title="Read" class="flex min-w-0 flex-1 items-baseline gap-3 rounded-md p-1 transition hover:text-amber-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400">
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4 shrink-0 text-zinc-500" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 1 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"></path></svg>
 			<span class="shrink-0 font-mono text-xs text-zinc-500">ch { chLabel(ch.Number) }</span>
 			if ch.Title != "" {
@@ -251,12 +268,9 @@ templ candidateCard(row DetailRow, c Candidate) {
 				<p class="mt-1 line-clamp-3 text-xs leading-relaxed text-zinc-400">{ detailOr(c.Synopsis, "No synopsis reported.") }</p>
 			</div>
 		</div>
-		<form method="post" action={ templ.SafeURL("/api/detail/" + row.Plugin + "/" + row.Slug + "/apply") } class="mt-3 flex justify-end">
-			<input type="hidden" name="candidate" value={ c.ID }/>
-			<button type="submit" aria-label={ "Apply candidate " + detailOr(c.Name, c.ID) } class="rounded-md border border-zinc-700 px-3 py-1 text-xs font-medium text-zinc-200 transition hover:border-amber-400 hover:text-amber-300">
-				Apply
-			</button>
-		</form>
+		<button type="button" hx-post={ "/api/detail/" + row.Plugin + "/" + row.Slug + "/apply" } hx-vals={ "{\"candidate\":\"" + c.ID + "\"}" } hx-swap="none" hx-on::after-request="if (event.detail.successful) window.reloadMain()" aria-label={ "Apply candidate " + detailOr(c.Name, c.ID) } class="mt-3 flex justify-end rounded-md border border-zinc-700 px-3 py-1 text-xs font-medium text-zinc-200 transition hover:border-amber-400 hover:text-amber-300">
+			Apply
+		</button>
 	</li>
 }
 

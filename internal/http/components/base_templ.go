@@ -115,7 +115,7 @@ func Base(active Page, pages []Page) templ.Component {
 				}
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</nav></header><main class=\"p-4\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</nav></header><main id=\"page-main\" class=\"p-4\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -123,7 +123,7 @@ func Base(active Page, pages []Page) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</main><div id=\"toast-host\" class=\"fixed right-4 bottom-4 z-[60] flex flex-col items-end gap-2\"></div><script>\n\t\t\t\t(function () {\n\t\t\t\t\tconst host = document.getElementById(\"toast-host\");\n\t\t\t\t\tconst KINDS = {\n\t\t\t\t\t\tsuccess: \"bg-emerald-600 text-white\",\n\t\t\t\t\t\terror: \"bg-red-600 text-white\",\n\t\t\t\t\t\tinfo: \"bg-zinc-700 text-zinc-100\",\n\t\t\t\t\t};\n\t\t\t\t\twindow.toast = function (kind, msg) {\n\t\t\t\t\t\twhile (host.children.length >= 4) host.firstElementChild.remove();\n\t\t\t\t\t\tconst t = document.createElement(\"div\");\n\t\t\t\t\t\tt.className =\n\t\t\t\t\t\t\t\"max-w-xs cursor-pointer rounded px-3 py-2 text-sm shadow-lg \" +\n\t\t\t\t\t\t\t(KINDS[kind] || KINDS.info);\n\t\t\t\t\t\tt.textContent = msg;\n\t\t\t\t\t\tt.onclick = function () {\n\t\t\t\t\t\t\tt.remove();\n\t\t\t\t\t\t};\n\t\t\t\t\t\thost.appendChild(t);\n\t\t\t\t\t\tsetTimeout(\n\t\t\t\t\t\t\tfunction () {\n\t\t\t\t\t\t\t\tt.remove();\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\tkind === \"error\" ? 8000 : 5000,\n\t\t\t\t\t\t);\n\t\t\t\t\t};\n\t\t\t\t\tdocument.body.addEventListener(\"htmx:responseError\", function (ev) {\n\t\t\t\t\t\twindow.toast(\n\t\t\t\t\t\t\t\"error\",\n\t\t\t\t\t\t\t\"Request failed (\" +\n\t\t\t\t\t\t\t\t((ev.detail && ev.detail.xhr && ev.detail.xhr.status) ||\n\t\t\t\t\t\t\t\t\t\"network\") +\n\t\t\t\t\t\t\t\t\")\",\n\t\t\t\t\t\t);\n\t\t\t\t\t});\n\t\t\t\t})();\n\t\t\t</script></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</main><div id=\"toast-host\" class=\"fixed right-4 bottom-4 z-[60] flex flex-col items-end gap-2\"></div><script>\n\t\t\t\t(function () {\n\t\t\t\t\tconst host = document.getElementById(\"toast-host\");\n\t\t\t\t\tconst KINDS = {\n\t\t\t\t\t\tsuccess: \"bg-emerald-600 text-white\",\n\t\t\t\t\t\terror: \"bg-red-600 text-white\",\n\t\t\t\t\t\tinfo: \"bg-zinc-700 text-zinc-100\",\n\t\t\t\t\t};\n\t\t\t\t\twindow.reloadMain = function () {\n\t\t\t\t\t\tif (window.htmx) {\n\t\t\t\t\t\t\thtmx.ajax(\"GET\", location.href, {\n\t\t\t\t\t\t\t\ttarget: \"#page-main\",\n\t\t\t\t\t\t\t\tswap: \"outerHTML\",\n\t\t\t\t\t\t\t\tselect: \"#page-main\",\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t}\n\t\t\t\t\t};\n\t\t\t\t\tdocument.body.addEventListener(\"htmx:afterSwap\", function (ev) {\n\t\t\t\t\t\tif (window.Alpine) Alpine.initTree(ev.detail.target);\n\t\t\t\t\t\tvar path = location.pathname;\n\t\t\t\t\t\tdocument.querySelectorAll(\"header nav a\").forEach(function (a) {\n\t\t\t\t\t\t\tvar on = a.getAttribute(\"href\") === path;\n\t\t\t\t\t\t\tif (on) a.setAttribute(\"aria-current\", \"page\");\n\t\t\t\t\t\t\telse a.removeAttribute(\"aria-current\");\n\t\t\t\t\t\t\ta.classList.toggle(\"bg-zinc-800\", on);\n\t\t\t\t\t\t\ta.classList.toggle(\"text-zinc-100\", on);\n\t\t\t\t\t\t\ta.classList.toggle(\"hover:bg-zinc-800/70\", !on);\n\t\t\t\t\t\t});\n\t\t\t\t\t});\n\t\t\t\t\twindow.toast = function (kind, msg) {\n\t\t\t\t\t\twhile (host.children.length >= 4) host.firstElementChild.remove();\n\t\t\t\t\t\tconst t = document.createElement(\"div\");\n\t\t\t\t\t\tt.className =\n\t\t\t\t\t\t\t\"max-w-xs cursor-pointer rounded px-3 py-2 text-sm shadow-lg \" +\n\t\t\t\t\t\t\t(KINDS[kind] || KINDS.info);\n\t\t\t\t\t\tt.textContent = msg;\n\t\t\t\t\t\tt.onclick = function () {\n\t\t\t\t\t\t\tt.remove();\n\t\t\t\t\t\t};\n\t\t\t\t\t\thost.appendChild(t);\n\t\t\t\t\t\tsetTimeout(\n\t\t\t\t\t\t\tfunction () {\n\t\t\t\t\t\t\t\tt.remove();\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\tkind === \"error\" ? 8000 : 5000,\n\t\t\t\t\t\t);\n\t\t\t\t\t};\n\t\t\t\t\tdocument.body.addEventListener(\"htmx:responseError\", function (ev) {\n\t\t\t\t\t\twindow.toast(\n\t\t\t\t\t\t\t\"error\",\n\t\t\t\t\t\t\t\"Request failed (\" +\n\t\t\t\t\t\t\t\t((ev.detail && ev.detail.xhr && ev.detail.xhr.status) ||\n\t\t\t\t\t\t\t\t\t\"network\") +\n\t\t\t\t\t\t\t\t\")\",\n\t\t\t\t\t\t);\n\t\t\t\t\t});\n\t\t\t\t})();\n\t\t\t</script></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -158,57 +158,83 @@ func navLink(p Page, active Page) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL(p.Path)).ResolveURL(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 133, Col: 33}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 154, Col: 33}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" aria-current=\"page\" class=\"rounded px-3 py-1 transition-colors bg-zinc-800 text-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" hx-get=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templruntime.NewAttributeExpression(p.Path).Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 134, Col: 12}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 154, Col: 51}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</a>")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<a href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" hx-select=\"#page-main\" hx-target=\"#page-main\" hx-swap=\"outerHTML\" hx-push-url=\"true\" aria-current=\"page\" class=\"rounded px-3 py-1 transition-colors bg-zinc-800 text-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var6 string
-			templ_7745c5c3_Var6, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL(p.Path)).ResolveURL(ctx)
+			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 137, Col: 33}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 155, Col: 12}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" class=\"rounded px-3 py-1 transition-colors hover:bg-zinc-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</a>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<a href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var7 string
-			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
+			templ_7745c5c3_Var7, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL(p.Path)).ResolveURL(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 138, Col: 12}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 158, Col: 33}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</a>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\" hx-get=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var8 string
+			templ_7745c5c3_Var8, templ_7745c5c3_Err = templruntime.NewAttributeExpression(p.Path).Resolve(ctx)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 158, Col: 51}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" hx-select=\"#page-main\" hx-target=\"#page-main\" hx-swap=\"outerHTML\" hx-push-url=\"true\" class=\"rounded px-3 py-1 transition-colors hover:bg-zinc-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var9 string
+			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/http/components/base.templ`, Line: 159, Col: 12}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</a>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

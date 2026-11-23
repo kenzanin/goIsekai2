@@ -53,7 +53,8 @@ func TestRoutesOnlyIncludeImplementedPages(t *testing.T) {
 		t.Fatalf("status = %d", rec.Code)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, `href="/settings" aria-current="page"`) {
+	if !strings.Contains(body, `href="/settings" hx-get="/settings"`) ||
+		!strings.Contains(body, `aria-current="page" class="rounded px-3 py-1 transition-colors bg-zinc-800`) {
 		t.Fatalf("active Settings link missing: %s", body)
 	}
 	for _, dead := range []string{`href="/plugins"`, `href="/reader"`} {
@@ -539,14 +540,16 @@ func TestDetailChapterPagination(t *testing.T) {
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/view/manga/p/s", nil))
 	body := rec.Body.String()
-	if rec.Code != http.StatusOK || strings.Count(body, `href="/read/p/s?ch=`) != 20 || !strings.Contains(body, "1/2") {
-		t.Fatalf("page 1 rows = %d, pager = %v", strings.Count(body, `href="/read/p/s?ch=`), strings.Contains(body, "1/2"))
+	if rec.Code != http.StatusOK || strings.Count(body, `aria-label="Read chapter`) != 20 ||
+		!strings.Contains(body, `aria-label="Detail chapter pages"`) || !strings.Contains(body, `aria-current="page"`) {
+		t.Fatalf("page 1 rows = %d, pager = %v", strings.Count(body, `aria-label="Read chapter`), strings.Contains(body, `aria-label="Detail chapter pages"`))
 	}
 	rec = httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/view/manga/p/s?page=2", nil))
 	body = rec.Body.String()
-	if rec.Code != http.StatusOK || strings.Count(body, `href="/read/p/s?ch=`) != 5 || !strings.Contains(body, "2/2") {
-		t.Fatalf("page 2 rows = %d, pager = %v", strings.Count(body, `href="/read/p/s?ch=`), strings.Contains(body, "2/2"))
+	if rec.Code != http.StatusOK || strings.Count(body, `aria-label="Read chapter`) != 5 ||
+		!strings.Contains(body, `aria-label="Detail chapter pages"`) {
+		t.Fatalf("page 2 rows = %d, pager = %v", strings.Count(body, `aria-label="Read chapter`), strings.Contains(body, `aria-label="Detail chapter pages"`))
 	}
 }
 
