@@ -30,9 +30,9 @@ type ReaderChapter struct {
 const readerState = `{
 	overlay: false,
 	done: false,
-	mode: 'webtoon',
+	mode: 'paged',
 	direction: 'ltr',
-	zoom: 'fit',
+	zoom: 'width',
 	ch: 0,
 	chId: '',
 	pages: [],
@@ -43,8 +43,9 @@ const readerState = `{
 	saveT: null,
 	init() {
 		const b = JSON.parse(document.getElementById('reader-boot').textContent);
-		this.mode = b.mode || 'webtoon';
+		this.mode = b.mode || 'paged';
 		this.direction = b.direction || 'ltr';
+		this.zoom = b.zoom || 'width';
 		this.ch = b.chapter;
 		this.chId = b.chId;
 		this.pages = b.pages || [];
@@ -222,7 +223,7 @@ const readerState = `{
 // readerBootstrap returns the initial client state for JSONScript: the
 // chapter, its ordered page URLs, exact neighbour ids, persisted mode and
 // direction, and the resume page.
-func readerBootstrap(mangaName string, chapter ReaderChapter, mode, direction string, positionPage int, chapters []ChapterOption) map[string]any {
+func readerBootstrap(mangaName string, chapter ReaderChapter, mode, direction, zoom string, positionPage int, chapters []ChapterOption) map[string]any {
 	urls := make([]string, len(chapter.Pages))
 	for i, p := range chapter.Pages {
 		urls[i] = p.URL
@@ -235,6 +236,7 @@ func readerBootstrap(mangaName string, chapter ReaderChapter, mode, direction st
 		"manga":     mangaName,
 		"mode":      mode,
 		"direction": direction,
+		"zoom":      zoom,
 		"chapter":   chapter.Number,
 		"chId":      chapter.ID,
 		"pages":     urls,
@@ -267,7 +269,7 @@ func chLabel(n float64) string {
 // while the overlay is hidden, and client-side in-place chapter switching.
 // ponytail: webtoon resume scroll lands early while lazy images still have no
 // height; revisit with explicit aspect ratios when the pages API carries them.
-templ Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter, mode, direction string, positionPage int, chapters []ChapterOption) {
+templ Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter, mode, direction, zoom string, positionPage int, chapters []ChapterOption) {
 	@Base(active, pages) {
 		<div
 			x-data={ readerState }
@@ -278,7 +280,7 @@ templ Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter,
 			x-on:keydown.window="onKey($event)"
 			class="fixed inset-0 z-50 flex flex-col overflow-hidden bg-black text-zinc-200 select-none"
 		>
-			@templ.JSONScript("reader-boot", readerBootstrap(mangaName, chapter, mode, direction, positionPage, chapters))
+			@templ.JSONScript("reader-boot", readerBootstrap(mangaName, chapter, mode, direction, zoom, positionPage, chapters))
 			<!-- reading surface -->
 			<div x-ref="stage" x-on:scroll.passive="onScroll" class="relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
 				<template x-if="total === 0">
@@ -310,13 +312,13 @@ templ Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter,
 				<span x-text="'p ' + (pageIdx + 1) + ' / ' + total"></span>
 			</div>
 			<!-- overlay -->
-			<div x-show="overlay" x-cloak class="pointer-events-none fixed inset-0 z-30 flex flex-col justify-between">
+			<div x-show="overlay" x-cloak class="pointer-events-none fixed inset-0 z-30">
 				<div class="pointer-events-auto border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
-					<div class="flex h-14 items-center gap-3 px-4">
-						<a x-bind:href="exitHref" class="rounded-md px-2 py-1.5 text-sm font-medium text-zinc-300 transition hover:bg-zinc-800 hover:text-zinc-100">← Detail</a>
-						<div class="min-w-0 flex-1 truncate text-center">
-							<span class="truncate text-sm font-semibold text-zinc-100">{ mangaName }</span>
-						</div>
+					<div class="relative flex h-12 items-center justify-center px-4">
+						<span class="truncate text-sm font-semibold text-zinc-100">{ mangaName }</span>
+						<a x-bind:href="exitHref" class="absolute right-3 rounded-md border border-zinc-700 px-2 py-1 text-xs font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100">Back to detail →</a>
+					</div>
+					<div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-zinc-800/60 px-4 py-2">
 						<nav aria-label="Chapter and page" class="flex flex-wrap items-center justify-center gap-1">
 							<button type="button" x-on:click="switchTo(prevRef, 'last', true)" x-bind:disabled="!prevRef" class="rounded-md border border-zinc-700 px-2 py-1 font-mono text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100 disabled:opacity-40">
 								‹ <span x-text="prevRef ? 'ch ' + prevRef.ch : '—'"></span>
@@ -335,8 +337,6 @@ templ Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter,
 								<span x-text="nextRef ? 'ch ' + nextRef.ch : '—'"></span> ›
 							</button>
 						</nav>
-					</div>
-					<div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-zinc-800/60 px-4 py-2">
 						<label class="flex items-center gap-2 text-xs text-zinc-400">
 							Mode
 							<select x-model="mode" aria-label="Reading mode" class="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-amber-400 focus:outline-none">
@@ -362,31 +362,6 @@ templ Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter,
 							</select>
 						</label>
 					</div>
-				</div>
-				<div class="pointer-events-auto border-t border-zinc-800 bg-zinc-950/90 backdrop-blur">
-					<div class="flex h-14 items-center justify-center gap-3 px-4">
-						<button type="button" x-on:click="prev" aria-label="Previous page" class="rounded-md border border-zinc-700 px-2.5 py-1 text-sm text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100">‹</button>
-						<template x-if="total <= 24">
-							<div class="flex max-w-3xl flex-wrap items-center justify-center gap-1">
-								<template x-for="i in total" x-bind:key="i">
-									<button type="button" x-on:click="setPage(i - 1)" x-bind:class="pageIdx === i - 1 ? 'bg-amber-400 font-semibold text-zinc-900' : 'border border-zinc-700 text-zinc-300 hover:border-zinc-500'" class="min-w-7 rounded px-1.5 py-1 font-mono text-xs transition" x-text="i"></button>
-								</template>
-							</div>
-						</template>
-						<template x-if="total > 24">
-							<label class="flex items-center gap-2 font-mono text-xs text-zinc-400">
-								<input type="number" min="1" x-bind:max="total" x-bind:value="pageIdx + 1" x-on:change="jumpTo" aria-label="Jump to page" class="w-16 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-center text-xs text-zinc-100 focus:border-amber-400 focus:outline-none"/>
-								<span>/ <span x-text="total"></span></span>
-							</label>
-						</template>
-						<button type="button" x-on:click="next" aria-label="Next page" class="rounded-md border border-zinc-700 px-2.5 py-1 text-sm text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100">›</button>
-					</div>
-					<p class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-zinc-800/60 px-4 pb-2 pt-1.5 text-[11px] text-zinc-500">
-						<span><kbd class="rounded border border-zinc-700 bg-zinc-900 px-1 font-mono">←</kbd> <kbd class="rounded border border-zinc-700 bg-zinc-900 px-1 font-mono">→</kbd> turn page</span>
-						<span><kbd class="rounded border border-zinc-700 bg-zinc-900 px-1 font-mono">PgUp</kbd>/<kbd class="rounded border border-zinc-700 bg-zinc-900 px-1 font-mono">PgDn</kbd> page</span>
-						<span><kbd class="rounded border border-zinc-700 bg-zinc-900 px-1 font-mono">Esc</kbd> close / detail</span>
-						<span>tap centre to hide</span>
-					</p>
 				</div>
 			</div>
 			<!-- done overlay: last page of the last chapter -->
