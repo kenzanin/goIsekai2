@@ -8,9 +8,7 @@ not an incidental property of handler registration order.
 
 ### Requirement: Canonical navigation order
 
-Every SSR page using the shared shell SHALL render nav from canonical path lists: primary `/library`,
-`/search`, `/plugins`, `/settings`; utility `/log`, `/about`. Unlisted registered pages are omitted; listed
-unregistered pages are skipped silently. The full-screen reader is exempt because it owns its overlay.
+Every SSR page using the shared shell SHALL render nav from canonical path lists in the baseline order. Internal navigation and in-place mutations SHALL swap only the `#page-main` element through htmx with history push, reinitialise Alpine, and update the active header link without a full document reload.
 
 #### Scenario: Baseline order is stable
 - **WHEN** all six shell pages are registered
@@ -19,3 +17,7 @@ unregistered pages are skipped silently. The full-screen reader is exempt becaus
 #### Scenario: Missing page does not create a dead link
 - **WHEN** a page in the canonical list is not registered
 - **THEN** it is omitted from the nav and no other page order changes
+
+#### Scenario: Menu opens in place
+- **WHEN** a nav link is clicked
+- **THEN** only the main element is replaced and the browser URL updates

@@ -38,3 +38,4 @@ is a cross-cutting foundation change against the `config` capability, tracked as
 | 11a | atsumaru newest duplicate release | `atsumaru-newest-release` | sites | archived |
 | 12 | observability (V2-only) | `add-behavior-specs` | sites | archived |
 | 13 | ui-shell (V2-only) | `add-behavior-specs` | sites | archived |
+| 13a | in-place navigation and detail polish | `ui-inplace-polish` | ui-shell, library, detail | archived |
