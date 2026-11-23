@@ -28,6 +28,7 @@ is a cross-cutting foundation change against the `config` capability, tracked as
 | 8 | detail | `add-detail` | library, image-cache | archived |
 | 8a | detail pagination and enrichment cache | `detail-pagination` | detail | archived |
 | 8b | cache-only detail read path | `cache-only-read` | detail | archived |
+| 8c | staged search JSON to master flow | `search-to-master` | detail, library | archived |
 | 9 | updates | `add-updates` | store, plugin-host | archived |
 | 10 | browser | `add-browser` | plugin-host | archived |
 | 11 | sites | `add-sites` | plugin-host, host-tools | archived |
