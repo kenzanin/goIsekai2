@@ -180,7 +180,8 @@ func TestDaemonEndToEnd(t *testing.T) {
 	}
 	body, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
-	if !strings.Contains(string(body), `href="/settings" aria-current="page"`) {
+	if !strings.Contains(string(body), `href="/settings" hx-get="/settings"`) ||
+		!strings.Contains(string(body), `aria-current="page" class="rounded px-3 py-1 transition-colors bg-zinc-800`) {
 		t.Fatalf("settings page missing active nav: %s", body)
 	}
 
