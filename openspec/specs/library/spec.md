@@ -280,3 +280,15 @@ The saved-library pager SHALL show a compact long format: first four pages, an e
 #### Scenario: Middle page range
 - **WHEN** page 7 of 14 is current
 - **THEN** the pager shows the edge runs, an ellipsis around `6 7 8`, and the last five pages
+
+### Requirement: Save accepts only upstream cover URLs
+
+`POST /api/library` SHALL unwrap `/cache/img` query layers before storing a cover, so a cover read from a rendered page can never be persisted as a proxy URL.
+
+#### Scenario: Proxy payload sanitised
+- **WHEN** a save request carries `/cache/img?...&url=<upstream>`
+- **THEN** the stored cover is `<upstream>`
+
+#### Scenario: Plain payload unchanged
+- **WHEN** a save request carries a normal https cover URL
+- **THEN** it is stored unchanged
