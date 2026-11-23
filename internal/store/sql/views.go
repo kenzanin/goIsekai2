@@ -2,8 +2,8 @@ package sql
 
 import "gorm.io/gorm"
 
-// CreateCacheView exposes staged JSON payloads as queryable columns without
-// duplicating their storage. It is a V2 convenience view, not a frozen table.
+// DropCacheView removes the JSON1 cache view so it can be recreated after a
+// schema change.
 const DropCacheView = `DROP VIEW IF EXISTS api_cache_view`
 
 // CreateCacheView exposes staged JSON payloads as queryable columns without
