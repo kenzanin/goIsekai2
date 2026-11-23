@@ -3,7 +3,9 @@ package httpserver
 
 import (
 	"context"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"io/fs"
 	"log/slog"
@@ -343,6 +345,11 @@ func (s *Server) renderDetail(w http.ResponseWriter, r *http.Request) {
 		Order("number, chapter_id").Find(&stored).Error; err != nil {
 		stored = nil
 	}
+	if len(stored) == 0 && s.detailSvc != nil {
+		if staged, err := s.detailSvc.StagedChapters(r.Context(), pluginID, slug); err == nil {
+			stored = staged
+		}
+	}
 	totalPages := (len(stored) + 19) / 20
 	if totalPages == 0 {
 		totalPages = 1
@@ -544,6 +551,11 @@ func (s *Server) pluginHits(ctx context.Context, pluginID, query string) []compo
 	return hits
 }
 
+func searchCacheHash(plugin, query, page string) string {
+	sum := sha256.Sum256([]byte(plugin + "\x00" + query + "\x00" + page))
+	return hex.EncodeToString(sum[:])
+}
+
 func (s *Server) apiSearch(w http.ResponseWriter, r *http.Request) {
 	if s.host == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "error": "plugin host unavailable"})
@@ -565,12 +577,26 @@ func (s *Server) apiSearch(w http.ResponseWriter, r *http.Request) {
 	params, _ := json.Marshal(map[string]any{
 		"query": r.FormValue("q"), "page": 1,
 	})
+	key := searchCacheHash(pluginID, r.FormValue("q"), "1")
+	if s.store != nil {
+		if hit, ok := s.store.GetCached(r.Context(), pluginID, key, time.Now().Unix()); ok {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(hit))
+			return
+		}
+	}
 	slog.Debug("plugin search api", "plugin", pluginID, "query", r.FormValue("q"))
 	out, err := s.host.Call(r.Context(), pluginID, "search", params)
 	slog.Debug("plugin search api result", "plugin", pluginID, "bytes", len(out), "error", err)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]any{"ok": false, "error": err.Error(), "plugin": pluginID})
 		return
+	}
+	if s.store != nil {
+		_ = s.store.PutCached(r.Context(), &store.ApiCache{
+			PluginID: pluginID, QueryHash: key, ParamsJSON: string(params),
+			Payload: string(out), FetchedAt: time.Now().Unix(), TTL: 86400,
+		})
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(out)

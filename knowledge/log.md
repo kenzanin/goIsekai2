@@ -1,4 +1,8 @@
 ## 2026-11-23
+* **Update**: Updated concept `decisions/staging-json-in-api-cache.md`.
+* **Update**: Linked `decisions/temp-stage-table.md` to `decisions/saved-manga-master-data.md` (Save promotes staged JSON into the master row.).
+* **Update**: Linked `decisions/temp-stage-table.md` to `decisions/cache-only-read-path.md` (Search-result staging is an explicit fetch action; reads stay store-only.).
+* **Creation**: Documented concept `decisions/temp-stage-table.md` (Staged search results use a SQLite TEMP table).
 * **Update**: Linked `decisions/staging-json-in-api-cache.md` to `decisions/saved-manga-master-data.md` (Save promotes staged JSON into the master row.).
 * **Update**: Linked `decisions/staging-json-in-api-cache.md` to `decisions/cache-only-read-path.md` (Search-result fetch is an allowed explicit action; reads stay cache-only.).
 * **Creation**: Documented concept `decisions/staging-json-in-api-cache.md` (Staged plugin JSON lives in api_cache, not a separate in-memory DB).

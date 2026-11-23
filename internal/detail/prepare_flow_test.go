@@ -32,10 +32,7 @@ func TestPromoteCachedCopiesMetadataWithoutMembership(t *testing.T) {
 	defer st.Close()
 	ctx := context.Background()
 	payload := `{"ok":true,"data":{"name":"Staged","cover":"cover","synopsis":"Syn","authors":["A"],"tags":["T"]}}`
-	if err := st.PutCached(ctx, &store.ApiCache{
-		PluginID: "p", QueryHash: cacheHash("p", "detail", "s"),
-		Payload: payload, FetchedAt: time.Now().Unix(), TTL: 86400,
-	}); err != nil {
+	if err := st.PutStage(ctx, "p", "s", payload, `{"ok":true,"data":{"chapters":[]}}`, time.Now().Unix()); err != nil {
 		t.Fatal(err)
 	}
 	svc := &Service{store: st}
