@@ -10,6 +10,6 @@
 
 ## 3. Close-out
 
-- [ ] 3.1 Validate, merge and archive.
+- [x] 3.1 Validate, merge and archive.
 
 Gate: `make test lint`, `CGO_ENABLED=0 go build ./...`.
