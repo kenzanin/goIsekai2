@@ -286,6 +286,23 @@ func (s *Server) namespace(ctx context.Context, pluginID string) string {
 	return imagecache.Namespace(pluginID, name)
 }
 
+// originalImageURL unwraps any number of /cache/img proxy layers so a cover
+// read back from a page is never persisted as a proxy URL.
+func originalImageURL(cover string) string {
+	for strings.HasPrefix(cover, "/cache/img?") {
+		u, err := url.Parse(cover)
+		if err != nil || u.Path != "/cache/img" {
+			break
+		}
+		raw := u.Query().Get("url")
+		if raw == "" || raw == cover {
+			break
+		}
+		cover = raw
+	}
+	return cover
+}
+
 func imageSrc(pluginID, slug, raw string, cover bool) string {
 	if raw == "" {
 		return ""
@@ -340,7 +357,8 @@ func (s *Server) renderDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	row := components.DetailRow{
 		Plugin: pluginID, Slug: slug, Name: str("name"), Cover: str("cover"),
-		Status: str("status"), Synopsis: str("synopsis"),
+		RawCover: originalImageURL(str("cover")),
+		Status:   str("status"), Synopsis: str("synopsis"),
 		ChosenCover: str("chosen_cover"), Cached: data["cached"] == true,
 		Saved: data["saved"] == true,
 	}
@@ -358,7 +376,7 @@ func (s *Server) renderDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	var stored []store.Chapter
 	if err := s.store.DB().WithContext(r.Context()).Where("plugin = ? AND slug = ?", pluginID, slug).
-		Order("number, chapter_id").Find(&stored).Error; err != nil {
+		Order("updated_at DESC, number DESC, chapter_id").Find(&stored).Error; err != nil {
 		stored = nil
 	}
 	if len(stored) == 0 && s.detailSvc != nil {
@@ -863,7 +881,7 @@ func (s *Server) listChapters(w http.ResponseWriter, r *http.Request) {
 	var rows []store.Chapter
 	if err := s.store.DB().WithContext(r.Context()).
 		Where("plugin = ? AND slug = ?", chi.URLParam(r, "plugin"), chi.URLParam(r, "slug")).
-		Order("number, chapter_id").Find(&rows).Error; err != nil {
+		Order("updated_at DESC, number DESC, chapter_id").Find(&rows).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
@@ -894,7 +912,7 @@ func (s *Server) renderChapters(w http.ResponseWriter, r *http.Request) {
 	pluginID, slug := chi.URLParam(r, "plugin"), chi.URLParam(r, "slug")
 	var stored []store.Chapter
 	if err := s.store.DB().WithContext(r.Context()).Where("plugin = ? AND slug = ?", pluginID, slug).
-		Order("number, chapter_id").Find(&stored).Error; err != nil {
+		Order("updated_at DESC, number DESC, chapter_id").Find(&stored).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -1039,6 +1057,7 @@ func (s *Server) saveLibrary(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "error": "library unavailable"})
 		return
 	}
+	body.Cover = originalImageURL(body.Cover)
 	if err := s.lib.Save(r.Context(), body.Plugin, body.Slug, body.Name, body.Cover); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
 		return

@@ -428,7 +428,7 @@ func (s *Service) StoredChapters(ctx context.Context, pluginID, slug string) ([]
 	var rows []store.Chapter
 	err := s.store.DB().WithContext(ctx).
 		Where("plugin = ? AND slug = ?", pluginID, slug).
-		Order("number, chapter_id").Find(&rows).Error
+		Order("updated_at DESC, number DESC, chapter_id").Find(&rows).Error
 	return rows, err
 }
 

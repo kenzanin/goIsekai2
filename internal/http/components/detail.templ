@@ -15,6 +15,7 @@ type DetailRow struct {
 	Slug          string
 	Name          string
 	Cover         string
+	RawCover      string
 	Status        string
 	Synopsis      string
 	Authors       []string
@@ -269,7 +270,7 @@ func saveToggleVals(row DetailRow) string {
 	if row.Saved {
 		return libraryArgs(row.Plugin, row.Slug, "", "")
 	}
-	return libraryArgs(row.Plugin, row.Slug, row.Name, detailCoverURL(row))
+	return libraryArgs(row.Plugin, row.Slug, row.Name, row.RawCover)
 }
 
 func saveToggleLabel(saved bool) string {
