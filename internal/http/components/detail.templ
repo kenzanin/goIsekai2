@@ -55,45 +55,6 @@ templ Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, ca
 							<span class="rounded bg-amber-400/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-amber-300">cached</span>
 						}
 					</p>
-					<div class="mt-3 flex flex-wrap items-center gap-2">
-						if !row.Saved {
-							<button
-								type="button"
-								hx-post="/api/library"
-								hx-vals={ libraryArgs(row.Plugin, row.Slug, row.Name, detailCoverURL(row)) }
-								hx-swap="none"
-								hx-on::after-request="if (event.detail.successful) window.reloadMain()"
-								class="rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-sm font-medium text-amber-300 transition hover:bg-amber-400/20"
-							>
-								+ Save to library
-							</button>
-						}
-						if row.HasContinue {
-							<a
-								href={ templ.SafeURL(row.ContinueHref) }
-								hx-get={ row.ContinueHref }
-								hx-select="#page-main"
-								hx-target="#page-main"
-								hx-swap="outerHTML"
-								hx-push-url="true"
-								class="rounded-md bg-amber-400 px-3 py-1.5 text-sm font-semibold text-zinc-950 transition hover:bg-amber-300"
-							>{ row.ContinueLabel }</a>
-						}
-					</div>
-				</div>
-				<div class="flex flex-wrap items-center gap-2">
-					<button type="button" hx-post={ "/api/refresh/" + row.Plugin + "/" + row.Slug } hx-swap="none" hx-on::after-request="if (event.detail.successful) window.reloadMain()" aria-label="Fetch detail and chapters" title="Fetch" class="flex items-center gap-1.5 rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-200 transition hover:border-amber-400 hover:text-amber-300">
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"></path></svg>
-						Fetch
-					</button>
-					<button type="button" hx-post={ "/api/refresh/" + row.Plugin + "/" + row.Slug + "/force" } hx-swap="none" hx-on::after-request="if (event.detail.successful) window.reloadMain()" aria-label="Force refresh, replacing cached detail and chapters" title="Force refresh" class="flex items-center gap-1.5 rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-200 transition hover:border-amber-400 hover:text-amber-300">
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"></path></svg>
-						Force
-					</button>
-					<button type="button" hx-post={ "/api/detail/" + row.Plugin + "/" + row.Slug + "/reset" } hx-swap="none" hx-on::after-request="if (event.detail.successful) window.reloadMain()" aria-label="Reset detail and cover to the plugin values" title="Reset to plugin data" class="flex items-center gap-1.5 rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-100">
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"></path></svg>
-						Reset
-					</button>
 				</div>
 			</div>
 			<div class="grid gap-6 sm:grid-cols-[180px_1fr]">
@@ -129,21 +90,44 @@ templ Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, ca
 						<dt class="font-mono text-xs uppercase tracking-widest text-zinc-500">Synopsis</dt>
 						<dd class="mt-1 leading-relaxed text-zinc-300">{ detailOr(row.Synopsis, "No synopsis yet.") }</dd>
 					</div>
-					if row.Saved {
-						<div class="pt-1">
-							<button
-								type="button"
-								hx-post="/api/library/remove"
-								hx-vals={ libraryArgs(row.Plugin, row.Slug, "", "") }
-								hx-swap="none"
-								hx-on::after-request="if (event.detail.successful) window.reloadMain()"
-								title="Remove from library"
-								aria-label="Remove from library"
-								class="rounded border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-amber-300 transition hover:bg-amber-400/20"
-							>highlight</button>
-						</div>
-					}
 				</dl>
+			</div>
+			<div aria-label="Manga actions" class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2">
+				<button
+					type="button"
+					hx-post={ saveToggleRoute(row.Saved) }
+					hx-vals={ saveToggleVals(row) }
+					hx-swap="none"
+					hx-on::after-request="if (event.detail.successful) window.reloadMain()"
+					aria-pressed={ strconv.FormatBool(row.Saved) }
+					title={ saveToggleTitle(row.Saved) }
+					class={ saveToggleClass(row.Saved) }
+				>{ saveToggleLabel(row.Saved) }</button>
+				if row.HasContinue {
+					<a
+						href={ templ.SafeURL(row.ContinueHref) }
+						hx-get={ row.ContinueHref }
+						hx-select="#page-main"
+						hx-target="#page-main"
+						hx-swap="outerHTML"
+						hx-push-url="true"
+						class="rounded-md bg-amber-400 px-3 py-1.5 text-xs font-semibold text-zinc-950 transition hover:bg-amber-300"
+					>{ row.ContinueLabel }</a>
+				}
+				<div class="flex flex-wrap items-center gap-2">
+					<button type="button" hx-post={ "/api/refresh/" + row.Plugin + "/" + row.Slug } hx-swap="none" hx-on::after-request="if (event.detail.successful) window.reloadMain()" aria-label="Fetch detail and chapters" title="Fetch" class="flex items-center gap-1.5 rounded-md border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:border-amber-400 hover:text-amber-300">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"></path></svg>
+						Fetch
+					</button>
+					<button type="button" hx-post={ "/api/refresh/" + row.Plugin + "/" + row.Slug + "/force" } hx-swap="none" hx-on::after-request="if (event.detail.successful) window.reloadMain()" aria-label="Force refresh, replacing cached detail and chapters" title="Force refresh" class="flex items-center gap-1.5 rounded-md border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:border-amber-400 hover:text-amber-300">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"></path></svg>
+						Force
+					</button>
+					<button type="button" hx-post={ "/api/detail/" + row.Plugin + "/" + row.Slug + "/reset" } hx-swap="none" hx-on::after-request="if (event.detail.successful) window.reloadMain()" aria-label="Reset detail and cover to the plugin values" title="Reset to plugin data" class="flex items-center gap-1.5 rounded-md border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-100">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"></path></svg>
+						Reset
+					</button>
+				</div>
 			</div>
 			<section aria-label="Chapters" class="space-y-3">
 				<div class="flex flex-wrap items-center justify-between gap-3">
@@ -272,6 +256,41 @@ templ candidateCard(row DetailRow, c Candidate) {
 			Apply
 		</button>
 	</li>
+}
+
+func saveToggleRoute(saved bool) string {
+	if saved {
+		return "/api/library/remove"
+	}
+	return "/api/library"
+}
+
+func saveToggleVals(row DetailRow) string {
+	if row.Saved {
+		return libraryArgs(row.Plugin, row.Slug, "", "")
+	}
+	return libraryArgs(row.Plugin, row.Slug, row.Name, detailCoverURL(row))
+}
+
+func saveToggleLabel(saved bool) string {
+	if saved {
+		return "★ Saved"
+	}
+	return "☆ Save"
+}
+
+func saveToggleTitle(saved bool) string {
+	if saved {
+		return "Remove from library"
+	}
+	return "Save to library"
+}
+
+func saveToggleClass(saved bool) string {
+	if saved {
+		return "rounded-md border border-amber-400 bg-amber-400/20 px-3 py-1.5 text-xs font-semibold text-amber-200 shadow-[0_0_0_1px_rgba(251,191,36,0.25)] transition hover:bg-amber-400/30"
+	}
+	return "rounded-md border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100"
 }
 
 // detailOr returns value when non-empty, else the placeholder.
