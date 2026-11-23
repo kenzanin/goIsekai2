@@ -938,12 +938,12 @@ func (s *Server) saveLibrary(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "error": "library unavailable"})
 		return
 	}
-	if s.detailSvc != nil {
-		_ = s.detailSvc.PromoteCached(r.Context(), body.Plugin, body.Slug)
-	}
 	if err := s.lib.Save(r.Context(), body.Plugin, body.Slug, body.Name, body.Cover); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
 		return
+	}
+	if s.detailSvc != nil {
+		_ = s.detailSvc.PromoteCached(r.Context(), body.Plugin, body.Slug)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"saved": true})
 }
