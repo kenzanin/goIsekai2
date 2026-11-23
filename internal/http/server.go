@@ -122,6 +122,7 @@ func (s *Server) Handler() http.Handler {
 	r.Post("/api/refresh/{plugin}/{slug}/force", s.refreshDetail)
 	r.Post("/api/detail/{plugin}/{slug}/reset", s.resetDetail)
 	r.Post("/api/detail/{plugin}/{slug}/apply", s.applyCandidate)
+	r.Post("/api/enrichment/refresh/{plugin}/{slug}", s.refreshEnrichment)
 	r.Get("/cache/img", s.getCacheImage)
 	r.Get("/", s.renderLibrary)
 	r.Get("/library", s.renderLibrary)
@@ -233,7 +234,11 @@ func (s *Server) applyCandidate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.FormValue("candidate")
-	for _, data := range s.detailSvc.Candidates(r.Context(), chi.URLParam(r, "slug"), "detail") {
+	title := chi.URLParam(r, "slug")
+	if row, err := s.store.GetSaved(r.Context(), chi.URLParam(r, "plugin"), title); err == nil && row.Name != "" {
+		title = row.Name
+	}
+	for _, data := range s.detailSvc.Candidates(r.Context(), title, "detail") {
 		if data["id"] == id {
 			if err := s.detailSvc.ApplyCandidate(r.Context(), chi.URLParam(r, "plugin"), chi.URLParam(r, "slug"), data); err != nil {
 				writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
@@ -244,6 +249,21 @@ func (s *Server) applyCandidate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusNotFound, map[string]any{"ok": false, "error": "unknown candidate"})
+}
+
+// refreshEnrichment is the explicit user action that fetches enrichment
+// sources; GET routes never do this work.
+func (s *Server) refreshEnrichment(w http.ResponseWriter, r *http.Request) {
+	if s.detailSvc == nil || s.store == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "error": "detail unavailable"})
+		return
+	}
+	title := chi.URLParam(r, "slug")
+	if row, err := s.store.GetSaved(r.Context(), chi.URLParam(r, "plugin"), title); err == nil && row.Name != "" {
+		title = row.Name
+	}
+	s.detailSvc.RefreshCandidates(r.Context(), title, "detail")
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 // imageSrc routes a remote image through the host cache so browser hotlink
@@ -317,13 +337,6 @@ func (s *Server) renderDetail(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.DB().WithContext(r.Context()).Where("plugin = ? AND slug = ?", pluginID, slug).
 		Order("number, chapter_id").Find(&stored).Error; err != nil {
 		stored = nil
-	}
-	if len(stored) == 0 && s.detailSvc != nil {
-		if fresh, err := s.detailSvc.Chapters(r.Context(), pluginID, slug); err == nil {
-			stored = fresh
-		} else {
-			slog.Debug("detail chapters fallback failed", "error", err)
-		}
 	}
 	totalPages := (len(stored) + 19) / 20
 	if totalPages == 0 {
@@ -748,13 +761,6 @@ func (s *Server) listChapters(w http.ResponseWriter, r *http.Request) {
 		Order("number, chapter_id").Find(&rows).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"ok": false, "error": err.Error()})
 		return
-	}
-	if len(rows) == 0 && s.detailSvc != nil {
-		if fresh, err := s.detailSvc.Chapters(r.Context(), chi.URLParam(r, "plugin"), chi.URLParam(r, "slug")); err == nil {
-			rows = fresh
-		} else {
-			slog.Debug("chapter fallback failed", "error", err)
-		}
 	}
 	ids := make([]string, 0, len(rows))
 	for _, row := range rows {

@@ -36,7 +36,7 @@ func TestDetailServesSavedRowWithoutHost(t *testing.T) {
 	}
 }
 
-func TestDetailStaleFallbackAndRefreshStamp(t *testing.T) {
+func TestDetailIgnoresStaleAPICacheOnRead(t *testing.T) {
 	ctx := context.Background()
 	st := testStore(t)
 	svc := New(st, nil)
@@ -48,8 +48,8 @@ func TestDetailStaleFallbackAndRefreshStamp(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, err := svc.Detail(ctx, "p", "s")
-	if err != nil || data["cached"] != true || data["name"] != "Stale" {
-		t.Fatalf("stale = %v, %v", data, err)
+	if err != nil || data["cached"] != true || data["name"] != "s" {
+		t.Fatalf("detail = %v, %v", data, err)
 	}
 	if err := svc.Refresh(ctx, "p", "s"); err == nil {
 		t.Fatal("refresh without host should fail")
