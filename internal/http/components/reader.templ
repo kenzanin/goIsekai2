@@ -161,7 +161,7 @@ const readerState = `{
 		if (ev.key === 'Escape') {
 			if (this.done) { this.done = false; return; }
 			if (this.overlay) { this.overlay = false; return; }
-			location.href = this.exitHref;
+			if (window.htmx) htmx.ajax('GET', this.exitHref, { target: '#page-main', swap: 'outerHTML', select: '#page-main', pushUrl: true }); else location.href = this.exitHref;
 			return;
 		}
 		switch (ev.key) {
@@ -316,7 +316,7 @@ templ Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter,
 				<div class="pointer-events-auto border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
 					<div class="relative flex h-12 items-center justify-center px-4">
 						<span class="truncate text-sm font-semibold text-zinc-100">{ mangaName }</span>
-						<a x-bind:href="exitHref" class="absolute right-3 rounded-md border border-zinc-700 px-2 py-1 text-xs font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100">Back to detail →</a>
+						<a x-bind:href="exitHref" x-on:click.prevent="htmx.ajax('GET', exitHref, { target: '#page-main', swap: 'outerHTML', select: '#page-main', pushUrl: true })" class="absolute right-3 rounded-md border border-zinc-700 px-2 py-1 text-xs font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100">Back to detail →</a>
 					</div>
 					<div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-zinc-800/60 px-4 py-2">
 						<nav aria-label="Chapter and page" class="flex flex-wrap items-center justify-center gap-1">
@@ -371,7 +371,7 @@ templ Reader(active Page, pages []Page, mangaName string, chapter ReaderChapter,
 					<p class="mt-1 text-sm text-zinc-400">This is the last page of the last chapter.</p>
 					<div class="mt-4 flex items-center justify-center gap-2">
 						<button type="button" x-on:click="done = false" class="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100">Stay</button>
-						<a x-bind:href="exitHref" class="rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-300">Back to detail</a>
+						<a x-bind:href="exitHref" x-on:click.prevent="htmx.ajax('GET', exitHref, { target: '#page-main', swap: 'outerHTML', select: '#page-main', pushUrl: true })" class="rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-300">Back to detail</a>
 					</div>
 				</div>
 			</div>

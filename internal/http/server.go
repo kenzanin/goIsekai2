@@ -366,6 +366,24 @@ func (s *Server) renderDetail(w http.ResponseWriter, r *http.Request) {
 			stored = staged
 		}
 	}
+	if len(stored) > 0 {
+		ch := stored[0]
+		chNum, chID, resumePage := ch.Number, ch.ChapterID, 0
+		label := "Start reading CH" + strconv.FormatFloat(chNum, 'f', -1, 64)
+		if pos, err := s.store.GetPosition(r.Context(), pluginID, slug); err == nil && pos.ChapterID != "" {
+			chNum, chID, resumePage = pos.ChapterNumber, pos.ChapterID, pos.Page
+			label = "Continue CH" + strconv.FormatFloat(chNum, 'f', -1, 64)
+			if resumePage > 0 {
+				label += " P" + strconv.Itoa(resumePage)
+			}
+		}
+		if chID != "" {
+			row.HasContinue = true
+			row.ContinueLabel = label
+			row.ContinueHref = "/read/" + pluginID + "/" + slug +
+				"?ch=" + strconv.FormatFloat(chNum, 'f', -1, 64) + "&ch_id=" + chID
+		}
+	}
 	totalPages := (len(stored) + 19) / 20
 	if totalPages == 0 {
 		totalPages = 1

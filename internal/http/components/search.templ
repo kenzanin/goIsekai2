@@ -44,7 +44,7 @@ templ Search(active Page, pages []Page, plugins []SearchPlugin, hits []SearchHit
 				}
 			</div>
 			<div x-data="{ q: '' }">
-				<form action="/search" method="get" role="search" class="flex flex-wrap items-center gap-3">
+				<form action="/search" method="get" hx-get="/search" hx-select="#page-main" hx-target="#page-main" hx-swap="outerHTML" hx-push-url="true" role="search" class="flex flex-wrap items-center gap-3">
 					<input
 						type="search"
 						name="q"
@@ -84,7 +84,7 @@ templ Search(active Page, pages []Page, plugins []SearchPlugin, hits []SearchHit
 				<ul role="list" class="divide-y divide-zinc-800 rounded-xl border border-zinc-800 bg-zinc-900/40">
 					for _, h := range hits {
 						<li>
-							<a href={ templ.SafeURL("/view/manga/" + h.Plugin + "/" + h.Slug + "?fetch=1") } class="group flex items-center gap-3 px-4 py-3 transition hover:bg-zinc-800/60">
+							<a href={ templ.SafeURL("/view/manga/" + h.Plugin + "/" + h.Slug + "?fetch=1") } hx-get={ "/view/manga/" + h.Plugin + "/" + h.Slug + "?fetch=1" } hx-select="#page-main" hx-target="#page-main" hx-swap="outerHTML" hx-push-url="true" class="group flex items-center gap-3 px-4 py-3 transition hover:bg-zinc-800/60">
 								if h.Cover != "" {
 									<img src={ h.Cover } alt={ h.Name } loading="lazy" class="aspect-[2/3] w-12 shrink-0 rounded-lg border border-zinc-800 object-cover transition duration-150 group-hover:border-zinc-700" onerror="this.style.display='none';this.parentNode.querySelector('[data-fallback]').style.display='flex'"/>
 									<span data-fallback aria-hidden="true" style="display: none" class="flex aspect-[2/3] w-12 shrink-0 items-center justify-center rounded-lg bg-zinc-800 font-mono text-lg uppercase text-zinc-400">{ hitInitial(h.Name) }</span>

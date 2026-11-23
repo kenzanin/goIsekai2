@@ -81,7 +81,7 @@ templ Base(active Page, pages []Page) {
 					}
 				</nav>
 			</header>
-			<main class="p-4">
+			<main id="page-main" class="p-4">
 				{ children... }
 			</main>
 			<div id="toast-host" class="fixed right-4 bottom-4 z-[60] flex flex-col items-end gap-2"></div>
@@ -93,6 +93,27 @@ templ Base(active Page, pages []Page) {
 						error: "bg-red-600 text-white",
 						info: "bg-zinc-700 text-zinc-100",
 					};
+					window.reloadMain = function () {
+						if (window.htmx) {
+							htmx.ajax("GET", location.href, {
+								target: "#page-main",
+								swap: "outerHTML",
+								select: "#page-main",
+							});
+						}
+					};
+					document.body.addEventListener("htmx:afterSwap", function (ev) {
+						if (window.Alpine) Alpine.initTree(ev.detail.target);
+						var path = location.pathname;
+						document.querySelectorAll("header nav a").forEach(function (a) {
+							var on = a.getAttribute("href") === path;
+							if (on) a.setAttribute("aria-current", "page");
+							else a.removeAttribute("aria-current");
+							a.classList.toggle("bg-zinc-800", on);
+							a.classList.toggle("text-zinc-100", on);
+							a.classList.toggle("hover:bg-zinc-800/70", !on);
+						});
+					});
 					window.toast = function (kind, msg) {
 						while (host.children.length >= 4) host.firstElementChild.remove();
 						const t = document.createElement("div");
@@ -130,11 +151,11 @@ templ Base(active Page, pages []Page) {
 // surface and aria-current.
 templ navLink(p Page, active Page) {
 	if p.Path == active.Path {
-		<a href={ templ.SafeURL(p.Path) } aria-current="page" class="rounded px-3 py-1 transition-colors bg-zinc-800 text-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none">
+		<a href={ templ.SafeURL(p.Path) } hx-get={ p.Path } hx-select="#page-main" hx-target="#page-main" hx-swap="outerHTML" hx-push-url="true" aria-current="page" class="rounded px-3 py-1 transition-colors bg-zinc-800 text-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none">
 			{ p.Title }
 		</a>
 	} else {
-		<a href={ templ.SafeURL(p.Path) } class="rounded px-3 py-1 transition-colors hover:bg-zinc-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none">
+		<a href={ templ.SafeURL(p.Path) } hx-get={ p.Path } hx-select="#page-main" hx-target="#page-main" hx-swap="outerHTML" hx-push-url="true" class="rounded px-3 py-1 transition-colors hover:bg-zinc-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none">
 			{ p.Title }
 		</a>
 	}
