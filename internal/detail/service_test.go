@@ -36,7 +36,7 @@ func TestDetailServesSavedRowWithoutHost(t *testing.T) {
 	}
 }
 
-func TestDetailIgnoresStaleAPICacheOnRead(t *testing.T) {
+func TestDetailRendersStagedCacheWithoutFetching(t *testing.T) {
 	ctx := context.Background()
 	st := testStore(t)
 	svc := New(st, nil)
@@ -48,7 +48,7 @@ func TestDetailIgnoresStaleAPICacheOnRead(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, err := svc.Detail(ctx, "p", "s")
-	if err != nil || data["cached"] != true || data["name"] != "s" {
+	if err != nil || data["cached"] != true || data["name"] != "Stale" || data["saved"] != false {
 		t.Fatalf("detail = %v, %v", data, err)
 	}
 	if err := svc.Refresh(ctx, "p", "s"); err == nil {

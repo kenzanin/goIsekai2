@@ -52,4 +52,8 @@ func TestPromoteCachedCopiesMetadataWithoutMembership(t *testing.T) {
 	if row.AddedAt != 0 {
 		t.Fatalf("promotion must not set added_at, got %d", row.AddedAt)
 	}
+	staged, err := svc.Detail(ctx, "p", "s")
+	if err != nil || staged["name"] != "Staged" || staged["saved"] != false {
+		t.Fatalf("staged detail = %v, %v", staged, err)
+	}
 }

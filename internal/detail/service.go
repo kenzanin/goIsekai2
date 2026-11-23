@@ -283,6 +283,28 @@ func (s *Service) RefreshCandidates(ctx context.Context, title, kind string) []m
 func (s *Service) Detail(ctx context.Context, pluginID, slug string) (map[string]any, error) {
 	row, err := s.store.GetSaved(ctx, pluginID, slug)
 	if err != nil {
+		if payload, ok := s.store.GetCached(ctx, pluginID, cacheHash(pluginID, "detail", slug), time.Now().Unix()); ok {
+			if staged, parseErr := envelope([]byte(payload)); parseErr == nil {
+				canonicalizeDetail(staged)
+				staged["plugin"] = pluginID
+				staged["slug"] = slug
+				staged["cached"] = true
+				staged["saved"] = false
+				if staged["name"] == nil || staged["name"] == "" {
+					staged["name"] = slug
+				}
+				if staged["cover"] == nil {
+					staged["cover"] = ""
+				}
+				if staged["chosen_cover"] == nil {
+					staged["chosen_cover"] = staged["cover"]
+				}
+				if staged["enrichment"] == nil {
+					staged["enrichment"] = map[string]any{}
+				}
+				return staged, nil
+			}
+		}
 		row = &store.SavedManga{Plugin: pluginID, Slug: slug, Name: slug}
 	}
 	out := map[string]any{
