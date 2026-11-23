@@ -18,14 +18,14 @@ as they are. This is a deliberate divergence and must be recorded as a decision 
 
 ### Requirement: Detail page rendering
 
-`GET /view/manga/:plugin/:slug` SHALL render the detail shell and hydrate metadata and the chapter list from the JSON APIs, at most 20 chapter rows per request via `?page=` with the `/chapters` pager (prev/next and n/total, hidden on a single page); the full list stays at `/api/chapters` and `/chapters/:plugin/:slug`. Missing optional fields SHALL render as per-field placeholders. Every chapter row SHALL offer a read link and a cbz link, and search result cards SHALL link into this route.
+The detail shell SHALL render stored metadata and chapter pages, at most 20 chapter rows per `?page=`, with placeholders for missing fields. It SHALL offer Fetch/Force and a Refresh candidates action; neither metadata nor candidates SHALL be fetched merely by rendering the page.
 
 #### Scenario: Page renders from plugin data
-- **WHEN** a user opens a known title
-- **THEN** the page shows cover, title, status, tags and the chapter list, each row with read and cbz entries
+- **WHEN** a user opens a known title with stored data
+- **THEN** the page shows the stored cover, title, status, tags and chapter list
 
 #### Scenario: Missing fields degrade per field
-- **WHEN** the plugin omits optional metadata
+- **WHEN** stored metadata omits optional fields
 - **THEN** those fields show placeholders and the rest of the page still renders
 
 #### Scenario: Long chapter list paginates
@@ -36,26 +36,33 @@ as they are. This is a deliberate divergence and must be recorded as a decision 
 - **WHEN** the chapter list holds 12 entries
 - **THEN** all 12 rows render and no pager is emitted
 
+#### Scenario: Refresh enrichment is explicit
+- **WHEN** the user activates Refresh candidates
+- **THEN** the page posts to the refresh route and renders candidates only afterwards
+
 ### Requirement: Detail and chapters APIs
 
-`GET /api/detail/:plugin/:slug` serves the `saved_manga` master row without a plugin call when one exists,
-flagged `cached`, and carries the `enrichment` block, `chosen_cover` and a `saved` boolean derived from
-`added_at > 0`. For an unsaved title the host SHALL call the plugin through the stale layer, materialize the
-canonical fields into a new master row with `added_at = 0`, and serve that row; opening a title therefore never
-adds it to the library. `GET /api/chapters/:plugin/:slug` SHALL keep live-or-stale behaviour in both cases,
-and a cold detail response SHALL also fill chapters and pages when the plugin supplies them.
+`GET /view/...`, `GET /api/detail/...` and `GET /api/chapters/...` SHALL read only stored rows and sidecars. They MUST NOT call a plugin or enrichment source. Missing metadata SHALL render as placeholders; an explicit Fetch action or the update scheduler performs all website reads.
 
 #### Scenario: Saved row read
 - **WHEN** a saved manga's detail is requested while the plugin is unreachable
-- **THEN** the stored metadata is returned with `cached: true`, `saved: true`, and no plugin call is made
+- **THEN** the stored metadata is returned with `cached` and no plugin call is made
 
 #### Scenario: Cold miss materializes
 - **WHEN** no master row exists for a plugin/slug pair
-- **THEN** the validated plugin envelope is written to `saved_manga` with `added_at = 0`, chapters are filled, and `saved: false` is returned
+- **THEN** a placeholder payload with the slug as name is returned and `saved` is false
 
 #### Scenario: Disabled plugin still serves the row
 - **WHEN** a saved manga's plugin is disabled
 - **THEN** detail serves from the row while `POST /api/refresh` answers `plugin disabled`
+
+#### Scenario: Cold detail does not fetch
+- **WHEN** a cold title is opened for the first time
+- **THEN** no plugin or enrichment source is contacted
+
+#### Scenario: Stale detail still renders
+- **WHEN** the stored row is older than its updater
+- **THEN** the row still renders and the scheduler, not the reader, marks it stale
 
 ### Requirement: Stale-serve and unknown titles
 
@@ -266,7 +273,7 @@ payload.
 
 ### Requirement: Enrichment candidates are cached
 
-Enrichment candidate lookups SHALL be cached by `(kind, title)` in the shared `api_cache` with a finite TTL. A cache hit SHALL render without calling any enrichment plugin; a miss SHALL call sources once and store their merged candidates.
+On reads, candidates come only from the stored `api_cache` entry. A cache miss returns no candidates and MUST NOT call a source. Only `RefreshCandidates`, invoked by an explicit action or the scheduler, may fetch and store candidates.
 
 #### Scenario: Repeated detail renders do not fetch enrichment
 - **WHEN** the same detail page renders twice inside the TTL
@@ -274,4 +281,20 @@ Enrichment candidate lookups SHALL be cached by `(kind, title)` in the shared `a
 
 #### Scenario: Expired cache refreshes
 - **WHEN** the cached entry has expired
-- **THEN** the sources are called again and the new result replaces the entry
+- **THEN** a refresh action calls the sources and replaces the entry
+
+#### Scenario: Read miss shows nothing
+- **WHEN** no cached candidate entry exists
+- **THEN** the detail page shows the empty enrichment state without a network call
+
+### Requirement: Explicit enrichment refresh
+
+`POST /api/enrichment/refresh/:plugin/:slug` SHALL be the user action that fetches enrichment sources for the stored title and writes the result to `api_cache`. The auto-update scheduler MAY call the same service method. A normal GET SHALL NOT.
+
+#### Scenario: Explicit refresh fills candidates
+- **WHEN** the refresh route is called for a title with no cached candidates
+- **THEN** sources are called once, results are stored, and later reads show them
+
+#### Scenario: Read routes never refresh
+- **WHEN** a GET detail or chapter route is called after the cache expires
+- **THEN** no enrichment source is contacted
