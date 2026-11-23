@@ -251,16 +251,20 @@ saved titles from disabled plugins SHALL still list and open from stored data.
 
 ### Requirement: Plugin-backed search API
 
-The daemon SHALL expose `GET /api/search?q=<text>&plugin=<id>&genre=<optional>&page=<n>` as the API-first
-search surface used by the search page. It SHALL call the selected enabled plugin's `search` method through
-the host, cache the response in `api_cache` inside its TTL, and return the plugin envelope wrapped as
-`{"ok": true, "data": {...}}`. A disabled or unknown plugin SHALL answer `{"ok": false, "error": "...",
-"plugin": "..."}` with a non-2xx status, and no plugin session SHALL be created.
+`GET /api/search` SHALL hash `(plugin, query, page)` into an `api_cache` key. A live hit SHALL return the stored envelope without calling the plugin; a miss SHALL call the plugin once and store the raw response with TTL. Disabled plugins SHALL still be rejected before any cache or backend access.
 
 #### Scenario: Search page delegates to the API
 - **WHEN** the `/search` page runs a query against an enabled plugin
-- **THEN** it requests `/api/search` rather than searching the local store and renders `data.items` from the response
+- **THEN** it requests `/api/search` rather than searching the local store and renders `data.items`
 
 #### Scenario: Disabled plugin rejected
 - **WHEN** `GET /api/search` targets a disabled plugin
 - **THEN** the response reports `ok: false` with the plugin id and the backend is never touched
+
+#### Scenario: Repeated keyword reuses cache
+- **WHEN** the same plugin, query and page are requested inside the TTL
+- **THEN** the cached envelope is returned and the plugin is not called
+
+#### Scenario: Cache miss calls plugin once
+- **WHEN** no live cache entry exists
+- **THEN** one plugin call fills the cache and subsequent equal requests hit it
