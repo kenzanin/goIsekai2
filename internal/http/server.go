@@ -452,7 +452,7 @@ func (s *Server) getCacheImage(w http.ResponseWriter, r *http.Request) {
 		}
 		var landing string
 		if isCover {
-			landing = imagecache.CoverPath(root, ns, imagecache.Hash(rawURL), 0, "bin")
+			landing = filepath.Join(root, "img", ns, "cover", imagecache.Hash(rawURL)+".bin")
 		} else {
 			landing = strings.TrimSuffix(pattern, ".*") + ".bin"
 		}

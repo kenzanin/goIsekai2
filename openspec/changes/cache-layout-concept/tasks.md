@@ -12,6 +12,6 @@
 
 ## 3. Close-out
 
-- [ ] 3.1 Validate, merge, archive and update decisions.
+- [x] 3.1 Validate, merge, archive and update decisions.
 
 Lane gate: `make test lint`, `go vet ./...`, `CGO_ENABLED=0 go build ./...`.
