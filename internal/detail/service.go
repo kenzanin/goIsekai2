@@ -112,9 +112,9 @@ func (s *Service) fetch(ctx context.Context, pluginID, method, slug string) (map
 	return data, err
 }
 
-// Prepare fetches detail and chapters into the JSON cache when the user opens
-// a search result. It never writes the master row.
-func (s *Service) Prepare(ctx context.Context, pluginID, slug string) error {
+// StageSearchResult fetches detail and chapters into the JSON cache when the
+// user opens a search result. It never writes the master row.
+func (s *Service) StageSearchResult(ctx context.Context, pluginID, slug string) error {
 	if _, err := s.fetchRaw(ctx, pluginID, "detail", slug); err != nil {
 		return err
 	}

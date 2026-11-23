@@ -9,18 +9,18 @@ import (
 	"goisekai2/internal/store"
 )
 
-func TestPrepareWithNoHostCreatesNoMasterRow(t *testing.T) {
+func TestStageSearchResultWithNoHostCreatesNoMasterRow(t *testing.T) {
 	st, err := store.Open(filepath.Join(t.TempDir(), "lib.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer st.Close()
 	svc := &Service{store: st}
-	if err := svc.Prepare(context.Background(), "p", "s"); err == nil {
-		t.Fatal("Prepare without host should fail")
+	if err := svc.StageSearchResult(context.Background(), "p", "s"); err == nil {
+		t.Fatal("StageSearchResult without host should fail")
 	}
 	if _, err := st.GetSaved(context.Background(), "p", "s"); err == nil {
-		t.Fatal("Prepare must not create a master row")
+		t.Fatal("StageSearchResult must not create a master row")
 	}
 }
 

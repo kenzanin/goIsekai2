@@ -305,7 +305,7 @@ func (s *Server) renderDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	pluginID, slug := chi.URLParam(r, "plugin"), chi.URLParam(r, "slug")
 	if r.FormValue("fetch") == "1" {
-		if err := s.detailSvc.Prepare(r.Context(), pluginID, slug); err != nil {
+		if err := s.detailSvc.StageSearchResult(r.Context(), pluginID, slug); err != nil {
 			slog.Debug("prepare from search result failed", "plugin", pluginID, "slug", slug, "error", err)
 		}
 	}
