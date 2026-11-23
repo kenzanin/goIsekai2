@@ -691,15 +691,18 @@ func (s *Server) renderRead(w http.ResponseWriter, r *http.Request) {
 	chapter.PrevNumber, chapter.NextNumber = f("prev_ch"), f("next_ch")
 	chapter.PrevID, chapter.NextID = sv("prev_ch_id"), sv("next_ch_id")
 
-	mode, direction, page := "webtoon", "ltr", 0
+	mode, direction, zoom, page := "", "", "", 0
 	if pos, err := s.store.GetPosition(r.Context(), pluginID, slug); err == nil {
-		mode, direction, page = pos.Mode, pos.Direction, pos.Page
+		mode, direction, zoom, page = pos.Mode, pos.Direction, pos.Zoom, pos.Page
 	}
 	if mode == "" {
-		mode = "webtoon"
+		mode = "paged"
 	}
 	if direction == "" {
 		direction = "ltr"
+	}
+	if zoom == "" {
+		zoom = "width"
 	}
 	name := slug
 	if s.lib != nil {
@@ -719,7 +722,7 @@ func (s *Server) renderRead(w http.ResponseWriter, r *http.Request) {
 		pages = append(pages, components.Page{Path: p.Path, Title: p.Title})
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := components.Reader(active, pages, name, chapter, mode, direction, page, allChapters).Render(r.Context(), w); err != nil {
+	if err := components.Reader(active, pages, name, chapter, mode, direction, zoom, page, allChapters).Render(r.Context(), w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
