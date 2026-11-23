@@ -34,5 +34,6 @@ is a cross-cutting foundation change against the `config` capability, tracked as
 | 9 | updates | `add-updates` | store, plugin-host | archived |
 | 10 | browser | `add-browser` | plugin-host | archived |
 | 11 | sites | `add-sites` | plugin-host, host-tools | archived |
+| 11a | atsumaru newest duplicate release | `atsumaru-newest-release` | sites | archived |
 | 12 | observability (V2-only) | `add-behavior-specs` | sites | archived |
 | 13 | ui-shell (V2-only) | `add-behavior-specs` | sites | archived |
