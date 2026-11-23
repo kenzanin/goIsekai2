@@ -1,4 +1,7 @@
 ## 2026-11-23
+* **Update**: Linked `decisions/cache-layout-concept.md` to `decisions/temp-stage-table.md` (SQLite api_cache remains the sole persistent response cache.).
+* **Update**: Linked `decisions/cache-layout-concept.md` to `architecture/cache-layout.md` (Records the V2 concept alignment and simplifications for the image cache tree.).
+* **Creation**: Documented concept `decisions/cache-layout-concept.md` (Cache layout follows cppIsekai concepts with V2 simplifications).
 * **Update**: Updated concept `decisions/staging-json-in-api-cache.md`.
 * **Update**: Linked `decisions/temp-stage-table.md` to `decisions/saved-manga-master-data.md` (Save promotes staged JSON into the master row.).
 * **Update**: Linked `decisions/temp-stage-table.md` to `decisions/cache-only-read-path.md` (Search-result staging is an explicit fetch action; reads stay store-only.).
