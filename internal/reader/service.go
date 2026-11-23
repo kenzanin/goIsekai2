@@ -56,11 +56,18 @@ func (s *Service) Pages(ctx context.Context, plugin, slug string, number float64
 	return out, nil
 }
 
-// Window returns up to limit page URLs strictly after the stored position,
-// walking forward through the number-ordered chapter list and skipping
-// chapters with no stored pages. Only the store is consulted.
-// Window skips chapters flagged as skipped.
-func (s *Service) Window(ctx context.Context, plugin, slug string, pos store.ReaderPosition, limit int) []string {
+// WindowPart is one upcoming page URL together with the placement context
+// needed by the image cache.
+type WindowPart struct {
+	URL           string
+	ChapterNumber float64
+	ChapterID     string
+	Page          int
+}
+
+// WindowParts returns up to limit upcoming pages with their cache placement
+// context so callers can write them to the structured image cache.
+func (s *Service) WindowParts(ctx context.Context, plugin, slug string, pos store.ReaderPosition, limit int) []WindowPart {
 	chs, err := s.chapters(ctx, plugin, slug)
 	if err != nil {
 		return nil
@@ -69,12 +76,13 @@ func (s *Service) Window(ctx context.Context, plugin, slug string, pos store.Rea
 	if at < 0 {
 		return nil
 	}
-	var out []string
+	var out []WindowPart
 	for i := at; i < len(chs) && len(out) < limit; i++ {
-		if chs[i].Flags&store.ChapterSkip != 0 {
+		ch := chs[i]
+		if ch.Flags&store.ChapterSkip != 0 {
 			continue
 		}
-		urls := s.storedPages(ctx, plugin, slug, chs[i].ChapterID)
+		urls := s.storedPages(ctx, plugin, slug, ch.ChapterID)
 		begin := 0
 		if i == at {
 			begin = max(0, min(pos.Page, len(urls)))
@@ -83,7 +91,24 @@ func (s *Service) Window(ctx context.Context, plugin, slug string, pos store.Rea
 			continue
 		}
 		end := min(len(urls), begin+limit-len(out))
-		out = append(out, urls[begin:end]...)
+		for j := begin; j < end; j++ {
+			out = append(out, WindowPart{
+				URL: urls[j], ChapterNumber: ch.Number, ChapterID: ch.ChapterID, Page: j + 1,
+			})
+		}
+	}
+	return out
+}
+
+// Window returns up to limit page URLs strictly after the stored position,
+// walking forward through the number-ordered chapter list and skipping
+// chapters with no stored pages. Only the store is consulted.
+// Window skips chapters flagged as skipped.
+func (s *Service) Window(ctx context.Context, plugin, slug string, pos store.ReaderPosition, limit int) []string {
+	parts := s.WindowParts(ctx, plugin, slug, pos, limit)
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		out = append(out, part.URL)
 	}
 	return out
 }

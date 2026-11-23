@@ -1,7 +1,7 @@
 ---
 type: architecture
 title: "Image cache: v3 layout, namespace by display name, slug rules, LRU and pure-Go transcode"
-description: "Frozen v3 cache tree with plugin namespace derived from display name, slug and slug_dir rules with collision suffix, cover/page naming and id8 chapter suffix, extension-free hits with sidecars, placement-context requirement (no sha fallback), byte-based LRU and the pure-Go transcode knobs."
+description: "V2 concept-v3 cache tree: display-name namespace, hash-suffixed slug dirs, six-digit chapter folders with last-eight id suffix, cover ratio in filename (no sidecar), placement-context requirement, byte-based LRU, SQLite api_cache as the sole response cache."
 tags: [architecture, cache, images, lru, transcode, slug, parity]
 generated: { by: agent/cli, at: "2026-11-21T12:19:11Z" }
 status: stable
@@ -14,9 +14,9 @@ One cache root (`data/cache`), one directory per plugin **namespace**, one tree 
 ```text
 data/cache/img/
   <plugin-ns>/
-    cover/<sha1(url)[:16]>.<ext>          + <file>.json sidecar
+    cover/<hash16>-<r4>.<ext>
     manga/<slug-dir>/
-      ch<n>[-<id8>]/
+      chNNNNNN[-<id8>]/
         p<nnn>.<ext>
 ```
 
@@ -53,9 +53,9 @@ another id in the known set produces the same base slug; a lone manga is never s
 |---|---|
 | Cover | `cover/<sha1(url or key)[:16]>.<ext>`; plugin empty means namespace `common` |
 | Page | `manga/<slug-dir>/ch<pad(n)>[-<id8>]/p<pad(n)>.<ext>` |
-| Padding | minimum 3 digits, no upper bound (`ch2` -> `ch002`, `ch1234` -> `ch1234`) |
+| Padding | six digits (`ch2` -> `ch000002`, `ch1234` -> `ch001234`) so width never changes sorting order |
 | Chapter id suffix | last 8 characters of the chapter id, omitted when the id is empty |
-| Sidecar | `<image file>.json` next to it: `{w, h, ratio}`, served as `X-Image-Ratio` |
+| Cover ratio | fixed-point `-<r4>` before the extension, where `r4 = round(ratio * 10000)`; no JSON sidecar for new covers |
 
 The chapter-id suffix exists because multi-language releases share a chapter number; two `ch012` would otherwise
 collide.
@@ -70,7 +70,7 @@ collide.
 2. **Stale-hit guard**: every hit is verified with `exists()`; a file deleted under the daemon (manual wipe) drops
    the index entry and falls through to fetch instead of serving a 200 with an empty body.
 3. **Recency**: hit bumps a monotonic tick on the entry -- that tick is the LRU order.
-4. **Miss**: fetch -> transcode -> store at the v3 path + sidecar, then insert into the index.
+4. **Miss**: fetch -> transcode -> store at the v3 path with the ratio encoded in the name, then insert into the index.
 
 ## Placement context is mandatory
 
@@ -97,8 +97,8 @@ Knobs stay exactly as the baseline has them (`[cache]`):
 | `cover_max_px` | `800` | covers are downscaled to this longest edge; pages are never resized |
 | `cache_max_mb` | policy default | LRU byte cap |
 
-Ratio is computed by the host from the decoded image, written to the sidecar and served as `X-Image-Ratio`;
-client-provided ratio parameters are ignored.
+Ratio is computed by the host from the decoded image, encoded as fixed-point in the cover filename and served
+as `X-Image-Ratio`; client-provided ratio parameters are ignored. Legacy JSON sidecars remain readable.
 
 The Go pipeline is pure Go: decode with `image`/`x/image` (+ `gen2brain/*` for webp/avif/jxl), resize with
 `golang.org/x/image/draw` (CatmullRom), encode with the selected format. See `decisions/image-pipeline` for why this
@@ -109,15 +109,16 @@ does not use libvips.
 1. `internal/cache` never opens SQLite. It takes a namespace provider (from the store) and a fetcher (tls-client).
 2. Paths are computed, never accepted: no plugin or request may supply a relative path. Slug sanitising plus sha1
    naming is the traversal defence; `..` cannot appear because `.` is not an allowed slug byte.
-3. The API response cache is a different thing entirely: `api_cache` is a SQLite write-through table, not a disk
-   file, and it is invalidated by `refresh`, not by the LRU.
+3. The API response cache is a different thing entirely: SQLite `api_cache` is the sole response cache, not a
+   disk `api/` tree. Prefetched page bodies land in the structured image tree with placement context.
 4. A cover and a page with the same URL are independent entries (different trees), which is why covers key on the
    URL hash and pages key on placement.
 
 ## Tests that make this real
 
 1. Naming table test: a fixture list of (title, id, chapter, page, url) -> expected relative path, including CJK
-   titles, a 202-char slug, a collision pair, `ch 2`, `ch 1234`, chapter id shorter than 8, and a blank display name.
+   titles, a 202-char slug, a collision pair, `ch 2`, `ch 1234`, chapter id shorter than 8, and a blank display name;
+V2 asserts six-digit chapter width and the hashed slug directory.
 2. LRU test: insert N files over the cap, assert exact eviction order by tick and that every evicted path is gone.
 3. Single-flight test: two concurrent `Ensure` calls for one key produce exactly one fetch.
 4. Extension-free hit test: store as `.webp`, set `image_format=none`, assert the old file still serves.

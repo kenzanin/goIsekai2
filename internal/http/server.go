@@ -179,7 +179,8 @@ func (s *Server) libraryRows(ctx context.Context) []components.LibraryRow {
 	out := make([]components.LibraryRow, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, components.LibraryRow{
-			Plugin: row.Plugin, Slug: row.Slug, Name: row.Name, Cover: row.Cover,
+			Plugin: row.Plugin, Slug: row.Slug, Name: row.Name,
+			Cover:  imageSrc(row.Plugin, row.Slug, row.Cover, true),
 			Status: row.Status, StatusFlags: row.StatusFlags, DupGroup: row.DupGroup,
 			Authors: parseStringList(row.Authors), Artists: parseStringList(row.Artists),
 			Tags: parseStringList(row.Tags),
@@ -270,6 +271,21 @@ func (s *Server) refreshEnrichment(w http.ResponseWriter, r *http.Request) {
 
 // imageSrc routes a remote image through the host cache so browser hotlink
 // blocks do not break covers or reader pages.
+// namespace resolves the stable cache namespace for a plugin. The display
+// name keys the directory; the plugin id is the fallback.
+func (s *Server) namespace(ctx context.Context, pluginID string) string {
+	name := pluginID
+	if s.host != nil {
+		for _, row := range s.host.Rows(ctx) {
+			if row.ID == pluginID {
+				name = row.Name
+				break
+			}
+		}
+	}
+	return imagecache.Namespace(pluginID, name)
+}
+
 func imageSrc(pluginID, slug, raw string, cover bool) string {
 	if raw == "" {
 		return ""
@@ -407,10 +423,11 @@ func (s *Server) getCacheImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	root := s.cacheStore.Root
+	ns := s.namespace(r.Context(), pluginID)
 	isCover := r.FormValue("cover") == "1"
-	var base string
+	var pattern string
 	if isCover {
-		base = strings.TrimSuffix(imagecache.CoverPath(root, pluginID, imagecache.Hash(rawURL), "bin"), ".bin")
+		pattern = filepath.Join(root, "img", ns, "cover", imagecache.Hash(rawURL)+"-*")
 	} else {
 		ch := r.FormValue("ch")
 		page, err := strconv.Atoi(r.FormValue("page"))
@@ -419,9 +436,10 @@ func (s *Server) getCacheImage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		number, _ := strconv.ParseFloat(ch, 64)
-		base = strings.TrimSuffix(imagecache.PagePath(root, pluginID, slug, number, r.FormValue("ch_id"), page, "bin"), ".bin")
+		base := strings.TrimSuffix(imagecache.PagePath(root, ns, slug, number, r.FormValue("ch_id"), page, "bin"), ".bin")
+		pattern = base + ".*"
 	}
-	matches, _ := filepath.Glob(base + ".*")
+	matches, _ := filepath.Glob(pattern)
 	if len(matches) == 0 || strings.HasSuffix(matches[0], ".json") {
 		referer := ""
 		if s.host != nil {
@@ -432,7 +450,13 @@ func (s *Server) getCacheImage(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		path, _, err := s.cacheStore.Put(base+".bin", body, isCover)
+		var landing string
+		if isCover {
+			landing = filepath.Join(root, "img", ns, "cover", imagecache.Hash(rawURL)+".bin")
+		} else {
+			landing = strings.TrimSuffix(pattern, ".*") + ".bin"
+		}
+		path, _, err := s.cacheStore.Put(landing, body, isCover)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -546,7 +570,14 @@ func (s *Server) pluginHits(ctx context.Context, pluginID, query string) []compo
 		if name == "" {
 			name = item.Name
 		}
-		hits = append(hits, components.SearchHit{Plugin: pluginID, Slug: item.ID, Name: name})
+		cover := item.CoverURL
+		if cover == "" {
+			cover = item.Cover
+		}
+		hits = append(hits, components.SearchHit{
+			Plugin: pluginID, Slug: item.ID, Name: name,
+			Cover: imageSrc(pluginID, item.ID, cover, true),
+		})
 	}
 	return hits
 }
@@ -875,16 +906,17 @@ func (s *Server) prefetchWindow(ctx context.Context, plugin, slug string) {
 	if err != nil {
 		return
 	}
-	for _, raw := range s.reader.Window(ctx, plugin, slug, *pos, 10) {
-		key := imagecache.Hash(raw)
+	ns := s.namespace(ctx, plugin)
+	for _, part := range s.reader.WindowParts(ctx, plugin, slug, *pos, 10) {
+		key := imagecache.Hash(part.URL)
 		if s.cacheStore.Exists(key) {
 			continue
 		}
-		body, err := s.cacheStore.GetOrFetch(ctx, key, raw)
+		body, err := s.cacheStore.GetOrFetch(ctx, key, part.URL)
 		if err != nil {
 			continue
 		}
-		path := imagecache.APIPath(s.cacheStore.Root, plugin, "prefetch", key)
+		path := imagecache.PagePath(s.cacheStore.Root, ns, slug, part.ChapterNumber, part.ChapterID, part.Page, "bin")
 		_, _, _ = s.cacheStore.Put(path, body, false)
 	}
 }

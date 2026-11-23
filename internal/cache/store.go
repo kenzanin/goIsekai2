@@ -5,8 +5,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"image"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -111,6 +113,10 @@ func (s *Store) Put(path string, data []byte, cover bool) (string, float64, erro
 	}
 	ext := extension(s.Format)
 	path = strings.TrimSuffix(path, filepath.Ext(path)) + "." + ext
+	if cover && ratio > 0 {
+		stem := strings.TrimSuffix(path, "."+ext)
+		path = fmt.Sprintf("%s-%d.%s", stem, int(math.Round(ratio*10000)), ext)
+	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return "", 0, err
 	}
@@ -133,9 +139,6 @@ func (s *Store) Put(path string, data []byte, cover bool) (string, float64, erro
 	}
 	if err := os.Rename(name, path); err != nil {
 		return "", 0, err
-	}
-	if cover && ratio > 0 {
-		_ = WriteRatio(path, ratio)
 	}
 	if s.Pool != nil {
 		s.Pool.Track(path)

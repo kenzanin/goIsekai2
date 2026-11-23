@@ -95,3 +95,13 @@ func TestWriteRatio(t *testing.T) {
 		t.Fatalf("sidecar ratio %v, want 0.75", got.Ratio)
 	}
 }
+
+func TestReadRatioFromFilename(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cover-6667.webp")
+	if got := ReadRatio(path); got < 0.6666 || got > 0.6668 {
+		t.Fatalf("ratio = %v, want ~0.6667", got)
+	}
+	if got := ReadRatio(filepath.Join(t.TempDir(), "cover.webp")); got != 0 {
+		t.Fatalf("missing ratio = %v, want 0", got)
+	}
+}

@@ -13,6 +13,18 @@ type SearchHit struct {
 	Plugin string
 	Slug   string
 	Name   string
+	// Cover is an already-proxied cover image URL from the daemon; an empty
+	// value renders the initial fallback tile.
+	Cover string
+}
+
+// hitInitial returns the first rune of s for the cover fallback tile; "?"
+// when the name is empty. The tile's uppercase class handles casing.
+func hitInitial(s string) string {
+	for _, r := range s {
+		return string(r)
+	}
+	return "?"
 }
 
 // Search renders the cross-plugin search page: a GET form with the query
@@ -73,6 +85,12 @@ templ Search(active Page, pages []Page, plugins []SearchPlugin, hits []SearchHit
 					for _, h := range hits {
 						<li>
 							<a href={ templ.SafeURL("/view/manga/" + h.Plugin + "/" + h.Slug + "?fetch=1") } class="group flex items-center gap-3 px-4 py-3 transition hover:bg-zinc-800/60">
+								if h.Cover != "" {
+									<img src={ h.Cover } alt={ h.Name } loading="lazy" class="aspect-[2/3] w-12 shrink-0 rounded-lg border border-zinc-800 object-cover transition duration-150 group-hover:border-zinc-700" onerror="this.style.display='none';this.parentNode.querySelector('[data-fallback]').style.display='flex'"/>
+									<span data-fallback aria-hidden="true" style="display: none" class="flex aspect-[2/3] w-12 shrink-0 items-center justify-center rounded-lg bg-zinc-800 font-mono text-lg uppercase text-zinc-400">{ hitInitial(h.Name) }</span>
+								} else {
+									<span aria-hidden="true" class="flex aspect-[2/3] w-12 shrink-0 items-center justify-center rounded-lg bg-zinc-800 font-mono text-lg uppercase text-zinc-400">{ hitInitial(h.Name) }</span>
+								}
 								<span class="shrink-0 rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] leading-4 uppercase tracking-wider text-zinc-400">{ h.Plugin }</span>
 								<span class="truncate text-sm font-medium text-zinc-100 group-hover:text-amber-300">{ h.Name }</span>
 							</a>

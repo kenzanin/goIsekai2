@@ -7,18 +7,24 @@ import (
 	"time"
 )
 
-func TestV3LayoutPaths(t *testing.T) {
+func TestConceptV3LayoutPaths(t *testing.T) {
 	root := t.TempDir()
 	got := PagePath(root, "mangadex", "Solo Leveling", 12, "8f3a2c9d", 3, "webp")
-	want := filepath.Join(root, "img", "mangadex", "manga", "solo-leveling", "ch12-8f3a2c9d", "p003.webp")
+	want := filepath.Join(root, "img", "mangadex", "manga", "solo-leveling-051b627f", "ch000012-8f3a2c9d", "p003.webp")
 	if got != want {
 		t.Fatalf("page = %s, want %s", got, want)
 	}
-	if got := CoverPath(root, "p", "abc", "webp"); got != filepath.Join(root, "img", "p", "cover", "abc.webp") {
+	if got := CoverPath(root, "p", "abc", 0.6667, "webp"); got != filepath.Join(root, "img", "p", "cover", "abc-6667.webp") {
 		t.Fatalf("cover = %s", got)
 	}
-	if got := APIPath(root, "p", "search", "h"); got != filepath.Join(root, "api", "p", "search", "h.json") {
-		t.Fatalf("api = %s", got)
+	if got := chapterDir(12.5, "a1b2c3d4e5f6"); got != "ch000012.5-c3d4e5f6" {
+		t.Fatalf("chapter = %s", got)
+	}
+	if got := Namespace("folder-id", "Atsu.moe Reader"); got != "atsu-moe-reader" {
+		t.Fatalf("namespace = %s", got)
+	}
+	if got := Namespace("folder-id", "!!!"); got != "folder-id" {
+		t.Fatalf("fallback namespace = %s", got)
 	}
 }
 

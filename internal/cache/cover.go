@@ -10,6 +10,9 @@ import (
 	_ "image/jpeg" // register decoder: covers arrive as jpg
 	_ "image/png"  // register decoder: covers arrive as png
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/gen2brain/webp"
 	"golang.org/x/image/draw"
@@ -59,9 +62,16 @@ func WriteRatio(path string, ratio float64) error {
 	return os.WriteFile(path+".json", b, 0o644)
 }
 
-// ReadRatio returns the ratio stored in the image's JSON sidecar, or 0 when
-// the sidecar is absent or malformed.
+// ReadRatio returns the fixed-point ratio encoded in the cover filename, or
+// 0 when absent or malformed. Legacy JSON sidecars remain readable.
 func ReadRatio(path string) float64 {
+	base := filepath.Base(path)
+	stem := strings.TrimSuffix(base, filepath.Ext(base))
+	if i := strings.LastIndexByte(stem, '-'); i >= 0 {
+		if n, err := strconv.Atoi(stem[i+1:]); err == nil {
+			return float64(n) / 10000
+		}
+	}
 	b, err := os.ReadFile(path + ".json")
 	if err != nil {
 		return 0

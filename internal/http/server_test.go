@@ -292,7 +292,8 @@ func TestLibraryRoutes(t *testing.T) {
 
 	page := httptest.NewRecorder()
 	s.Handler().ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/library", nil))
-	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), `data-status="`) {
+	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), `data-status="`) ||
+		!strings.Contains(page.Body.String(), "/cache/img?") {
 		t.Fatalf("grid = %d %s", page.Code, page.Body.String())
 	}
 
