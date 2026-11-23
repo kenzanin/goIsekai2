@@ -23,15 +23,15 @@ stored format. A read matches by key without extension, so any stored format ser
 
 ### Requirement: v3 layout from day one, no legacy upgrade path
 
-The host SHALL write the layout above directly on a fresh data directory. There is no legacy
-`<plugin>/ch.../p...` tree and no id-keyed cache directory to migrate, so no cutover, namespace
-rename or one-time purge step exists. This is a deliberate divergence from the baseline
-`cache-layout` spec, whose upgrade-only requirements (first-run purge, namespace cutover, no
-migration of id-keyed directories) have nothing to act on in a greenfield store.
+Fresh directories SHALL use concept-v3 paths: `img/<ns>/manga/<slugdir>/chNNNNNN[-id8]/pNNN.<ext>`, where `ns` is the plugin display-name slug with id fallback, `slugdir` is a bounded hash-suffixed slug, and `id8` is the last eight chapter-id characters. No migration runs; old paths are re-fetched.
 
 #### Scenario: First image on an empty data dir
-- **WHEN** the first page image of a chapter is cached on a data directory with no `img/` tree
-- **THEN** its path is `img/<plugin>/manga/<slug>/ch<n>-<id8>/pNNN.<ext>` and no migration or purge runs
+- **WHEN** the first page image of a chapter is cached on an empty data dir
+- **THEN** its path uses the namespace, hashed slug dir and six-digit chapter folder
+
+#### Scenario: Chapter width does not collide
+- **WHEN** chapters 999 and 1000 are cached
+- **THEN** both folders share the same six-digit width and sort numerically
 
 ### Requirement: Shared LRU pool
 
@@ -109,19 +109,19 @@ original bytes SHALL be stored unchanged with a warning.
 
 ### Requirement: Cover normalization
 
-A cover stored with `cover=1` SHALL be resized to fit within the configured maximum dimension
-(default 800 px) preserving aspect ratio. The ratio SHALL be computed by the host from the decoded
-dimensions at store time, persisted in a JSON sidecar beside the cover, and exposed as
-`X-Image-Ratio` on the serve response. A client-supplied `ratio` parameter SHALL be ignored; a
-plugin-provided ratio MAY be used only when decoding fails, and otherwise the ratio is omitted.
+Covers SHALL be resized and their host-computed fixed-point ratio encoded in the filename (`-<r4>.<ext>`, r4 = round(ratio × 10000)). New covers SHALL NOT write a JSON ratio sidecar; legacy sidecars remain readable. `X-Image-Ratio` SHALL be derived from the filename.
 
 #### Scenario: Oversized cover is resized
 - **WHEN** a 2000x3000 cover is stored with `cover=1` and max 800
-- **THEN** the stored file is at most 800 px on its longest side, aspect preserved, and the sidecar records the host-computed ratio
+- **THEN** the stored file is at most 800 px on its longest side, aspect preserved, and its filename records the host-computed ratio
+
+#### Scenario: Ratio rides in the filename
+- **WHEN** an oversized cover is stored
+- **THEN** its name carries the fixed-point ratio and the serve response exposes it as `X-Image-Ratio`
 
 #### Scenario: Client ratio is ignored
 - **WHEN** a request passes `ratio` in the query
-- **THEN** the sidecar value is served instead
+- **THEN** the host-computed filename ratio is served instead
 
 ### Requirement: Serve-through image route
 
@@ -168,10 +168,7 @@ method and sorted query, and on a later failure SHALL return the last good paylo
 
 ### Requirement: Sliding prefetch window
 
-`POST /reader/position` with `{chapter, page}` SHALL recompute the next 10 unread pages in ascending
-chapter order, excluding skipped chapters, starting after the current page and crossing chapter
-boundaries, and SHALL prefetch only the not-yet-cached ones. Toggling a chapter's skip SHALL re-run the
-window immediately.
+Prefetched pages SHALL be written to the structured image layout using their chapter and page placement context. No response body SHALL be written to an on-disk API tree.
 
 #### Scenario: Boundary spill
 - **WHEN** the position is the last page of chapter 1 and chapter 2 is not skipped
@@ -184,6 +181,14 @@ window immediately.
 #### Scenario: Cached pages are not refetched
 - **WHEN** some window pages are already on disk
 - **THEN** only the missing ones are fetched
+
+#### Scenario: Prefetch lands as page images
+- **WHEN** the window fetches an upcoming page
+- **THEN** its bytes land under `img/<ns>/manga/<slugdir>/chNNNNNN/pNNN.<ext>`
+
+#### Scenario: No disk API cache
+- **WHEN** plugin or search responses are cached
+- **THEN** they live only in the SQLite `api_cache` table
 
 ### Requirement: Image cache route wiring
 

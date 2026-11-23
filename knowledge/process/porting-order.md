@@ -25,6 +25,7 @@ is a cross-cutting foundation change against the `config` capability, tracked as
 | 6 | reader | `add-reader` | library | archived |
 | 6a | reader fullscreen/controls parity | `add-reader-parity` | reader | archived |
 | 7 | image-cache | `add-image-cache` | reader | archived |
+| 7a | cppIsekai cache-layout concept alignment | `cache-layout-concept` | image-cache, library, store | archived |
 | 8 | detail | `add-detail` | library, image-cache | archived |
 | 8a | detail pagination and enrichment cache | `detail-pagination` | detail | archived |
 | 8b | cache-only detail read path | `cache-only-read` | detail | archived |

@@ -106,23 +106,19 @@ the duplicate filter SHALL report no duplicates, without crashing.
 
 ### Requirement: Grid contract
 
-The home/library grid SHALL render saved entries as cover cards linking to
-`/view/manga/:plugin/:slug`, paginated client-side at 12 per page, with each card carrying
-`data-dup`, `data-status-flags` and `data-status`. An empty library SHALL render the empty state, not
-the search-cache grid, even when legacy `title` rows exist. In saved mode the grid SHALL ignore
-`?q=`/`?page=` server-side, while `?plugin=` pre-filters client-side.
+Saved entries SHALL render cover cards whose image source is a `/cache/img` URL, never a raw CDN URL, so browser hotlink blocks cannot break the library grid. All other card behavior stays unchanged.
 
 #### Scenario: Saved entry appears
 - **WHEN** a manga is saved and the home page is opened
-- **THEN** its cover card renders with its stat fields in the SSR context
-
-#### Scenario: Library versus search cache
-- **WHEN** `title` holds seed rows but nothing is saved
-- **THEN** the empty state renders instead of a grid
+- **THEN** its cover card renders with a `/cache/img` source and its stat fields in the SSR context
 
 #### Scenario: Deep-link plugin filter
 - **WHEN** the home page opens with `?plugin=<id>`
 - **THEN** the grid starts filtered to that plugin client-side
+
+#### Scenario: Library versus search cache
+- **WHEN** `title` holds seed rows but nothing is saved
+- **THEN** the empty state renders instead of a grid
 
 ### Requirement: Category filter uses the stored bit
 
@@ -178,11 +174,7 @@ existing error line and leave the label consistent with the last known state.
 
 ### Requirement: Search form
 
-The search page SHALL offer only enabled plugins as sources, a query field, an optional genre row
-sourced from the selected plugin's `genres` method, and a paginated result grid with a total count.
-State SHALL live in the URL (`?plugin=`, `?q=`, `?genre=`, `?page=`) so a search is linkable and
-reloadable. A disabled plugin SHALL NOT be selectable; a direct API call to it SHALL return the
-disabled error.
+Plugin search hits SHALL carry an already-proxied cover URL and the SSR list SHALL render it as a thumbnail with an initial-tile fallback. The template SHALL NOT construct remote URLs.
 
 #### Scenario: Disabled plugin is not offered
 - **WHEN** a plugin is disabled
@@ -195,6 +187,14 @@ disabled error.
 #### Scenario: Inline states
 - **WHEN** the query yields no results, or the plugin call fails
 - **THEN** the grid shows the empty or error state respectively, without navigating away
+
+#### Scenario: Search hit with cover
+- **WHEN** a plugin returns an item with a cover URL
+- **THEN** the result row renders a thumbnail served through `/cache/img`
+
+#### Scenario: Search hit without cover
+- **WHEN** a plugin returns an item with no cover URL
+- **THEN** the row renders an initial tile and makes no image request
 
 ### Requirement: Local library title search
 
