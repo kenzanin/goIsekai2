@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -510,6 +511,41 @@ func TestDetailRoutes(t *testing.T) {
 	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/refresh/p/s", nil))
 	if rec.Code != http.StatusBadGateway {
 		t.Fatalf("refresh = %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDetailChapterPagination(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "lib.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	ctx := context.Background()
+	if err := st.UpsertSaved(ctx, &store.SavedManga{Plugin: "p", Slug: "s", Name: "Name", Cover: "cover"}); err != nil {
+		t.Fatal(err)
+	}
+	chs := make([]store.Chapter, 0, 25)
+	for i := 1; i <= 25; i++ {
+		chs = append(chs, store.Chapter{ChapterID: fmt.Sprintf("c%d", i), Number: float64(i)})
+	}
+	if err := st.UpsertChapters(ctx, "p", "s", chs); err != nil {
+		t.Fatal(err)
+	}
+	path := testIni(t)
+	s := New(config.Knobs(), path, nil, nil, nil, nil, st)
+	s.SetDetail(detail.New(st, nil))
+
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/view/manga/p/s", nil))
+	body := rec.Body.String()
+	if rec.Code != http.StatusOK || strings.Count(body, `href="/read/p/s?ch=`) != 20 || !strings.Contains(body, "1/2") {
+		t.Fatalf("page 1 rows = %d, pager = %v", strings.Count(body, `href="/read/p/s?ch=`), strings.Contains(body, "1/2"))
+	}
+	rec = httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/view/manga/p/s?page=2", nil))
+	body = rec.Body.String()
+	if rec.Code != http.StatusOK || strings.Count(body, `href="/read/p/s?ch=`) != 5 || !strings.Contains(body, "2/2") {
+		t.Fatalf("page 2 rows = %d, pager = %v", strings.Count(body, `href="/read/p/s?ch=`), strings.Contains(body, "2/2"))
 	}
 }
 

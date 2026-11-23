@@ -313,7 +313,6 @@ func (s *Server) renderDetail(w http.ResponseWriter, r *http.Request) {
 	} else if v, ok := data["tags"].(string); ok && v != "" {
 		row.Tags = strings.Split(v, ", ")
 	}
-	chapters := make([]components.ChapterRow, 0)
 	var stored []store.Chapter
 	if err := s.store.DB().WithContext(r.Context()).Where("plugin = ? AND slug = ?", pluginID, slug).
 		Order("number, chapter_id").Find(&stored).Error; err != nil {
@@ -326,7 +325,23 @@ func (s *Server) renderDetail(w http.ResponseWriter, r *http.Request) {
 			slog.Debug("detail chapters fallback failed", "error", err)
 		}
 	}
-	for _, ch := range stored {
+	totalPages := (len(stored) + 19) / 20
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	detailPage, _ := strconv.Atoi(r.FormValue("page"))
+	if detailPage < 1 {
+		detailPage = 1
+	}
+	if detailPage > totalPages {
+		detailPage = totalPages
+	}
+	start, end := (detailPage-1)*20, detailPage*20
+	if end > len(stored) {
+		end = len(stored)
+	}
+	chapters := make([]components.ChapterRow, 0, max(0, end-start))
+	for _, ch := range stored[start:end] {
 		chapters = append(chapters, components.ChapterRow{
 			Plugin: pluginID, Slug: slug, ID: ch.ChapterID, Number: ch.Number,
 			Title: ch.Title, Read: ch.Flags&store.ChapterRead != 0,
@@ -351,7 +366,7 @@ func (s *Server) renderDetail(w http.ResponseWriter, r *http.Request) {
 		pages = append(pages, components.Page{Path: p.Path, Title: p.Title})
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := components.Detail(components.Page{Path: "/view", Title: row.Name}, pages, row, chapters, candidates).Render(r.Context(), w); err != nil {
+	if err := components.Detail(components.Page{Path: "/view", Title: row.Name}, pages, row, chapters, candidates, detailPage, totalPages).Render(r.Context(), w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
