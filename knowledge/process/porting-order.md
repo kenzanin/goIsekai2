@@ -32,6 +32,7 @@ is a cross-cutting foundation change against the `config` capability, tracked as
 | 8b | cache-only detail read path | `cache-only-read` | detail | archived |
 | 8c | staged search JSON to master flow | `search-to-master` | detail, library | archived |
 | 8d | TEMP staging and search response cache | `temp-stage-search-cache` | detail, library, store | archived |
+| 8e | saved toggle highlight and balanced actions | `detail-toggle-highlight` | detail | archived |
 | 9 | updates | `add-updates` | store, plugin-host | archived |
 | 10 | browser | `add-browser` | plugin-host | archived |
 | 11 | sites | `add-sites` | plugin-host, host-tools | archived |

@@ -321,11 +321,19 @@ The explicit preparation action SHALL write raw detail and chapter envelopes int
 
 ### Requirement: Compact saved indicator and resume control
 
-For a saved manga, the detail page SHALL render the saved-state toggle below the synopsis using the short label `highlight` with a remove-from-library title. It SHALL also render a Start reading or Continue reading control, labelled `CH<n>` and `CH<n> P<m>` from the stored position, linking to the exact chapter id.
+The detail page SHALL render one saved-state toggle below the synopsis: `☆ Save` in the normal state and `★ Saved` highlighted in amber when saved, with `aria-pressed` reflecting membership. Clicking it toggles membership in place. Start/Continue and Fetch/Force/Reset SHALL share that action row, distributed evenly; no action buttons SHALL be clustered under the title.
 
 #### Scenario: Saved indicator placement
 - **WHEN** a saved manga detail page is rendered
-- **THEN** no remove button appears under the title and a `highlight` button appears below the synopsis
+- **THEN** no action buttons appear under the title and a highlighted `★ Saved` toggle appears below the synopsis
+
+#### Scenario: Unsaved toggle is normal
+- **WHEN** an unsaved manga detail page is rendered
+- **THEN** the toggle reads `☆ Save` without the amber highlight and has `aria-pressed="false"`
+
+#### Scenario: Toggle lights up after save
+- **WHEN** the user clicks `☆ Save` and the view refreshes
+- **THEN** the button reads `★ Saved`, is highlighted, and has `aria-pressed="true"`
 
 #### Scenario: Resume from stored position
 - **WHEN** a stored reader position exists at chapter 12 page 3
