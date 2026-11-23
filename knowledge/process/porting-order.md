@@ -26,6 +26,7 @@ is a cross-cutting foundation change against the `config` capability, tracked as
 | 6a | reader fullscreen/controls parity | `add-reader-parity` | reader | archived |
 | 7 | image-cache | `add-image-cache` | reader | archived |
 | 8 | detail | `add-detail` | library, image-cache | archived |
+| 8a | detail pagination and enrichment cache | `detail-pagination` | detail | archived |
 | 9 | updates | `add-updates` | store, plugin-host | archived |
 | 10 | browser | `add-browser` | plugin-host | archived |
 | 11 | sites | `add-sites` | plugin-host, host-tools | archived |
