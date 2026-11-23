@@ -15,4 +15,4 @@ Lane gate: `go vet ./... && gofmt -l internal && CGO_ENABLED=0 go build ./... &&
 
 ## 3. Close-out (main session)
 
-- [ ] 3.1 `openspec validate detail-pagination --strict` clean; archive the change and sync specs.
+- [x] 3.1 `openspec validate detail-pagination --strict` clean; archive the change and sync specs.
