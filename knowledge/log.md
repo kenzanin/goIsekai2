@@ -1,3 +1,8 @@
+## 2026-11-23
+* **Update**: Linked `decisions/cache-only-read-path.md` to `decisions/saved-state-marker.md` (Unsaved master rows may render placeholders; saved state remains an explicit marker.).
+* **Update**: Linked `decisions/cache-only-read-path.md` to `decisions/saved-manga-master-data.md` (Cache-only reads use saved_manga as the single master row.).
+* **Creation**: Documented concept `decisions/cache-only-read-path.md` (Manga detail is a cache-only read path).
+
 ## 2026-11-22
 * **Update**: Linked `decisions/confined-io-shim.md` to `architecture/overview.md` (Records the plugin filesystem authority boundary.).
 * **Update**: Linked `decisions/confined-io-shim.md` to `notes/plugin-tools-fs-read.md` (io shim reuses the same confinement as fs.Read.).

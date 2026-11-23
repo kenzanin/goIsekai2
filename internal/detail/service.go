@@ -201,18 +201,31 @@ func intersects(a, b map[string]bool) bool {
 
 // Candidates asks each enrichment source for metadata candidates. Failures
 // are skipped so one dead source does not break the detail page.
+func candidateCacheKey(kind, title string) string {
+	hash := sha256.Sum256([]byte(kind + "\x00" + title))
+	return hex.EncodeToString(hash[:])
+}
+
+// Candidates returns stored enrichment candidates only. A read never calls a
+// plugin; use RefreshCandidates from an explicit user action or the scheduler.
 func (s *Service) Candidates(ctx context.Context, title, kind string) []map[string]any {
-	hashBytes := sha256.Sum256([]byte(kind + "\x00" + title))
-	hash := hex.EncodeToString(hashBytes[:])
-	now := time.Now().Unix()
-	if s.store != nil {
-		if payload, ok := s.store.GetCached(ctx, "enrichment", hash, now); ok {
-			var cached []map[string]any
-			if err := json.Unmarshal([]byte(payload), &cached); err == nil {
-				return cached
-			}
-		}
+	if s.store == nil {
+		return []map[string]any{}
 	}
+	payload, ok := s.store.GetCached(ctx, "enrichment", candidateCacheKey(kind, title), time.Now().Unix())
+	if !ok {
+		return []map[string]any{}
+	}
+	var cached []map[string]any
+	if err := json.Unmarshal([]byte(payload), &cached); err != nil {
+		return []map[string]any{}
+	}
+	return cached
+}
+
+// RefreshCandidates fetches enrichment sources and stores their candidates.
+// It is a mutation, never part of a GET read path.
+func (s *Service) RefreshCandidates(ctx context.Context, title, kind string) []map[string]any {
 	out := make([]map[string]any, 0)
 	for _, source := range s.enrichment {
 		data, err := source.Enrich(ctx, map[string]string{"title": title, "kind": kind})
@@ -224,43 +237,33 @@ func (s *Service) Candidates(ctx context.Context, title, kind string) []map[stri
 	if s.store != nil {
 		if body, err := json.Marshal(out); err == nil {
 			_ = s.store.PutCached(ctx, &store.ApiCache{
-				PluginID: "enrichment", QueryHash: hash, ParamsJSON: kind + "\x00" + title,
-				FetchedAt: now, TTL: 86400, Payload: string(body),
+				PluginID: "enrichment", QueryHash: candidateCacheKey(kind, title),
+				ParamsJSON: kind + "\x00" + title, FetchedAt: time.Now().Unix(),
+				TTL: 86400, Payload: string(body),
 			})
 		}
 	}
 	return out
 }
 
-// Detail returns a saved row without calling the plugin, or resolves through
-// the plugin with stale fallback for unsaved titles.
+// Detail returns the stored master row and sidecars without calling any
+// plugin. Missing rows yield placeholders so an explicit Fetch can fill them.
 func (s *Service) Detail(ctx context.Context, pluginID, slug string) (map[string]any, error) {
 	row, err := s.store.GetSaved(ctx, pluginID, slug)
-	if err == nil {
-		if row.AddedAt == 0 && (row.Synopsis == "" || row.Authors == "" || row.Tags == "") {
-			if _, fetchErr := s.fetch(ctx, pluginID, "detail", slug); fetchErr == nil {
-				if fresh, getErr := s.store.GetSaved(ctx, pluginID, slug); getErr == nil {
-					row = fresh
-				}
-			}
-		}
-		out := map[string]any{
-			"plugin": row.Plugin, "slug": row.Slug, "name": row.Name, "cover": row.Cover,
-			"status": row.Status, "synopsis": row.Synopsis, "alt_titles": row.AltTitles,
-			"authors": row.Authors, "artists": row.Artists, "tags": row.Tags,
-			"cached": true, "saved": row.AddedAt > 0,
-			"enrichment": map[string]any{}, "chosen_cover": row.Cover,
-		}
-		if meta, err := s.store.GetTitleMeta(ctx, pluginID, slug); err == nil {
-			out["enrichment"] = meta.Fetched
-		}
-		return out, nil
-	}
-	data, err := s.fetch(ctx, pluginID, "detail", slug)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s/%s: %v", ErrUnknownTitle, pluginID, slug, err)
+		row = &store.SavedManga{Plugin: pluginID, Slug: slug, Name: slug}
 	}
-	return data, nil
+	out := map[string]any{
+		"plugin": row.Plugin, "slug": row.Slug, "name": row.Name, "cover": row.Cover,
+		"status": row.Status, "synopsis": row.Synopsis, "alt_titles": row.AltTitles,
+		"authors": row.Authors, "artists": row.Artists, "tags": row.Tags,
+		"cached": true, "saved": row.AddedAt > 0,
+		"enrichment": map[string]any{}, "chosen_cover": row.Cover,
+	}
+	if meta, err := s.store.GetTitleMeta(ctx, pluginID, slug); err == nil {
+		out["enrichment"] = meta.Fetched
+	}
+	return out, nil
 }
 
 // canonicalizeDetail maps plugin-specific field names to the frozen
@@ -341,7 +344,17 @@ func (s *Service) materialize(ctx context.Context, pluginID, slug string, data m
 	}
 }
 
-// Chapters resolves and persists the chapter list for saved or unsaved titles.
+// StoredChapters returns only the persisted chapter list for read paths.
+func (s *Service) StoredChapters(ctx context.Context, pluginID, slug string) ([]store.Chapter, error) {
+	var rows []store.Chapter
+	err := s.store.DB().WithContext(ctx).
+		Where("plugin = ? AND slug = ?", pluginID, slug).
+		Order("number, chapter_id").Find(&rows).Error
+	return rows, err
+}
+
+// Chapters fetches and persists the chapter list. It is a mutation path used
+// by the explicit refresh action and the update scheduler, never by GET reads.
 func (s *Service) Chapters(ctx context.Context, pluginID, slug string) ([]store.Chapter, error) {
 	data, err := s.fetch(ctx, pluginID, "chapters", slug)
 	if err != nil {

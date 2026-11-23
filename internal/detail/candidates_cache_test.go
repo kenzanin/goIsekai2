@@ -25,13 +25,20 @@ func TestCandidatesAreCached(t *testing.T) {
 	svc := &Service{store: st, enrichment: []*EnrichmentSource{{ID: "fake", rt: source}}}
 	ctx := context.Background()
 
-	first := svc.Candidates(ctx, "One Piece", "detail")
-	if len(first) != 1 || first[0]["id"] != "cand" {
-		t.Fatalf("first = %#v", first)
+	if got := svc.Candidates(ctx, "One Piece", "detail"); len(got) != 0 {
+		t.Fatalf("cold Candidates should be empty, got %#v", got)
 	}
-	second := svc.Candidates(ctx, "One Piece", "detail")
-	if len(second) != 1 || second[0]["id"] != "cand" {
-		t.Fatalf("second = %#v", second)
+	if source.calls != 0 {
+		t.Fatalf("Candidates called source %d times", source.calls)
+	}
+	refreshed := svc.RefreshCandidates(ctx, "One Piece", "detail")
+	if len(refreshed) != 1 || refreshed[0]["id"] != "cand" {
+		t.Fatalf("refreshed = %#v", refreshed)
+	}
+	for i := 0; i < 2; i++ {
+		if got := svc.Candidates(ctx, "One Piece", "detail"); len(got) != 1 || got[0]["id"] != "cand" {
+			t.Fatalf("read %d = %#v", i, got)
+		}
 	}
 	if source.calls != 1 {
 		t.Fatalf("source calls = %d, want 1", source.calls)
