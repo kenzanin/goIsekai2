@@ -202,6 +202,17 @@ func intersects(a, b map[string]bool) bool {
 // Candidates asks each enrichment source for metadata candidates. Failures
 // are skipped so one dead source does not break the detail page.
 func (s *Service) Candidates(ctx context.Context, title, kind string) []map[string]any {
+	hashBytes := sha256.Sum256([]byte(kind + "\x00" + title))
+	hash := hex.EncodeToString(hashBytes[:])
+	now := time.Now().Unix()
+	if s.store != nil {
+		if payload, ok := s.store.GetCached(ctx, "enrichment", hash, now); ok {
+			var cached []map[string]any
+			if err := json.Unmarshal([]byte(payload), &cached); err == nil {
+				return cached
+			}
+		}
+	}
 	out := make([]map[string]any, 0)
 	for _, source := range s.enrichment {
 		data, err := source.Enrich(ctx, map[string]string{"title": title, "kind": kind})
@@ -209,6 +220,14 @@ func (s *Service) Candidates(ctx context.Context, title, kind string) []map[stri
 			continue
 		}
 		out = append(out, data)
+	}
+	if s.store != nil {
+		if body, err := json.Marshal(out); err == nil {
+			_ = s.store.PutCached(ctx, &store.ApiCache{
+				PluginID: "enrichment", QueryHash: hash, ParamsJSON: kind + "\x00" + title,
+				FetchedAt: now, TTL: 86400, Payload: string(body),
+			})
+		}
 	}
 	return out
 }

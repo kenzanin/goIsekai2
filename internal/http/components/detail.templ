@@ -40,7 +40,7 @@ type Candidate struct {
 // normal/force fetch and reset actions posting to their dedicated routes, the
 // chapter list with read and cbz links, and the enrichment candidates whose
 // cover is applied only on an explicit pick.
-templ Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, candidates []Candidate) {
+templ Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, candidates []Candidate, page, totalPages int) {
 	@Base(active, pages) {
 		<div class="space-y-8">
 			<div class="flex flex-wrap items-end justify-between gap-4">
@@ -135,7 +135,24 @@ templ Detail(active Page, pages []Page, row DetailRow, chapters []ChapterRow, ca
 				</dl>
 			</div>
 			<section aria-label="Chapters" class="space-y-3">
-				<h2 class="font-mono text-sm font-semibold uppercase tracking-widest text-zinc-400">Chapters</h2>
+				<div class="flex flex-wrap items-center justify-between gap-3">
+					<h2 class="font-mono text-sm font-semibold uppercase tracking-widest text-zinc-400">Chapters</h2>
+					if totalPages > 1 {
+						<nav aria-label="Detail chapter pages" class="flex items-center gap-2 font-mono text-xs text-zinc-500">
+							if page > 1 {
+								<a href={ templ.SafeURL("?page=" + strconv.Itoa(page-1)) } class="rounded-md border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500">Prev</a>
+							} else {
+								<span aria-disabled="true" class="rounded-md border border-zinc-800 px-2 py-1 text-zinc-600">Prev</span>
+							}
+							<span>{ strconv.Itoa(page) }/{ strconv.Itoa(totalPages) }</span>
+							if page < totalPages {
+								<a href={ templ.SafeURL("?page=" + strconv.Itoa(page+1)) } class="rounded-md border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500">Next</a>
+							} else {
+								<span aria-disabled="true" class="rounded-md border border-zinc-800 px-2 py-1 text-zinc-600">Next</span>
+							}
+						</nav>
+					}
+				</div>
 				if len(chapters) == 0 {
 					<div class="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 px-6 py-10 text-center">
 						<p class="text-sm text-zinc-400">No chapters stored; use Fetch to list them.</p>
