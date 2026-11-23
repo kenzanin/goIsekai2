@@ -24,6 +24,7 @@ is a cross-cutting foundation change against the `config` capability, tracked as
 | 5 | library | `add-library` | host-tools, store | archived |
 | 6 | reader | `add-reader` | library | archived |
 | 6a | reader fullscreen/controls parity | `add-reader-parity` | reader | archived |
+| 6b | reader default paged fit-width and single overlay bar | `reader-defaults` | reader | archived |
 | 7 | image-cache | `add-image-cache` | reader | archived |
 | 7a | cppIsekai cache-layout concept alignment | `cache-layout-concept` | image-cache, library, store | archived |
 | 8 | detail | `add-detail` | library, image-cache | archived |

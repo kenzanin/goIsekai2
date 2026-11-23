@@ -21,10 +21,11 @@ identity is always the plugin's chapter id.
 
 ### Requirement: Reading modes
 
-`GET /read/:plugin/:slug?ch=<n>` SHALL render the chapter in one of the four modes above. Mode and
-direction SHALL persist per manga and be restored on reopen. Default SHALL be `webtoon` for
-long-strip content and `paged rtl` otherwise, and an explicit user choice SHALL beat the plugin's
-long-strip hint.
+With no persisted choice, the reader SHALL open in `paged` mode with `ltr` direction and `width` zoom. A stored mode, direction or zoom SHALL override the default. An explicit user choice SHALL beat the plugin's long-strip hint.
+
+#### Scenario: Fresh reader defaults
+- **WHEN** a manga has no stored reader position
+- **THEN** it opens in paged mode with fit-width zoom
 
 #### Scenario: Spread pairing with an odd page count
 - **WHEN** pages 1..5 are read in `spread-h`
@@ -79,10 +80,7 @@ entry.
 
 ### Requirement: Position persistence and resume
 
-`POST /reader/position` SHALL upsert `{plugin, slug, chapter, page, mode, direction}` per manga,
-keeping stored values for absent fields, and SHALL trigger prefetch. Reopening a manga SHALL resume
-the persisted chapter and page, and the detail page SHALL show a "continue ch N p M" hint when a
-position exists.
+`POST /reader/position` SHALL upsert `{plugin, slug, chapter, page, mode, direction, zoom}` per manga, keeping stored values for absent fields, and SHALL trigger prefetch. Reopening SHALL resume the persisted chapter, page, mode, direction and zoom.
 
 #### Scenario: Resume after restart
 - **WHEN** a manga is left at chapter 12 page 3 and the daemon restarts
@@ -91,6 +89,10 @@ position exists.
 #### Scenario: Partial update keeps mode
 - **WHEN** a position POST carries only chapter and page
 - **THEN** the stored mode, direction and zoom are unchanged
+
+#### Scenario: Zoom persists
+- **WHEN** the user selects original zoom and reopens the manga
+- **THEN** the reader restores original zoom
 
 ### Requirement: In-place chapter switch
 
@@ -132,14 +134,7 @@ manual page change. Switching to a prefetched chapter SHALL render without a new
 
 ### Requirement: Full-screen surface and overlay
 
-The reader SHALL be a full-screen surface with the overlay navigation hidden by default. A tap in the
-centre third of the image SHALL toggle the overlay; taps on the left/right thirds SHALL page
-(webtoon scrolls instead of paging on a centre tap). The overlay top bar SHALL contain a back-to-detail
-control, a chapter `<select>` listing every chapter and a page `<select>` listing every page of the current
-chapter. The bottom bar SHALL contain mode, direction and zoom selectors plus numbered page-jump buttons
-1..N; for chapters larger than 24 pages the numbered row SHALL collapse to a single current-page jump
-control while the top page `<select>` still lists every page. While the nav is hidden the reader SHALL show
-a dim, non-interactive `p N / M` indicator.
+The overlay SHALL have a single top bar containing the back-to-detail control at the far right, chapter and page selects, adjacent chapter buttons, and mode/direction/zoom selectors. No bottom overlay bar SHALL be rendered. The dim `p N / M` pill stays while the overlay is hidden.
 
 #### Scenario: Centre tap toggles
 - **WHEN** the nav is hidden and the user taps the centre third
@@ -154,12 +149,16 @@ a dim, non-interactive `p N / M` indicator.
 - **THEN** the reader shows page 7 and records the position
 
 #### Scenario: Numbered page buttons
-- **WHEN** a chapter has 12 pages and the nav is shown
-- **THEN** the bottom bar shows buttons 1..12 with page 7 highlighted when current
+- **WHEN** the overlay is shown for a 12-page chapter
+- **THEN** no numbered page button row is rendered; the top page select remains
 
 #### Scenario: Large chapter compacts navigation
 - **WHEN** a chapter has 80 pages and the nav is shown
-- **THEN** the bottom bar shows one current-page control instead of 80 buttons and the top page select lists all 80
+- **THEN** no bottom jump control is rendered; the top page select still lists all 80
+
+#### Scenario: No bottom bar
+- **WHEN** the overlay is shown for any chapter length
+- **THEN** no bottom overlay navigation panel is rendered
 
 #### Scenario: Webtoon centre tap
 - **WHEN** the reader is in webtoon mode and the user taps the centre third
