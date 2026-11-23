@@ -1,10 +1,10 @@
 ---
 type: decision
 title: "Staged plugin JSON lives in api_cache, not a separate in-memory DB"
-description: The raw detail/chapters envelopes fetched from a search-result action are stored in the main SQLite api_cache table with a TTL; Save promotes them into saved_manga.
+description: "Superseded by decisions/temp-stage-table: staged search JSON now lives in a process-lifetime TEMP table; api_cache stays the persistent search-response cache."
 tags: [decision, cache, sqlite, detail, save-flow]
-generated: { by: agent/mcp, at: "2026-11-23T02:00:21Z" }
-status: stable
+generated: { by: agent/mcp, at: "2026-11-23T02:50:20Z" }
+status: deprecated
 ---
 
 ## Decision

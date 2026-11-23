@@ -41,10 +41,7 @@ func TestDetailRendersStagedCacheWithoutFetching(t *testing.T) {
 	st := testStore(t)
 	svc := New(st, nil)
 	raw := `{"ok":true,"data":{"name":"Stale"}}`
-	if err := st.PutCached(ctx, &store.ApiCache{
-		PluginID: "p", QueryHash: cacheHash("p", "detail", "s"),
-		Payload: raw, FetchedAt: time.Now().Unix(), TTL: 86400,
-	}); err != nil {
+	if err := st.PutStage(ctx, "p", "s", raw, "", time.Now().Unix()); err != nil {
 		t.Fatal(err)
 	}
 	data, err := svc.Detail(ctx, "p", "s")

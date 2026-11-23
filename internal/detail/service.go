@@ -65,7 +65,7 @@ func envelope(raw []byte) (map[string]any, error) {
 	return data, nil
 }
 
-func (s *Service) fetchRaw(ctx context.Context, pluginID, method, slug string) (map[string]any, error) {
+func (s *Service) fetchRaw(ctx context.Context, pluginID, method, slug string) (map[string]any, []byte, error) {
 	params, _ := json.Marshal(map[string]string{"slug": slug, "id": slug})
 	var err error
 	if s.host != nil {
@@ -87,7 +87,7 @@ func (s *Service) fetchRaw(ctx context.Context, pluginID, method, slug string) (
 					Payload: string(raw), FetchedAt: time.Now().Unix(), TTL: 86400,
 				})
 				data["cached"] = false
-				return data, nil
+				return data, raw, nil
 			}
 			err = parseErr
 		}
@@ -98,44 +98,69 @@ func (s *Service) fetchRaw(ctx context.Context, pluginID, method, slug string) (
 		data, parseErr := envelope([]byte(cached))
 		if parseErr == nil {
 			data["cached"] = true
-			return data, nil
+			return data, []byte(cached), nil
 		}
 	}
-	return nil, err
+	return nil, nil, err
 }
 
 func (s *Service) fetch(ctx context.Context, pluginID, method, slug string) (map[string]any, error) {
-	data, err := s.fetchRaw(ctx, pluginID, method, slug)
+	data, _, err := s.fetchRaw(ctx, pluginID, method, slug)
 	if err == nil && method == "detail" {
 		s.materialize(ctx, pluginID, slug, data)
 	}
 	return data, err
 }
 
-// StageSearchResult fetches detail and chapters into the JSON cache when the
-// user opens a search result. It never writes the master row.
+// StageSearchResult fetches detail and chapters into the process-lifetime
+// TEMP staging table. It never writes the master row.
 func (s *Service) StageSearchResult(ctx context.Context, pluginID, slug string) error {
-	if _, err := s.fetchRaw(ctx, pluginID, "detail", slug); err != nil {
+	_, detailRaw, err := s.fetchRaw(ctx, pluginID, "detail", slug)
+	if err != nil {
 		return err
 	}
-	_, err := s.fetchRaw(ctx, pluginID, "chapters", slug)
-	return err
+	_, chaptersRaw, err := s.fetchRaw(ctx, pluginID, "chapters", slug)
+	if err != nil {
+		return err
+	}
+	return s.store.PutStage(ctx, pluginID, slug, string(detailRaw), string(chaptersRaw), time.Now().Unix())
 }
 
-// PromoteCached copies a cached detail envelope into the master row. It does
-// not change library membership; the library Save action sets added_at.
+// PromoteCached copies staged detail and chapters JSON into the master and
+// satellite rows, then drops the staged pair. Membership is left to Save.
 func (s *Service) PromoteCached(ctx context.Context, pluginID, slug string) error {
-	payload, ok := s.store.GetCached(ctx, pluginID, cacheHash(pluginID, "detail", slug), time.Now().Unix())
-	if !ok {
-		return fmt.Errorf("detail: no cached envelope for %s/%s", pluginID, slug)
+	stage, err := s.store.GetStage(ctx, pluginID, slug)
+	if err != nil {
+		return err
 	}
-	data, err := envelope([]byte(payload))
+	if stage == nil {
+		return fmt.Errorf("detail: no staged envelope for %s/%s", pluginID, slug)
+	}
+	data, err := envelope([]byte(stage.DetailJSON))
 	if err != nil {
 		return err
 	}
 	canonicalizeDetail(data)
 	s.materialize(ctx, pluginID, slug, data)
-	return nil
+	if stage.ChaptersJSON != "" {
+		if chapters, parseErr := envelope([]byte(stage.ChaptersJSON)); parseErr == nil {
+			_, _ = s.storeChapters(ctx, pluginID, slug, chapters)
+		}
+	}
+	return s.store.DeleteStage(ctx, pluginID, slug)
+}
+
+// StagedChapters parses the staged chapters envelope for display before Save.
+func (s *Service) StagedChapters(ctx context.Context, pluginID, slug string) ([]store.Chapter, error) {
+	stage, err := s.store.GetStage(ctx, pluginID, slug)
+	if err != nil || stage == nil || stage.ChaptersJSON == "" {
+		return nil, err
+	}
+	data, err := envelope([]byte(stage.ChaptersJSON))
+	if err != nil {
+		return nil, err
+	}
+	return s.parseChapters(pluginID, slug, data)
 }
 
 // ApplyCandidate stores a user-picked metadata candidate. Plugin fields are
@@ -283,8 +308,8 @@ func (s *Service) RefreshCandidates(ctx context.Context, title, kind string) []m
 func (s *Service) Detail(ctx context.Context, pluginID, slug string) (map[string]any, error) {
 	row, err := s.store.GetSaved(ctx, pluginID, slug)
 	if err != nil {
-		if payload, ok := s.store.GetCached(ctx, pluginID, cacheHash(pluginID, "detail", slug), time.Now().Unix()); ok {
-			if staged, parseErr := envelope([]byte(payload)); parseErr == nil {
+		if stage, stageErr := s.store.GetStage(ctx, pluginID, slug); stageErr == nil && stage != nil {
+			if staged, parseErr := envelope([]byte(stage.DetailJSON)); parseErr == nil {
 				canonicalizeDetail(staged)
 				staged["plugin"] = pluginID
 				staged["slug"] = slug
@@ -417,7 +442,9 @@ func (s *Service) Chapters(ctx context.Context, pluginID, slug string) ([]store.
 	return s.storeChapters(ctx, pluginID, slug, data)
 }
 
-func (s *Service) storeChapters(ctx context.Context, pluginID, slug string, data map[string]any) ([]store.Chapter, error) {
+// parseChapters converts a plugin chapters envelope into store rows without
+// writing them, so staged JSON can be displayed before Save.
+func (s *Service) parseChapters(pluginID, slug string, data map[string]any) ([]store.Chapter, error) {
 	raw, err := json.Marshal(data["chapters"])
 	if err != nil {
 		return nil, err
@@ -444,12 +471,15 @@ func (s *Service) storeChapters(ctx context.Context, pluginID, slug string, data
 			Number: item.Number, Title: item.Title, URL: item.URL, UpdatedAt: item.ReleaseAt,
 		})
 	}
-	if len(rows) > 0 {
-		if err := s.store.UpsertChapters(ctx, pluginID, slug, rows); err != nil {
-			return nil, err
-		}
-	}
 	return rows, nil
+}
+
+func (s *Service) storeChapters(ctx context.Context, pluginID, slug string, data map[string]any) ([]store.Chapter, error) {
+	rows, err := s.parseChapters(pluginID, slug, data)
+	if err != nil || len(rows) == 0 {
+		return rows, err
+	}
+	return rows, s.store.UpsertChapters(ctx, pluginID, slug, rows)
 }
 
 // Refresh resolves detail and chapters, then stores both only when both pass

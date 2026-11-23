@@ -54,6 +54,9 @@ func Open(path string) (*Store, error) {
 	if err := sqlb.Migrate(db); err != nil {
 		return nil, err
 	}
+	if err := sqlb.EnsureCacheView(db); err != nil {
+		return nil, err
+	}
 	return New(db), nil
 }
 
